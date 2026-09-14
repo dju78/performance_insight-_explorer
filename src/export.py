@@ -98,6 +98,17 @@ def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[s
     else:
         audit_events = st.session_state.get("audit_trail", [])
         
+    # Ensure KPIs are computed if valid mappings exist
+    kpi_results = st.session_state.get("kpi_results", {})
+    if (not kpi_results or not kpi_results.get("summary_kpis")) and clean_df is not None and confirmed_mappings:
+        from src.metrics import calculate_kpis
+        target_dirs = st.session_state.get("target_directions", {})
+        try:
+            kpi_results = calculate_kpis(clean_df, confirmed_mappings, target_direction_map=target_dirs)
+            st.session_state["kpi_results"] = kpi_results
+        except Exception:
+            pass
+
     payload = {
         "assessment_context": assessment_context,
         "filename": st.session_state.get("uploaded_file_name") or st.session_state.get("dataset_name", "operational_data.csv"),
@@ -108,7 +119,7 @@ def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[s
         "row_granularity_confirmed": row_granularity_confirmed,
         "confirmed_mappings": confirmed_mappings,
         "qa_report": qa_report,
-        "kpi_results": st.session_state.get("kpi_results", {}),
+        "kpi_results": kpi_results,
         "trend_summary": st.session_state.get("trend_summary"),
         "comparison_summary": st.session_state.get("comparison_summary"),
         "approved_insights": approved_insights,
@@ -137,9 +148,12 @@ def generate_executive_excel_pack(
     out_dir = os.path.join(os.getcwd(), "outputs", "reports")
     os.makedirs(out_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filepath = output_filepath or os.path.join(out_dir, f"Performance_Analytical_Pack_{timestamp}.xlsx")
+    filepath = output_filepath or os.path.join(out_dir, f"Performance_Pack_{timestamp}.xlsx")
     
-    raw_df_to_use = data.get("raw_df") if data.get("raw_df") is not None else pd.DataFrame()
+    raw_df_to_use = data.get("raw_df")
+    if raw_df_to_use is None:
+        raw_df_to_use = pd.DataFrame()
+        
     profile_info = {
         "filename": data.get("filename", "Operational Dataset"),
         "sheet_name": data.get("active_sheet", "Default"),
@@ -181,9 +195,10 @@ def generate_executive_excel_pack(
 
 def generate_powerpoint_deck(
     payload: Optional[Dict[str, Any]] = None,
-    output_filepath: Optional[str] = None
+    output_filepath: Optional[str] = None,
+    include_appendix: bool = False
 ) -> str:
-    """Generate professional 6-slide PowerPoint presentation deck from live payload."""
+    """Generate professional 16:9 PowerPoint presentation deck from live payload."""
     data = payload or build_export_payload_from_state()
     out_dir = os.path.join(os.getcwd(), "outputs", "presentations")
     os.makedirs(out_dir, exist_ok=True)
@@ -198,7 +213,7 @@ def generate_powerpoint_deck(
         "author": "DARAMOLA OMOYELE"
     }
     
-    kpi_summary = data.get("kpi_results", {}).get("summary_kpis", {})
+    kpi_summary = data.get("kpi_results", {})
     
     generate_powerpoint_presentation(
         output_filepath=filepath,
@@ -212,14 +227,17 @@ def generate_powerpoint_deck(
         limitations=data.get("limitations", []),
         assumptions=data.get("assumptions", []),
         assessment_context=data.get("assessment_context", {}),
-        row_granularity=data.get("row_granularity", "Not Confirmed")
+        row_granularity=data.get("row_granularity", "Periodic snapshot"),
+        clean_df=data.get("raw_df"),
+        confirmed_mappings=data.get("confirmed_mappings", {}),
+        include_appendix=include_appendix
     )
     
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
             "PPTX_EXPORT_GENERATED", "Generated Executive PowerPoint Presentation",
             filename=os.path.basename(filepath),
-            details={"fingerprint": data.get("dataset_fingerprint"), "sheet": data.get("active_sheet")}
+            details={"fingerprint": data.get("dataset_fingerprint"), "sheet": data.get("active_sheet"), "appendix": include_appendix}
         )
         
     return filepath

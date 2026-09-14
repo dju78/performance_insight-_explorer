@@ -190,6 +190,10 @@ def test_powerpoint_generation_with_export_payload(tmp_path):
         for shape in slide.shapes:
             if shape.has_text_frame:
                 slide_texts.append(shape.text_frame.text)
+            elif shape.has_table:
+                for row in shape.table.rows:
+                    for cell in row.cells:
+                        slide_texts.append(cell.text_frame.text)
     combined_text = " ".join(slide_texts)
     
     assert "DARAMOLA OMOYELE" in combined_text

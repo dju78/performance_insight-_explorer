@@ -79,10 +79,11 @@ with col_e1:
 
 with col_e2:
     st.markdown("#### 📊 Presentation Deck")
-    st.caption("6-slide executive briefing deck with live KPI scorecard and actions.")
+    st.caption("16:9 widescreen executive briefing deck with live KPI cards and charts.")
+    pptx_appendix = st.checkbox("Include Technical Appendix (Slides 7–10)", value=False, key="pptx_appendix_toggle")
     if st.button("Generate PowerPoint", use_container_width=True):
         try:
-            pptx_path = generate_powerpoint_deck(payload)
+            pptx_path = generate_powerpoint_deck(payload, include_appendix=pptx_appendix)
             with open(pptx_path, "rb") as f:
                 st.download_button(
                     label="⬇️ Download Deck (.pptx)",
