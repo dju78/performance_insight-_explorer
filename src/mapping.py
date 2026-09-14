@@ -174,6 +174,34 @@ ROLE_CATALOGUE = {
         "category": "Other",
         "keywords": ["customer_measure", "customer_satisfaction_pct", "csat", "nps", "satisfaction", "complaints", "feedback_score", "rating", "customer_score", "customer_satisfaction", "csat_pct", "csat_score"],
         "data_types": ["numeric", "float", "integer"]
+    },
+    "wait_time": {
+        "label": "Wait Time / Queue Delay",
+        "description": "Average queue delay or customer wait duration",
+        "category": "Performance",
+        "keywords": ["wait_time", "waiting_time", "queue_time", "delay_days", "average_wait_minutes", "wait_minutes", "wait_hours", "queue_delay", "hold_time"],
+        "data_types": ["numeric", "float", "integer"]
+    },
+    "numerator": {
+        "label": "Custom Numerator",
+        "description": "Custom subtotal or numerator for calculated ratio",
+        "category": "Other",
+        "keywords": ["numerator", "num", "subtotal", "portion", "count_positive", "numerator_value"],
+        "data_types": ["numeric", "float", "integer"]
+    },
+    "denominator": {
+        "label": "Custom Denominator",
+        "description": "Custom base count or denominator for calculated ratio",
+        "category": "Other",
+        "keywords": ["denominator", "den", "base", "total_possible", "sample_size", "base_count", "population", "denominator_value"],
+        "data_types": ["numeric", "float", "integer"]
+    },
+    "other_measure": {
+        "label": "Other Metric / KPI",
+        "description": "General numerical operational metric or custom indicator",
+        "category": "Other",
+        "keywords": ["other_measure", "other", "metric", "measure", "custom_metric", "kpi", "score", "value", "indicator"],
+        "data_types": ["numeric", "float", "integer"]
     }
 }
 

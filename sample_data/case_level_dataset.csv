@@ -1,0 +1,251 @@
+Case_Reference,Workstream,Caseworker,Processing_Days,Target_Days,Final_Determination
+CAS-2024-0001,Complex Audit,Officer_E,47,30,Remediated
+CAS-2024-0002,Urgent Investigation,Officer_F,6,10,Approved
+CAS-2024-0003,Standard Review,Officer_C,9,20,Approved
+CAS-2024-0004,Standard Review,Officer_F,7,20,Approved
+CAS-2024-0005,Standard Review,Officer_A,26,20,Approved
+CAS-2024-0006,Standard Review,Officer_A,31,20,Approved
+CAS-2024-0007,Appeals,Officer_D,17,20,Approved
+CAS-2024-0008,Appeals,Officer_D,20,20,Approved
+CAS-2024-0009,Appeals,Officer_B,12,20,Remediated
+CAS-2024-0010,Complex Audit,Officer_C,17,30,Approved
+CAS-2024-0011,Standard Review,Officer_F,50,20,Approved
+CAS-2024-0012,Standard Review,Officer_B,9,20,Approved
+CAS-2024-0013,Standard Review,Officer_D,3,20,Approved
+CAS-2024-0014,Standard Review,Officer_F,20,20,Remediated
+CAS-2024-0015,Standard Review,Officer_E,6,20,Rejected
+CAS-2024-0016,Standard Review,Officer_A,43,20,Approved
+CAS-2024-0017,Appeals,Officer_C,34,20,Rejected
+CAS-2024-0018,Standard Review,Officer_C,18,20,Rejected
+CAS-2024-0019,Appeals,Officer_E,12,20,Rejected
+CAS-2024-0020,Standard Review,Officer_E,7,20,Approved
+CAS-2024-0021,Standard Review,Officer_A,15,20,Approved
+CAS-2024-0022,Standard Review,Officer_B,14,20,Rejected
+CAS-2024-0023,Appeals,Officer_F,14,20,Approved
+CAS-2024-0024,Urgent Investigation,Officer_E,14,10,Rejected
+CAS-2024-0025,Appeals,Officer_D,17,20,Approved
+CAS-2024-0026,Standard Review,Officer_B,19,20,Approved
+CAS-2024-0027,Urgent Investigation,Officer_D,9,10,Rejected
+CAS-2024-0028,Standard Review,Officer_A,3,20,Approved
+CAS-2024-0029,Standard Review,Officer_B,5,20,Approved
+CAS-2024-0030,Standard Review,Officer_A,32,20,Approved
+CAS-2024-0031,Standard Review,Officer_D,11,20,Approved
+CAS-2024-0032,Complex Audit,Officer_B,12,30,Approved
+CAS-2024-0033,Urgent Investigation,Officer_B,4,10,Approved
+CAS-2024-0034,Standard Review,Officer_B,11,20,Approved
+CAS-2024-0035,Standard Review,Officer_C,10,20,Remediated
+CAS-2024-0036,Standard Review,Officer_B,18,20,Approved
+CAS-2024-0037,Complex Audit,Officer_D,17,30,Approved
+CAS-2024-0038,Standard Review,Officer_B,7,20,Approved
+CAS-2024-0039,Standard Review,Officer_C,16,20,Approved
+CAS-2024-0040,Standard Review,Officer_C,28,20,Approved
+CAS-2024-0041,Complex Audit,Officer_D,16,30,Rejected
+CAS-2024-0042,Complex Audit,Officer_D,11,30,Approved
+CAS-2024-0043,Standard Review,Officer_D,54,20,Approved
+CAS-2024-0044,Standard Review,Officer_A,29,20,Rejected
+CAS-2024-0045,Complex Audit,Officer_C,9,30,Approved
+CAS-2024-0046,Standard Review,Officer_D,23,20,Approved
+CAS-2024-0047,Urgent Investigation,Officer_A,8,10,Remediated
+CAS-2024-0048,Standard Review,Officer_B,9,20,Remediated
+CAS-2024-0049,Standard Review,Officer_F,10,20,Remediated
+CAS-2024-0050,Complex Audit,Officer_B,17,30,Rejected
+CAS-2024-0051,Standard Review,Officer_F,8,20,Approved
+CAS-2024-0052,Complex Audit,Officer_F,36,30,Approved
+CAS-2024-0053,Standard Review,Officer_D,27,20,Approved
+CAS-2024-0054,Complex Audit,Officer_B,43,30,Approved
+CAS-2024-0055,Urgent Investigation,Officer_C,5,10,Approved
+CAS-2024-0056,Urgent Investigation,Officer_A,10,10,Remediated
+CAS-2024-0057,Appeals,Officer_B,24,20,Approved
+CAS-2024-0058,Complex Audit,Officer_F,34,30,Rejected
+CAS-2024-0059,Standard Review,Officer_C,24,20,Approved
+CAS-2024-0060,Standard Review,Officer_E,40,20,Rejected
+CAS-2024-0061,Urgent Investigation,Officer_E,13,10,Rejected
+CAS-2024-0062,Complex Audit,Officer_A,10,30,Approved
+CAS-2024-0063,Standard Review,Officer_C,5,20,Approved
+CAS-2024-0064,Complex Audit,Officer_B,30,30,Approved
+CAS-2024-0065,Urgent Investigation,Officer_D,6,10,Rejected
+CAS-2024-0066,Complex Audit,Officer_C,55,30,Approved
+CAS-2024-0067,Urgent Investigation,Officer_D,10,10,Approved
+CAS-2024-0068,Complex Audit,Officer_E,19,30,Approved
+CAS-2024-0069,Complex Audit,Officer_B,14,30,Remediated
+CAS-2024-0070,Complex Audit,Officer_B,10,30,Approved
+CAS-2024-0071,Complex Audit,Officer_F,21,30,Approved
+CAS-2024-0072,Standard Review,Officer_D,12,20,Approved
+CAS-2024-0073,Complex Audit,Officer_A,66,30,Rejected
+CAS-2024-0074,Appeals,Officer_F,34,20,Approved
+CAS-2024-0075,Standard Review,Officer_B,58,20,Approved
+CAS-2024-0076,Standard Review,Officer_D,22,20,Approved
+CAS-2024-0077,Standard Review,Officer_D,26,20,Approved
+CAS-2024-0078,Complex Audit,Officer_A,26,30,Approved
+CAS-2024-0079,Appeals,Officer_F,16,20,Remediated
+CAS-2024-0080,Standard Review,Officer_C,6,20,Approved
+CAS-2024-0081,Complex Audit,Officer_A,14,30,Approved
+CAS-2024-0082,Complex Audit,Officer_E,22,30,Approved
+CAS-2024-0083,Urgent Investigation,Officer_F,5,10,Approved
+CAS-2024-0084,Complex Audit,Officer_B,17,30,Rejected
+CAS-2024-0085,Complex Audit,Officer_F,4,30,Approved
+CAS-2024-0086,Standard Review,Officer_E,6,20,Rejected
+CAS-2024-0087,Standard Review,Officer_C,7,20,Approved
+CAS-2024-0088,Complex Audit,Officer_E,62,30,Approved
+CAS-2024-0089,Standard Review,Officer_C,59,20,Approved
+CAS-2024-0090,Urgent Investigation,Officer_D,9,10,Approved
+CAS-2024-0091,Standard Review,Officer_F,32,20,Remediated
+CAS-2024-0092,Standard Review,Officer_F,21,20,Rejected
+CAS-2024-0093,Standard Review,Officer_A,20,20,Rejected
+CAS-2024-0094,Urgent Investigation,Officer_D,3,10,Rejected
+CAS-2024-0095,Standard Review,Officer_D,12,20,Approved
+CAS-2024-0096,Urgent Investigation,Officer_C,14,10,Rejected
+CAS-2024-0097,Standard Review,Officer_B,19,20,Approved
+CAS-2024-0098,Standard Review,Officer_A,17,20,Approved
+CAS-2024-0099,Complex Audit,Officer_A,27,30,Approved
+CAS-2024-0100,Standard Review,Officer_E,14,20,Remediated
+CAS-2024-0101,Standard Review,Officer_D,10,20,Approved
+CAS-2024-0102,Complex Audit,Officer_E,24,30,Approved
+CAS-2024-0103,Appeals,Officer_F,9,20,Approved
+CAS-2024-0104,Complex Audit,Officer_A,40,30,Approved
+CAS-2024-0105,Complex Audit,Officer_B,33,30,Approved
+CAS-2024-0106,Standard Review,Officer_E,10,20,Approved
+CAS-2024-0107,Appeals,Officer_C,23,20,Approved
+CAS-2024-0108,Appeals,Officer_E,4,20,Approved
+CAS-2024-0109,Complex Audit,Officer_C,17,30,Approved
+CAS-2024-0110,Standard Review,Officer_B,17,20,Approved
+CAS-2024-0111,Standard Review,Officer_A,46,20,Approved
+CAS-2024-0112,Urgent Investigation,Officer_E,8,10,Remediated
+CAS-2024-0113,Standard Review,Officer_D,10,20,Approved
+CAS-2024-0114,Appeals,Officer_A,14,20,Approved
+CAS-2024-0115,Urgent Investigation,Officer_E,13,10,Remediated
+CAS-2024-0116,Appeals,Officer_D,28,20,Remediated
+CAS-2024-0117,Appeals,Officer_B,6,20,Approved
+CAS-2024-0118,Complex Audit,Officer_C,46,30,Approved
+CAS-2024-0119,Urgent Investigation,Officer_A,7,10,Approved
+CAS-2024-0120,Complex Audit,Officer_E,28,30,Rejected
+CAS-2024-0121,Standard Review,Officer_A,12,20,Approved
+CAS-2024-0122,Complex Audit,Officer_A,29,30,Approved
+CAS-2024-0123,Urgent Investigation,Officer_F,13,10,Approved
+CAS-2024-0124,Standard Review,Officer_C,16,20,Approved
+CAS-2024-0125,Standard Review,Officer_F,11,20,Approved
+CAS-2024-0126,Complex Audit,Officer_F,24,30,Rejected
+CAS-2024-0127,Complex Audit,Officer_E,22,30,Approved
+CAS-2024-0128,Appeals,Officer_A,14,20,Remediated
+CAS-2024-0129,Urgent Investigation,Officer_E,4,10,Approved
+CAS-2024-0130,Urgent Investigation,Officer_F,13,10,Rejected
+CAS-2024-0131,Standard Review,Officer_D,18,20,Approved
+CAS-2024-0132,Urgent Investigation,Officer_F,5,10,Approved
+CAS-2024-0133,Urgent Investigation,Officer_F,5,10,Approved
+CAS-2024-0134,Standard Review,Officer_A,13,20,Approved
+CAS-2024-0135,Standard Review,Officer_C,7,20,Approved
+CAS-2024-0136,Complex Audit,Officer_A,3,30,Approved
+CAS-2024-0137,Standard Review,Officer_B,9,20,Rejected
+CAS-2024-0138,Complex Audit,Officer_E,13,30,Approved
+CAS-2024-0139,Complex Audit,Officer_B,43,30,Remediated
+CAS-2024-0140,Standard Review,Officer_D,9,20,Approved
+CAS-2024-0141,Complex Audit,Officer_C,31,30,Rejected
+CAS-2024-0142,Standard Review,Officer_C,24,20,Rejected
+CAS-2024-0143,Urgent Investigation,Officer_A,4,10,Remediated
+CAS-2024-0144,Standard Review,Officer_B,23,20,Approved
+CAS-2024-0145,Complex Audit,Officer_B,31,30,Approved
+CAS-2024-0146,Standard Review,Officer_F,21,20,Approved
+CAS-2024-0147,Standard Review,Officer_B,24,20,Approved
+CAS-2024-0148,Urgent Investigation,Officer_B,24,10,Rejected
+CAS-2024-0149,Standard Review,Officer_F,25,20,Rejected
+CAS-2024-0150,Appeals,Officer_A,24,20,Rejected
+CAS-2024-0151,Standard Review,Officer_F,12,20,Remediated
+CAS-2024-0152,Appeals,Officer_D,18,20,Approved
+CAS-2024-0153,Standard Review,Officer_E,38,20,Approved
+CAS-2024-0154,Standard Review,Officer_E,16,20,Approved
+CAS-2024-0155,Urgent Investigation,Officer_E,4,10,Approved
+CAS-2024-0156,Complex Audit,Officer_C,37,30,Remediated
+CAS-2024-0157,Standard Review,Officer_E,15,20,Approved
+CAS-2024-0158,Standard Review,Officer_C,24,20,Approved
+CAS-2024-0159,Complex Audit,Officer_B,10,30,Approved
+CAS-2024-0160,Appeals,Officer_F,36,20,Approved
+CAS-2024-0161,Standard Review,Officer_C,21,20,Approved
+CAS-2024-0162,Standard Review,Officer_D,23,20,Approved
+CAS-2024-0163,Standard Review,Officer_F,10,20,Approved
+CAS-2024-0164,Standard Review,Officer_F,42,20,Approved
+CAS-2024-0165,Standard Review,Officer_E,15,20,Approved
+CAS-2024-0166,Appeals,Officer_F,7,20,Approved
+CAS-2024-0167,Urgent Investigation,Officer_F,9,10,Approved
+CAS-2024-0168,Standard Review,Officer_F,21,20,Approved
+CAS-2024-0169,Complex Audit,Officer_D,47,30,Approved
+CAS-2024-0170,Complex Audit,Officer_A,16,30,Approved
+CAS-2024-0171,Standard Review,Officer_F,23,20,Approved
+CAS-2024-0172,Complex Audit,Officer_C,12,30,Rejected
+CAS-2024-0173,Complex Audit,Officer_A,25,30,Rejected
+CAS-2024-0174,Complex Audit,Officer_F,16,30,Approved
+CAS-2024-0175,Standard Review,Officer_C,17,20,Approved
+CAS-2024-0176,Complex Audit,Officer_A,42,30,Approved
+CAS-2024-0177,Complex Audit,Officer_D,16,30,Approved
+CAS-2024-0178,Appeals,Officer_D,12,20,Rejected
+CAS-2024-0179,Standard Review,Officer_C,6,20,Approved
+CAS-2024-0180,Standard Review,Officer_C,32,20,Approved
+CAS-2024-0181,Standard Review,Officer_A,13,20,Approved
+CAS-2024-0182,Urgent Investigation,Officer_E,10,10,Approved
+CAS-2024-0183,Appeals,Officer_B,19,20,Rejected
+CAS-2024-0184,Standard Review,Officer_B,29,20,Rejected
+CAS-2024-0185,Complex Audit,Officer_C,39,30,Approved
+CAS-2024-0186,Complex Audit,Officer_A,27,30,Rejected
+CAS-2024-0187,Appeals,Officer_B,20,20,Approved
+CAS-2024-0188,Urgent Investigation,Officer_F,6,10,Approved
+CAS-2024-0189,Complex Audit,Officer_F,9,30,Rejected
+CAS-2024-0190,Standard Review,Officer_A,30,20,Approved
+CAS-2024-0191,Appeals,Officer_C,15,20,Approved
+CAS-2024-0192,Complex Audit,Officer_A,43,30,Approved
+CAS-2024-0193,Complex Audit,Officer_A,15,30,Approved
+CAS-2024-0194,Standard Review,Officer_D,6,20,Rejected
+CAS-2024-0195,Urgent Investigation,Officer_D,9,10,Approved
+CAS-2024-0196,Appeals,Officer_A,30,20,Remediated
+CAS-2024-0197,Standard Review,Officer_C,25,20,Approved
+CAS-2024-0198,Standard Review,Officer_B,15,20,Approved
+CAS-2024-0199,Complex Audit,Officer_F,27,30,Approved
+CAS-2024-0200,Complex Audit,Officer_B,32,30,Approved
+CAS-2024-0201,Standard Review,Officer_F,30,20,Approved
+CAS-2024-0202,Appeals,Officer_A,8,20,Approved
+CAS-2024-0203,Standard Review,Officer_F,26,20,Approved
+CAS-2024-0204,Standard Review,Officer_B,7,20,Rejected
+CAS-2024-0205,Complex Audit,Officer_D,28,30,Approved
+CAS-2024-0206,Appeals,Officer_F,14,20,Approved
+CAS-2024-0207,Standard Review,Officer_D,20,20,Rejected
+CAS-2024-0208,Appeals,Officer_E,7,20,Approved
+CAS-2024-0209,Complex Audit,Officer_D,48,30,Approved
+CAS-2024-0210,Appeals,Officer_E,24,20,Approved
+CAS-2024-0211,Urgent Investigation,Officer_F,7,10,Approved
+CAS-2024-0212,Standard Review,Officer_E,16,20,Approved
+CAS-2024-0213,Complex Audit,Officer_A,20,30,Approved
+CAS-2024-0214,Complex Audit,Officer_B,24,30,Approved
+CAS-2024-0215,Urgent Investigation,Officer_B,6,10,Approved
+CAS-2024-0216,Standard Review,Officer_E,16,20,Approved
+CAS-2024-0217,Standard Review,Officer_F,27,20,Rejected
+CAS-2024-0218,Standard Review,Officer_E,28,20,Approved
+CAS-2024-0219,Appeals,Officer_D,14,20,Approved
+CAS-2024-0220,Standard Review,Officer_D,22,20,Remediated
+CAS-2024-0221,Complex Audit,Officer_B,56,30,Approved
+CAS-2024-0222,Standard Review,Officer_C,25,20,Rejected
+CAS-2024-0223,Urgent Investigation,Officer_A,2,10,Approved
+CAS-2024-0224,Urgent Investigation,Officer_A,10,10,Approved
+CAS-2024-0225,Standard Review,Officer_E,32,20,Approved
+CAS-2024-0226,Standard Review,Officer_B,20,20,Approved
+CAS-2024-0227,Appeals,Officer_A,25,20,Rejected
+CAS-2024-0228,Standard Review,Officer_B,10,20,Rejected
+CAS-2024-0229,Standard Review,Officer_B,12,20,Approved
+CAS-2024-0230,Complex Audit,Officer_F,17,30,Approved
+CAS-2024-0231,Complex Audit,Officer_C,17,30,Approved
+CAS-2024-0232,Appeals,Officer_C,6,20,Approved
+CAS-2024-0233,Standard Review,Officer_E,28,20,Approved
+CAS-2024-0234,Standard Review,Officer_B,30,20,Remediated
+CAS-2024-0235,Urgent Investigation,Officer_D,5,10,Approved
+CAS-2024-0236,Standard Review,Officer_A,8,20,Approved
+CAS-2024-0237,Standard Review,Officer_E,23,20,Approved
+CAS-2024-0238,Standard Review,Officer_F,5,20,Remediated
+CAS-2024-0239,Complex Audit,Officer_A,24,30,Approved
+CAS-2024-0240,Standard Review,Officer_E,17,20,Approved
+CAS-2024-0241,Standard Review,Officer_B,15,20,Approved
+CAS-2024-0242,Complex Audit,Officer_D,13,30,Approved
+CAS-2024-0243,Standard Review,Officer_C,17,20,Approved
+CAS-2024-0244,Complex Audit,Officer_B,38,30,Rejected
+CAS-2024-0245,Complex Audit,Officer_D,37,30,Approved
+CAS-2024-0246,Standard Review,Officer_B,28,20,Approved
+CAS-2024-0247,Standard Review,Officer_A,9,20,Approved
+CAS-2024-0248,Complex Audit,Officer_C,7,30,Approved
+CAS-2024-0249,Complex Audit,Officer_D,26,30,Rejected
+CAS-2024-0250,Urgent Investigation,Officer_F,7,10,Approved

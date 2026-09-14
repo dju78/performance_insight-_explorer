@@ -1,0 +1,7 @@
+Period_Date,Team_Hub,Cases_Received,Cases_Processed,Target_Processed,Staff_Available,Wait_Hours
+2024-01-01,Alpha Unit,100,90.0,95.0,5.0,12.0
+2024-01-01,Beta Unit,80,75.0,80.0,0.0,15.0
+2024-02-01,Alpha Unit,120,,100.0,4.5,
+2024-02-01,Beta Unit,90,85.0,,4.0,14.0
+2024-03-01,Alpha Unit,110,105.0,100.0,5.0,-2.0
+2024-03-01,Tiny Pod,3,3.0,3.0,0.5,5.0

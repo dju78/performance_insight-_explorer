@@ -121,8 +121,9 @@ def calculate_kpis(
         
     role_to_col: Dict[str, str] = {}
     for col, role in mappings.items():
-        if role and col in df.columns:
-            role_to_col[role] = col
+        role_str = role.get("suggested_role") if isinstance(role, dict) else (str(role) if role else None)
+        if role_str and col in df.columns:
+            role_to_col[role_str] = col
             
     calc_df = pd.DataFrame(index=df.index)
     summary_kpis = {}
@@ -369,7 +370,61 @@ def calculate_kpis(
                 "description": "Average satisfaction rating or CSAT index.",
                 "interpretation": f"Customer satisfaction average is {mean_csat:.1f}%."
             }
-            active_kpi_keys.append("customer_measure_mean")
+    # 9. WAIT TIME / QUEUE DELAY
+    wait_col = role_to_col.get("wait_time")
+    if wait_col:
+        s_wait = pd.to_numeric(df[wait_col], errors="coerce").dropna()
+        if len(s_wait) > 0:
+            med_wait = float(s_wait.median())
+            mean_wait = float(s_wait.mean())
+            summary_kpis["wait_time_median"] = {
+                "name": "Wait Time / Delay (Median)",
+                "value": round(med_wait, 2),
+                "unit": "Minutes / Days",
+                "is_estimated": False,
+                "formula": f"Median({wait_col})",
+                "description": "50th percentile customer wait time or queue delay.",
+                "interpretation": f"Median wait duration is {med_wait:.1f} units (mean {mean_wait:.1f})."
+            }
+            active_kpi_keys.append("wait_time_median")
+
+    # 10. CUSTOM RATIO (NUMERATOR / DENOMINATOR)
+    num_col = role_to_col.get("numerator")
+    den_col = role_to_col.get("denominator")
+    if num_col and den_col:
+        s_num = pd.to_numeric(df[num_col], errors="coerce")
+        s_den = pd.to_numeric(df[den_col], errors="coerce")
+        calc_df["custom_ratio"] = safe_divide(s_num, s_den)
+        tot_num = float(s_num.sum())
+        tot_den = float(s_den.sum())
+        agg_ratio = safe_divide(tot_num, tot_den)
+        summary_kpis["custom_ratio"] = {
+            "name": f"{num_col} / {den_col} Ratio",
+            "value": round(agg_ratio, 2) if not np.isnan(agg_ratio) else None,
+            "unit": "Ratio",
+            "is_estimated": False,
+            "formula": f"Sum({num_col}) / Sum({den_col})",
+            "description": f"Normalised aggregate ratio of {num_col} to {den_col}.",
+            "interpretation": f"Calculated ratio is {agg_ratio:.2f}. Interpret against the organisation's agreed benchmark."
+        }
+        active_kpi_keys.append("custom_ratio")
+
+    # 11. OTHER MEASURE
+    other_col = role_to_col.get("other_measure")
+    if other_col:
+        s_oth = pd.to_numeric(df[other_col], errors="coerce").dropna()
+        if len(s_oth) > 0:
+            mean_oth = float(s_oth.mean())
+            summary_kpis["other_measure_mean"] = {
+                "name": f"{other_col} (Mean)",
+                "value": round(mean_oth, 2),
+                "unit": "Units",
+                "is_estimated": False,
+                "formula": f"Mean({other_col})",
+                "description": f"Average recorded value for {other_col}.",
+                "interpretation": f"Mean value is {mean_oth:.2f}. Interpret against operational baseline."
+            }
+            active_kpi_keys.append("other_measure_mean")
             
     return {
         "calculated_df": calc_df,
@@ -445,3 +500,44 @@ def calculate_kpi_summary(
                     "formula": f"Mean({col})"
                 }
     return kpis
+
+
+def calculate_utilisation(df: pd.DataFrame, volume_col: Optional[str] = None, fte_col: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Calculates operational output per FTE with safe zero-handling and transparent commentary.
+    """
+    if df is None or volume_col is None or fte_col is None:
+        return {
+            "available": False,
+            "reason": "Capacity analysis omitted: Required Volume or FTE column mapping not available.",
+            "mean_ratio": 0.0,
+            "commentary": "FTE capacity analysis not applicable for active dataset configuration."
+        }
+    if volume_col not in df.columns or fte_col not in df.columns:
+        return {
+            "available": False,
+            "reason": f"Capacity analysis omitted: Specified columns ({volume_col}, {fte_col}) not present in dataset.",
+            "mean_ratio": 0.0,
+            "commentary": "FTE capacity analysis not applicable."
+        }
+    s_vol = pd.to_numeric(df[volume_col], errors="coerce").fillna(0)
+    s_fte = pd.to_numeric(df[fte_col], errors="coerce").fillna(0)
+    
+    tot_vol = float(s_vol.sum())
+    tot_fte = float(s_fte.sum())
+    
+    if tot_fte <= 0:
+        return {
+            "available": False,
+            "reason": "Capacity analysis omitted: Total recorded FTE is zero or unavailable.",
+            "mean_ratio": 0.0,
+            "commentary": "Cannot evaluate output per FTE due to zero total denominator."
+        }
+    ratio = tot_vol / tot_fte
+    return {
+        "available": True,
+        "total_volume": tot_vol,
+        "total_fte": tot_fte,
+        "mean_ratio": round(ratio, 2),
+        "commentary": f"Mean throughput of {ratio:,.1f} units per FTE across active observation periods."
+    }

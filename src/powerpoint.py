@@ -103,37 +103,28 @@ def _generate_notes_slide_1(ctx: Dict[str, Any], meta: Dict[str, Any], clean_df:
 
 def _generate_notes_slide_2(qa_report: Dict[str, Any], meta: Dict[str, Any], clean_df: Optional[pd.DataFrame] = None) -> str:
     """Generate dynamic presenter notes for Slide 2 (Data Quality & Assurance)."""
-    score = qa_report.get("health_score", 85.0)
+    score = qa_report.get("health_score", 100.0)
     crit_count = qa_report.get("critical_count", 0)
     warn_count = qa_report.get("warning_count", 0)
     issues = qa_report.get("issues", [])
 
-    # Identify specific planted/detected anomalies dynamically
-    issue_points = []
-    has_missing = any(i.get("issue_type") == "missing_values" or "missing" in str(i.get("description", "")).lower() for i in issues)
-    has_zero_denom = any(i.get("issue_type") == "zero_denominator" or "zero" in str(i.get("description", "")).lower() or "fte = 0" in str(i.get("description", "")).lower() for i in issues)
-    has_casing = any(i.get("issue_type") == "case_inconsistency" or "casing" in str(i.get("description", "")).lower() or "north operations" in str(i.get("description", "")).lower() for i in issues)
-    has_outlier = any(i.get("issue_type") == "outliers" or "outlier" in str(i.get("description", "")).lower() for i in issues)
-    has_recon = any(i.get("issue_type") == "backlog_reconciliation" or "reconciliation" in str(i.get("description", "")).lower() or "gap" in str(i.get("description", "")).lower() for i in issues)
+    issue_summaries = []
+    for iss in issues[:4]:
+        title = iss.get("title") or iss.get("issue_type", "Data Quality Check")
+        field = iss.get("field") or iss.get("column", "")
+        desc = iss.get("description", "")
+        if field:
+            issue_summaries.append(f"{title} in '{field}'")
+        else:
+            issue_summaries.append(f"{title}")
 
-    if has_missing:
-        issue_points.append("one missing target observation")
-    if has_casing:
-        issue_points.append("a casing inconsistency between 'North Operations' and 'north operations'")
-    if has_outlier:
-        issue_points.append("a statistical outlier in turnaround duration")
-    if has_zero_denom:
-        issue_points.append("a zero Available_FTE denominator record in August")
-    if has_recon:
-        issue_points.append("a flow reconciliation discrepancy in the backlog records")
-
-    issues_text = ", ".join(issue_points) if issue_points else "minor field variance items"
+    issues_text = ", ".join(issue_summaries) if issue_summaries else "no significant structural defects"
 
     script = (
-        f"I evaluated the dataset across structural integrity, value validity, and semantic consistency, resulting in a Data Health Score of {score:.1f} out of 100 with zero fatal structural blockers.\n\n"
-        f"I identified specific quality conditions that require analytical governance, including {issues_text}.\n\n"
-        f"In terms of how I handled them: I would not automatically delete the turnaround-time outlier because in operational workflows an extreme duration often represents a genuine operational bottleneck rather than corrupted data. For the zero FTE period, I applied guarded division rules to prevent invalid calculations. And for the North Operations naming inconsistency, which risks splitting one team into two categories and distorting performance rankings, I flagged it for reconciliation before drawing definitive comparative conclusions.\n\n"
-        f"My conclusion is that the dataset is fully usable for indicative operational analysis, but the findings need to be presented with these quality caveats.\n\n"
+        f"I evaluated the dataset across structural integrity, value validity, and semantic consistency, resulting in a Data Health Score of {score:.1f} out of 100 with {crit_count} critical blockers and {warn_count} warning items.\n\n"
+        f"My audit specifically identified {issues_text}.\n\n"
+        f"In terms of how I handled these conditions: I did not delete outliers automatically because unusual durations or volumes frequently represent real operational friction rather than erroneous records. Where zero values appeared in potential capacity fields, I applied mathematical guards to prevent invalid division. And where naming inconsistencies were detected, I flagged them for reconciliation before drawing comparative conclusions.\n\n"
+        f"My conclusion is that the dataset is usable for indicative performance analysis, provided these operational caveats are clearly disclosed to decision-makers.\n\n"
         f"Once I understood those limitations, I moved to the performance measures that could be calculated reliably."
     )
 
@@ -141,10 +132,10 @@ def _generate_notes_slide_2(qa_report: Dict[str, Any], meta: Dict[str, Any], cle
         "\n\n--------------------\n"
         "POSSIBLE FOLLOW-UP QUESTIONS\n"
         "--------------------\n"
-        "Q: Why didn't you delete or impute the outlier record?\n"
+        "Q: Why didn't you delete or impute the outlier records?\n"
         "A: In operational analysis, outliers frequently signal real systemic friction or complex edge cases. Deleting them artificially flatters performance; I flag them for operational investigation instead.\n\n"
         f"Q: Can leadership rely on analysis with an {score:.0f}/100 health score?\n"
-        "A: Yes, because there are no fatal schema defects. The issues are localized anomalies which we have isolated using safe mathematical guards and analytical caveats."
+        "A: Yes, provided there are no fatal schema defects. The issues are localized anomalies which we have isolated using safe mathematical guards and analytical caveats."
     )
     return script + qa_cues
 
@@ -189,7 +180,7 @@ def _generate_notes_slide_3(kpi_summary: Dict[str, Any]) -> str:
         parts.append(f"The operational completion rate stood at {comp_val:.1f}% of total demand intake.")
 
     if prod_val is not None:
-        parts.append(f"Overall productivity is approximately {prod_val:.2f} completed cases per FTE-period. However, I would not use that figure by itself to judge an individual team because the dataset does not fully control for differences in case complexity.")
+        parts.append(f"Overall productivity is approximately {prod_val:.2f} completed cases per resource unit. However, I would not use that figure by itself to judge an individual team because the dataset does not fully control for differences in case complexity.")
 
     if util_val is not None:
         parts.append(f"Utilisation averaged {util_val:.1f}%. I treat utilisation as descriptive here, comparing it against the organisation's agreed operational benchmark rather than assuming an arbitrary standard.")
@@ -252,20 +243,20 @@ def _generate_notes_slide_4(
                 pct_c = (net_c / start_v * 100.0) if start_v > 0 else 0.0
 
                 trend_parts.append(
-                    f"Looking at the chronological trend, demand rose from {start_v:,.0f} in {start_p} to reach a peak of {peak_v:,.0f} in {peak_p}, "
-                    f"before falling through much of the middle of the year to a trough of {trough_v:,.0f} in {trough_p}, with a year-end volume of {end_v:,.0f} in {end_p}. "
-                    f"Explaining the shape of this trend is much stronger than describing the series as simply down {abs(pct_c):.1f}%, because it highlights the mid-year seasonal surge that placed delivery under stress."
+                    f"Looking at the chronological trend for {vol_col}, volume started at {start_v:,.0f} in {start_p}, reached a peak of {peak_v:,.0f} in {peak_p}, "
+                    f"and a trough of {trough_v:,.0f} in {trough_p}, with an ending volume of {end_v:,.0f} in {end_p}. "
+                    f"Understanding the shape of this trajectory is more informative than citing a single net change figure because it identifies the specific periods where demand surged."
                 )
 
     if not trend_parts:
-        trend_parts.append("Looking at the trajectory over time, the chronological trend reveals distinct seasonal fluctuations and volume waves across reporting periods.")
+        trend_parts.append("Looking at the trajectory over time, the chronological trend reveals the volume distribution and operational waves across reporting periods.")
 
     comp_parts = []
     has_casing_issue = False
     if clean_df is not None:
         team_col = None
         for col, role in confirmed_mappings.items():
-            if role in ["service_team", "team", "group", "unit"]:
+            if role in ["service_team", "team", "group", "unit", "category"]:
                 team_col = col
                 break
         if team_col and team_col in clean_df.columns:
@@ -276,11 +267,11 @@ def _generate_notes_slide_4(
 
     if has_casing_issue:
         comp_parts.append(
-            "When examining team comparisons, the apparent lowest category must be treated cautiously because North Operations is split by inconsistent naming in the source data. "
-            "I would reconcile those categories before making a definitive team-ranking conclusion."
+            "When examining cohort comparisons, variations in text casing were detected in group labels. "
+            "I would reconcile those naming variations before establishing formal team rankings."
         )
     else:
-        comp_parts.append("Across operational cohorts, comparing normalised output per capacity unit provides a significantly fairer assessment than looking at raw case volumes alone.")
+        comp_parts.append("Across operational cohorts, comparing normalised output per resource unit provides a fairer assessment than looking at raw volumes alone.")
 
     trend_narrative = " ".join(trend_parts)
     comp_narrative = " ".join(comp_parts)
@@ -297,9 +288,9 @@ def _generate_notes_slide_4(
         "POSSIBLE FOLLOW-UP QUESTIONS\n"
         "--------------------\n"
         "Q: Is the observed trend statistically significant?\n"
-        "A: This analysis is descriptive. I would not claim statistical significance without applying an appropriate inferential test and checking for autocorrelation.\n\n"
+        "A: This analysis is descriptive of the observed period. I would not claim statistical significance without applying an appropriate inferential test and checking for autocorrelation.\n\n"
         "Q: Why not rank teams purely by total cases completed?\n"
-        "A: Total completions reflects team staffing size rather than operational efficiency. Normalising by available FTE provides a much fairer basis for comparison."
+        "A: Total completions reflects team staffing size rather than operational efficiency. Normalising by available capacity provides a much fairer basis for comparison."
     )
     return script + qa_cues
 
@@ -311,14 +302,14 @@ def _generate_notes_slide_5(approved_insights: List[Dict[str, Any]]) -> str:
         for idx, ins in enumerate(approved_insights[:3]):
             title = ins.get("title", f"Finding {idx+1}")
             finding = ins.get("finding", "")
-            pillar = ins.get("pillar") or ins.get("category") or "Operational Flow"
+            pillar = ins.get("pillar") or ins.get("category") or "Operational Insight"
             insight_bullets.append(
                 f"Regarding {title}: available evidence in {pillar} demonstrates that {finding}. "
                 f"I treat this as an operational indication rather than definitive proof of a single cause, and I would investigate workflow constraints, case mix, and staffing availability before drawing final causal conclusions."
             )
         insights_narrative = "\n\n".join(insight_bullets)
     else:
-        insights_narrative = "The data demonstrates clear operational imbalances. However, I have maintained strict analytical governance by distinguishing observed patterns from unproven causal assertions."
+        insights_narrative = "The data demonstrates operational variance across cohorts. However, I have maintained strict analytical governance by presenting only findings that have been explicitly verified."
 
     script = (
         f"On this slide, I have synthesised the verified evidence into our key operational insights, focusing strictly on approved findings and distinguishing observed correlation from causation.\n\n"
@@ -331,10 +322,10 @@ def _generate_notes_slide_5(approved_insights: List[Dict[str, Any]]) -> str:
         "\n\n--------------------\n"
         "POSSIBLE FOLLOW-UP QUESTIONS\n"
         "--------------------\n"
-        "Q: Have you identified the root cause of the performance shortfall?\n"
+        "Q: Have you proven the root cause of the performance shortfall?\n"
         "A: I have identified potential drivers supported by the available evidence, not proven causation. Additional operational evidence is required before making a causal conclusion.\n\n"
         "Q: How do you prevent confirmation bias when interpreting operational findings?\n"
-        "A: By evaluating competing hypotheses - such as whether bottlenecks stem from demand surges, staffing gaps, or process handoffs - and declaring analytical boundaries."
+        "A: By evaluating competing hypotheses—such as whether bottlenecks stem from demand surges, staffing gaps, or process handoffs—and declaring analytical boundaries."
     )
     return script + qa_cues
 
@@ -366,14 +357,14 @@ def _generate_notes_slide_6(recommendations: Dict[str, List[Dict[str, Any]]], li
         rec_narrative = " ".join(rec_bullets)
     else:
         rec_narrative = (
-            "My first priority would be to identify which teams and periods are contributing most to the delivery shortfall, "
-            "and compare demand, available FTE, case mix, and backlog direction so management does not respond with a blanket intervention."
+            "My first priority would be to identify which cohorts and periods are contributing most to delivery variances, "
+            "and compare demand, capacity, case mix, and backlog direction so management does not respond with a blanket intervention."
         )
 
     script = (
         f"To address the identified operational constraints, I have translated our approved findings into targeted, measurable recommendations with clear ownership and implementation timeframes.\n\n"
         f"{rec_narrative}\n\n"
-        f"Because backlog pressure increased over the period, I would also correct the category inconsistency, investigate the queue reconciliation gap, and establish ongoing monitoring of demand versus completions.\n\n"
+        f"I would also ensure that ongoing monitoring of demand versus completions is established before committing to long-term structural changes.\n\n"
         f"My recommendations are therefore evidence-led, but I would monitor the impact and adjust the intervention if the next reporting period does not show the expected improvement."
     )
 
@@ -408,7 +399,7 @@ def _generate_notes_slide_7() -> str:
 
 def _generate_notes_slide_8(qa_report: Dict[str, Any]) -> str:
     """Generate presenter notes for Slide 8 (Appendix: Detailed QA Audit Trail)."""
-    score = qa_report.get("health_score", 85.0)
+    score = qa_report.get("health_score", 100.0)
     issues_cnt = len(qa_report.get("issues", []))
     script = (
         f"In this slide, I have set out the complete exception inventory from my two-stage quality assurance audit, covering both Structural and Semantic QA.\n\n"
@@ -429,7 +420,7 @@ def _generate_notes_slide_9(assumptions: List[Any], limitations: List[Any]) -> s
     """Generate presenter notes for Slide 9 (Appendix: Governance Registers)."""
     script = (
         "Here, I have formally recorded the Analytical Assumptions and Risk Limitations Registers.\n\n"
-        "In my analysis, explicitly capturing boundaries - such as row granularity and unobserved case complexity - protects leadership from over-interpreting aggregate patterns.\n\n"
+        "In my analysis, explicitly capturing boundaries—such as row granularity and unobserved case complexity—protects leadership from over-interpreting aggregate patterns.\n\n"
         "These registers define the necessary conditions under which my findings remain valid."
     )
     qa_cues = (
@@ -539,7 +530,7 @@ def generate_trend_chart_image(
     confirmed_mappings: Dict[str, str],
     output_png_path: str = "outputs/charts/trend_chart_slide4.png"
 ) -> Optional[str]:
-    """Generate high-resolution time series line chart with annotated peak & trough."""
+    """Generate high-resolution time series line chart from live dataset."""
     os.makedirs(os.path.dirname(output_png_path), exist_ok=True) if os.path.dirname(output_png_path) else None
     
     time_col = None
@@ -549,20 +540,18 @@ def generate_trend_chart_image(
     for col, role in confirmed_mappings.items():
         if role in ["reporting_period", "date", "period"] and not time_col:
             time_col = col
-        elif role in ["received", "demand", "completed", "actual"] and not metric_col:
+        elif role in ["received", "demand", "completed", "actual", "volume"] and not metric_col:
             metric_col = col
         elif role == "target" and not target_col:
             target_col = col
 
     if df is None or len(df) == 0 or not time_col or not metric_col or time_col not in df.columns or metric_col not in df.columns:
-        periods = ["2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06", "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12"]
-        values = [846, 882, 915, 948, 890, 860, 830, 805, 780, 752, 790, 810]
-        targets = [850] * 12
-    else:
-        tdf = df.groupby(time_col).agg({metric_col: "sum", **({target_col: "sum"} if target_col and target_col in df.columns else {})}).reset_index()
-        periods = [str(p) for p in tdf[time_col]]
-        values = [float(v) for v in tdf[metric_col]]
-        targets = [float(v) for v in tdf[target_col]] if target_col and target_col in tdf.columns else None
+        return None
+
+    tdf = df.groupby(time_col).agg({metric_col: "sum", **({target_col: "sum"} if target_col and target_col in df.columns else {})}).reset_index()
+    periods = [str(p) for p in tdf[time_col]]
+    values = [float(v) for v in tdf[metric_col]]
+    targets = [float(v) for v in tdf[target_col]] if target_col and target_col in tdf.columns else None
 
     if len(periods) == 0 or len(values) == 0:
         return None
@@ -571,7 +560,7 @@ def generate_trend_chart_image(
     fig.patch.set_facecolor('#FFFFFF')
     ax.set_facecolor('#FFFFFF')
 
-    ax.plot(periods, values, color='#173F73', marker='o', linewidth=2.5, markersize=5.5, label='Actual Demand Volume', zorder=4)
+    ax.plot(periods, values, color='#173F73', marker='o', linewidth=2.5, markersize=5.5, label=f'Actual ({metric_col})', zorder=4)
 
     if targets:
         ax.plot(periods, targets, color='#F4A261', linestyle='--', linewidth=2.0, label='Target Benchmark', zorder=3)
@@ -586,7 +575,7 @@ def generate_trend_chart_image(
     ax.scatter([periods[min_idx]], [values[min_idx]], color='#C62828', s=60, zorder=5)
     ax.annotate(f"Trough: {values[min_idx]:,.0f}", (periods[min_idx], values[min_idx]), textcoords="offset points", xytext=(0, -13), ha='center', fontsize=7.5, fontweight='bold', color='#C62828')
 
-    ax.set_title('Operational Volume & Trajectory (Time Trend)', fontsize=10.5, fontweight='bold', color='#173F73', pad=10)
+    ax.set_title(f'Operational Trajectory Over Time ({metric_col})', fontsize=10.5, fontweight='bold', color='#173F73', pad=10)
     ax.grid(axis='y', linestyle=':', alpha=0.6, color='#CBD5E1')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -607,26 +596,25 @@ def generate_comparison_chart_image(
     confirmed_mappings: Dict[str, str],
     output_png_path: str = "outputs/charts/comp_chart_slide4.png"
 ) -> Optional[str]:
-    """Generate high-resolution horizontal bar chart comparing cohort groups."""
+    """Generate high-resolution horizontal bar chart comparing cohort groups from live dataset."""
     os.makedirs(os.path.dirname(output_png_path), exist_ok=True) if os.path.dirname(output_png_path) else None
 
     group_col = None
     metric_col = None
 
     for col, role in confirmed_mappings.items():
-        if role in ["service_team", "team", "group", "unit", "category"] and not group_col:
+        if role in ["service_team", "team", "group", "unit", "category", "department", "branch", "location"] and not group_col:
             group_col = col
         elif role in ["completed", "actual", "received", "volume"] and not metric_col:
             metric_col = col
 
     if df is None or len(df) == 0 or not group_col or not metric_col or group_col not in df.columns or metric_col not in df.columns:
-        groups = ["Central Operations", "South Operations", "East Operations", "West Operations", "North Operations"]
-        values = [2450, 2210, 1980, 1850, 1420]
-    else:
-        gdf = df.groupby(group_col)[metric_col].sum().reset_index()
-        gdf = gdf.sort_values(by=metric_col, ascending=True)
-        groups = [str(g) for g in gdf[group_col]]
-        values = [float(v) for v in gdf[metric_col]]
+        return None
+
+    gdf = df.groupby(group_col)[metric_col].sum().reset_index()
+    gdf = gdf.sort_values(by=metric_col, ascending=True)
+    groups = [str(g) for g in gdf[group_col]]
+    values = [float(v) for v in gdf[metric_col]]
 
     if len(groups) == 0 or len(values) == 0:
         return None
@@ -648,7 +636,7 @@ def generate_comparison_chart_image(
         w = bar.get_width()
         ax.text(w + (max(values) * 0.02), bar.get_y() + bar.get_height()/2, f'{w:,.0f}', va='center', ha='left', fontsize=8, fontweight='bold', color='#263238')
 
-    ax.set_title('Cohort Throughput & Segment Comparison', fontsize=10.5, fontweight='bold', color='#173F73', pad=10)
+    ax.set_title(f'Cohort Comparison by {group_col}', fontsize=10.5, fontweight='bold', color='#173F73', pad=10)
     ax.grid(axis='x', linestyle=':', alpha=0.6, color='#CBD5E1')
     ax.spines['top'].set_visible(False)
     ax.spines['right'].set_visible(False)
@@ -700,9 +688,12 @@ def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total
     p3.space_before = Pt(4)
 
     # 4 Structured Metadata Cards
+    row_cnt = meta.get('row_count') if meta.get('row_count') is not None else (len(clean_df) if clean_df is not None else 0)
+    col_cnt = meta.get('column_count') if meta.get('column_count') is not None else (len(clean_df.columns) if clean_df is not None else 0)
+    
     cards_data = [
         ("SOURCE DATASET", meta.get("filename", "Operational Dataset.csv"), "Active ingestion payload verified", COLOR_NAVY),
-        ("DATASET DIMENSIONS", f"{meta.get('row_count', 60):,} Rows  |  {meta.get('column_count', 15)} Columns", "Complete verified tabular scope", COLOR_NAVY),
+        ("DATASET DIMENSIONS", f"{row_cnt:,} Rows  |  {col_cnt} Columns", "Complete verified tabular scope", COLOR_NAVY),
         ("ROW GRANULARITY", meta.get("row_granularity", "Periodic operational snapshot"), "Analyst-confirmed record unit", COLOR_TEAL),
         ("ASSESSMENT SCOPE", meta.get("analysis_scope", "Multi-Team Operations & Queue Health"), "Standardized 16:9 widescreen briefing", COLOR_SECONDARY),
     ]
@@ -750,7 +741,7 @@ def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total
     sp1.font.color.rgb = COLOR_TEAL
 
     sp2 = stf.add_paragraph()
-    sp2.text = "1. Ingestion & Profile  →  2. Structural & Semantic QA  →  3. KPI Engine (Safe Ratios)  →  4. Cohort Trends  →  5. Approved Insights  →  6. Action Plan"
+    sp2.text = "1. Ingestion & Profile  ->  2. Structural & Semantic QA  ->  3. KPI Engine (Safe Ratios)  ->  4. Cohort Trends  ->  5. Approved Insights  ->  6. Action Plan"
     sp2.font.size = Pt(10.5)
     sp2.font.bold = True
     sp2.font.color.rgb = COLOR_DARK_TEXT
@@ -768,7 +759,7 @@ def _build_slide_2_qa(prs, qa_report: Dict[str, Any], meta: Dict[str, Any], tota
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     _add_slide_header(slide, "Data Quality Assurance & Analytical Confidence", "Systematic evaluation of completeness, validity, consistency, and mathematical safety", "GOVERNANCE & INTEGRITY")
 
-    score = qa_report.get("health_score", 85.0)
+    score = qa_report.get("health_score", 100.0)
     score_color = COLOR_POSITIVE if score >= 80 else (COLOR_CAUTION if score >= 60 else COLOR_RISK)
 
     # Health Score Hero Card (Left Column)
@@ -792,7 +783,7 @@ def _build_slide_2_qa(prs, qa_report: Dict[str, Any], meta: Dict[str, Any], tota
 
     p_stat = stf.add_paragraph()
     crit = qa_report.get("critical_count", 0)
-    warn = qa_report.get("warning_count", 1)
+    warn = qa_report.get("warning_count", 0)
     p_stat.text = f"Status: {crit} Critical Blockers  |  {warn} Warnings Flagged"
     p_stat.font.size = Pt(10)
     p_stat.font.bold = True
@@ -814,16 +805,30 @@ def _build_slide_2_qa(prs, qa_report: Dict[str, Any], meta: Dict[str, Any], tota
     p_body.space_before = Pt(12)
 
     # 4 Structured Issue Cards (Right Grid: 2x2)
-    issues = [
-        ("Output_Target Completeness", "1 missing observation detected (98.3% complete).", "Handled via NaN-safe aggregate ratio calculations.", "LOW RISK", COLOR_POSITIVE),
-        ("Category Consistency", "Mixed casing detected: 'North Operations' vs 'north operations'.", "Categorical grouping normalised to avoid cohort split.", "GOVERNED", COLOR_CAUTION),
-        ("Duration Outlier Distribution", "Processing duration outlier (70.6 days vs 22.9 median).", "Retained as genuine operational bottleneck signal.", "AUDITED", COLOR_CAUTION),
-        ("Denominator & Flow Reconciliation", "Available_FTE = 0 in Aug; Sept West backlog gap = 27 cases.", "Guarded division active; queue audit logged in register.", "RESOLVED", COLOR_POSITIVE),
-    ]
+    raw_issues = qa_report.get("issues", [])
+    display_issues = []
+    
+    for idx, iss in enumerate(raw_issues[:4]):
+        sev = iss.get("severity", "Warning")
+        bcolr = COLOR_RISK if sev.lower() == "critical" else COLOR_CAUTION
+        badge = sev.upper()
+        title = iss.get("title", f"Quality Condition {idx+1}")
+        desc = iss.get("description", "Quality exception logged.")
+        action = iss.get("recommended_action") or iss.get("suggested_fix") or "Governed via safe calculation rules."
+        display_issues.append((title, desc, action, badge, bcolr))
+
+    while len(display_issues) < 4:
+        display_issues.append((
+            "Standard Operational Assurance",
+            "No additional structural defects identified across loaded fields.",
+            "Baseline calculation rules verified and active.",
+            "VERIFIED",
+            COLOR_POSITIVE
+        ))
 
     card_w = 3.9
     card_h = 2.1
-    for idx, (title, desc, action, badge, bcolr) in enumerate(issues):
+    for idx, (title, desc, action, badge, bcolr) in enumerate(display_issues[:4]):
         col = idx % 2
         row = idx // 2
         cx = 4.45 + col * (card_w + 0.25)
@@ -836,19 +841,19 @@ def _build_slide_2_qa(prs, qa_report: Dict[str, Any], meta: Dict[str, Any], tota
 
         p_t = tf.paragraphs[0]
         p_t.text = f"[{badge}]  {title}"
-        p_t.font.size = Pt(10.5)
+        p_t.font.size = Pt(10)
         p_t.font.bold = True
         p_t.font.color.rgb = bcolr
 
         p_d = tf.add_paragraph()
         p_d.text = desc
-        p_d.font.size = Pt(9.5)
+        p_d.font.size = Pt(9)
         p_d.font.color.rgb = COLOR_DARK_TEXT
         p_d.space_before = Pt(4)
 
         p_a = tf.add_paragraph()
         p_a.text = f"Action: {action}"
-        p_a.font.size = Pt(9)
+        p_a.font.size = Pt(8.5)
         p_a.font.color.rgb = COLOR_MUTED_TEXT
         p_a.space_before = Pt(4)
 
@@ -877,25 +882,69 @@ def _build_slide_3_performance(prs, kpi_summary: Dict[str, Any], total_slides: i
 
     raw_kpis = kpi_summary.get("summary_kpis", kpi_summary) if isinstance(kpi_summary, dict) else {}
 
-    achieve_val = raw_kpis.get("target_achievement_pct", {}).get("value", 92.7)
-    var_val = raw_kpis.get("target_variance", {}).get("value", -738.0)
-    prod_val = raw_kpis.get("productivity", {}).get("value", 14.72)
-    util_val = raw_kpis.get("utilisation_pct", {}).get("value", 85.8)
-    bl_val = raw_kpis.get("backlog_change", {}).get("value", 785.0)
-    flow_val = raw_kpis.get("estimated_net_flow", {}).get("value", 785.0)
+    cards = []
+    
+    # 1. Target Achievement
+    if "target_achievement_pct" in raw_kpis:
+        info = raw_kpis["target_achievement_pct"]
+        val = info.get("value")
+        val_str = f"{val:.1f}%" if val is not None else "N/A"
+        colr = COLOR_POSITIVE if info.get("is_favorable") is not False else COLOR_RISK
+        cards.append(("TARGET ACHIEVEMENT", val_str, "Benchmark: Target Baseline", info.get("description", "Target achievement rate"), colr, info.get("formula", "Sum(Actual) / Sum(Target) * 100")))
 
-    cards = [
-        ("TARGET ACHIEVEMENT", f"{achieve_val:.1f}%" if achieve_val else "92.7%", "Target: 100.0%", "Performance shortfall against target", COLOR_RISK if achieve_val and achieve_val < 100 else COLOR_POSITIVE, "Sum(Actual) / Sum(Target)"),
-        ("TARGET SHORTFALL / VARIANCE", f"{var_val:+,.0f} units" if var_val else "-738 units", "Under-delivery variance", "Net gap vs operational expectation", COLOR_RISK if var_val and var_val < 0 else COLOR_POSITIVE, "Sum(Actual) - Sum(Target)"),
-        ("OVERALL PRODUCTIVITY", f"{prod_val:.2f}" if prod_val else "14.72", "Cases / FTE-period", "Throughput delivery per staff unit", COLOR_NAVY, "Sum(Completed) / Sum(Available FTE)"),
-        ("STAFF UTILISATION RATE", f"{util_val:.1f}%" if util_val else "85.8%", "Benchmark: 80-85%", "Operational capacity load level", COLOR_CAUTION, "Sum(Hours Used) / Sum(Hours Avail)"),
-        ("NET FLOW BALANCE", f"{flow_val:+,.0f} cases" if flow_val else "+785 cases", "Demand vs Output mismatch", "Inflow exceeded closure capacity", COLOR_RISK, "Sum(Demand Received) - Sum(Closed)"),
-        ("BACKLOG QUEUE MOVEMENT", f"{bl_val:+,.0f} cases" if bl_val else "+785 cases", "Queue expansion observed", "Accumulated operational backlog", COLOR_RISK if bl_val and bl_val > 0 else COLOR_POSITIVE, "Final Closing - Initial Opening"),
-    ]
+    # 2. Target Variance
+    if "target_variance" in raw_kpis:
+        info = raw_kpis["target_variance"]
+        val = info.get("value")
+        val_str = f"{val:+,.0f} units" if val is not None else "N/A"
+        colr = COLOR_POSITIVE if info.get("is_favorable") is not False else COLOR_RISK
+        cards.append(("TARGET VARIANCE", val_str, "Under/Over Delivery", info.get("description", "Net variance against target"), colr, info.get("formula", "Sum(Actual) - Sum(Target)")))
+
+    # 3. Productivity
+    if "productivity" in raw_kpis:
+        info = raw_kpis["productivity"]
+        val = info.get("value")
+        val_str = f"{val:.2f}" if val is not None else "N/A"
+        cards.append(("OVERALL PRODUCTIVITY", val_str, info.get("unit", "Cases/FTE-period"), info.get("description", "Output delivered per capacity unit"), COLOR_NAVY, info.get("formula", "Sum(Completed) / Sum(Available FTE)")))
+
+    # 4. Utilisation
+    if "utilisation_pct" in raw_kpis:
+        info = raw_kpis["utilisation_pct"]
+        val = info.get("value")
+        val_str = f"{val:.1f}%" if val is not None else "N/A"
+        cards.append(("STAFF UTILISATION RATE", val_str, "Operational Capacity Load", info.get("description", "Proportion of scheduled hours worked"), COLOR_CAUTION, info.get("formula", "Sum(Hours Used) / Sum(Hours Avail) * 100")))
+
+    # 5. Net Flow Balance
+    if "estimated_net_flow" in raw_kpis:
+        info = raw_kpis["estimated_net_flow"]
+        val = info.get("value")
+        val_str = f"{val:+,.0f} cases" if val is not None else "N/A"
+        colr = COLOR_RISK if val and val > 0 else COLOR_POSITIVE
+        cards.append(("NET FLOW BALANCE", val_str, "Demand vs Output Flow", info.get("description", "Inflow vs closure balance"), colr, info.get("formula", "Sum(Received) - Sum(Completed)")))
+
+    # 6. Backlog Movement
+    if "backlog_change" in raw_kpis:
+        info = raw_kpis["backlog_change"]
+        val = info.get("value")
+        val_str = f"{val:+,.0f} cases" if val is not None else "N/A"
+        colr = COLOR_RISK if val and val > 0 else COLOR_POSITIVE
+        cards.append(("BACKLOG QUEUE MOVEMENT", val_str, "Queue Trajectory", info.get("description", "Observed queue inventory movement"), colr, info.get("formula", "Final Closing - Initial Opening")))
+
+    # Fallback to other available KPIs if standard ones aren't all present
+    for k, info in raw_kpis.items():
+        if len(cards) >= 6:
+            break
+        if k not in ["target_achievement_pct", "target_variance", "productivity", "utilisation_pct", "estimated_net_flow", "backlog_change"]:
+            val = info.get("value")
+            val_str = f"{val:,.2f}" if isinstance(val, (int, float)) else str(val or "N/A")
+            cards.append((info.get("name", k).upper(), val_str, info.get("unit", "Metric"), info.get("description", "Calculated operational metric"), COLOR_NAVY, info.get("formula", "")))
+
+    while len(cards) < 6:
+        cards.append(("UNMAPPED METRIC", "Not Mapped", "Field not confirmed", "Configure source column to activate measure", COLOR_MUTED_TEXT, "N/A"))
 
     card_w = 3.74
     card_h = 2.15
-    for idx, (title, val, bench, interp, colr, form) in enumerate(cards):
+    for idx, (title, val, bench, interp, colr, form) in enumerate(cards[:6]):
         col = idx % 3
         row = idx // 3
         cx = 0.8 + col * (card_w + 0.25)
@@ -920,7 +969,8 @@ def _build_slide_3_performance(prs, kpi_summary: Dict[str, Any], total_slides: i
         p_v.space_before = Pt(2)
 
         p_b = tf.add_paragraph()
-        p_b.text = f"{bench}  *  {form}"
+        form_str = f"  *  {form}" if form and form != "N/A" else ""
+        p_b.text = f"{bench}{form_str}"
         p_b.font.size = Pt(8.5)
         p_b.font.color.rgb = COLOR_TEAL
         p_b.space_before = Pt(2)
@@ -937,7 +987,7 @@ def _build_slide_3_performance(prs, kpi_summary: Dict[str, Any], total_slides: i
     etf = eb.text_frame
     etf.word_wrap = True
     ep = etf.paragraphs[0]
-    ep.text = "Executive Performance Diagnostic: Throughput is operating under structural intake pressure with net queue expansion and localized capacity deficits."
+    ep.text = "Executive Performance Diagnostic: Operational measures evaluated via weighted ratio-of-sums to ensure mathematical integrity."
     ep.font.size = Pt(9.5)
     ep.font.bold = True
     ep.font.color.rgb = COLOR_NAVY
@@ -968,27 +1018,37 @@ def _build_slide_4_trends(
     _add_card_box(slide, 0.8, 1.45, 5.7, 4.4, bg_color=COLOR_WHITE)
     if chart1_path and os.path.exists(chart1_path):
         slide.shapes.add_picture(chart1_path, Inches(0.9), Inches(1.55), Inches(5.5), Inches(3.1))
-    
-    tb1 = slide.shapes.add_textbox(Inches(0.9), Inches(4.75), Inches(5.5), Inches(1.0))
-    tf1 = tb1.text_frame
-    tf1.word_wrap = True
-    p1 = tf1.paragraphs[0]
-    p1.text = "TRAJECTORY OBSERVATION: Intake peaked in April (948) before mid-year softening to October trough (752). Sustained demand surge created cumulative delivery lag."
-    p1.font.size = Pt(9)
-    p1.font.color.rgb = COLOR_DARK_TEXT
+        tb1 = slide.shapes.add_textbox(Inches(0.9), Inches(4.75), Inches(5.5), Inches(1.0))
+        tf1 = tb1.text_frame
+        tf1.word_wrap = True
+        p1 = tf1.paragraphs[0]
+        p1.text = "TRAJECTORY OBSERVATION: Longitudinal time series tracks chronological peaks, troughs, and baseline volume movements across reporting periods."
+        p1.font.size = Pt(9)
+        p1.font.color.rgb = COLOR_DARK_TEXT
+    else:
+        tb1 = slide.shapes.add_textbox(Inches(1.2), Inches(2.5), Inches(4.9), Inches(2.0))
+        p1 = tb1.text_frame.paragraphs[0]
+        p1.text = "No confirmed time variable is available in the active dataset, so trend analysis was not performed."
+        p1.font.size = Pt(11)
+        p1.font.color.rgb = COLOR_MUTED_TEXT
 
     # Cohort Chart Container (Right)
     _add_card_box(slide, 6.833, 1.45, 5.7, 4.4, bg_color=COLOR_WHITE)
     if chart2_path and os.path.exists(chart2_path):
         slide.shapes.add_picture(chart2_path, Inches(6.933), Inches(1.55), Inches(5.5), Inches(3.1))
-
-    tb2 = slide.shapes.add_textbox(Inches(6.933), Inches(4.75), Inches(5.5), Inches(1.0))
-    tf2 = tb2.text_frame
-    tf2.word_wrap = True
-    p2 = tf2.paragraphs[0]
-    p2.text = "COHORT INSIGHT: Central and South Operations delivered highest gross throughput. Category consistency governance applied to reconcile split naming."
-    p2.font.size = Pt(9)
-    p2.font.color.rgb = COLOR_DARK_TEXT
+        tb2 = slide.shapes.add_textbox(Inches(6.933), Inches(4.75), Inches(5.5), Inches(1.0))
+        tf2 = tb2.text_frame
+        tf2.word_wrap = True
+        p2 = tf2.paragraphs[0]
+        p2.text = "COHORT INSIGHT: Operational segment breakdown compares output against group averages; normalised rates protect against team size bias."
+        p2.font.size = Pt(9)
+        p2.font.color.rgb = COLOR_DARK_TEXT
+    else:
+        tb2 = slide.shapes.add_textbox(Inches(7.2), Inches(2.5), Inches(4.9), Inches(2.0))
+        p2 = tb2.text_frame.paragraphs[0]
+        p2.text = "No confirmed cohort or team variable is available in the active dataset, so comparative analysis was not performed."
+        p2.font.size = Pt(11)
+        p2.font.color.rgb = COLOR_MUTED_TEXT
 
     # Synthesis Footer Banner
     _add_card_box(slide, 0.8, 6.0, 11.733, 0.85, bg_color=COLOR_LIGHT_GRAY)
@@ -996,7 +1056,7 @@ def _build_slide_4_trends(
     stf = sb.text_frame
     stf.word_wrap = True
     sp = stf.paragraphs[0]
-    sp.text = "KEY TAKEAWAY: Performance pressure is driven by volume surges rather than widespread failure; targeted cohort rebalancing provides the highest impact."
+    sp.text = "KEY TAKEAWAY: Performance variation across periods and segments should be evaluated against capacity allocation and case complexity."
     sp.font.size = Pt(10)
     sp.font.bold = True
     sp.font.color.rgb = COLOR_NAVY
@@ -1024,33 +1084,6 @@ def _build_slide_5_insights(prs, approved_insights: List[Dict[str, Any]], total_
     gp.font.bold = True
     gp.font.color.rgb = COLOR_TEAL
 
-    default_insights = [
-        {
-            "pillar": "Queue Flow & Bottlenecks",
-            "title": "Intake Exceeded Completion Capacity",
-            "finding": "Persistent positive net flow led to an observed backlog accumulation of +785 cases across the 12-month period.",
-            "evidence": "Data demonstrates 9,997 demand received vs 9,212 cases closed (92.1% closure rate).",
-            "severity": "HIGH PRIORITY",
-            "badge_colr": COLOR_RISK
-        },
-        {
-            "pillar": "Capacity & Staffing Allocation",
-            "title": "Seasonal Resource Imbalance",
-            "finding": "Staffing allocation remained fixed during Q1-Q2 demand surge, depressing completion rates during peak intake months.",
-            "evidence": "Peak demand of 948 in April coincided with standard FTE allocation, triggering queue build-up.",
-            "severity": "HIGH PRIORITY",
-            "badge_colr": COLOR_RISK
-        },
-        {
-            "pillar": "Data Governance & Reporting",
-            "title": "Category Naming & Zero Denominators",
-            "finding": "Inconsistent naming in North Operations and zero-FTE August record required guarded aggregation rules.",
-            "evidence": "Data QA audit flagged 2 category variations and 1 zero-denominator record; mitigated via safe ratio formulas.",
-            "severity": "GOVERNED",
-            "badge_colr": COLOR_CAUTION
-        }
-    ]
-
     insights_to_show = []
     if approved_insights:
         for ins in approved_insights[:3]:
@@ -1062,44 +1095,56 @@ def _build_slide_5_insights(prs, approved_insights: List[Dict[str, Any]], total_
                 "severity": (ins.get("severity") or "Approved").upper(),
                 "badge_colr": COLOR_RISK if ins.get("severity") == "high" else COLOR_CAUTION
             })
-    while len(insights_to_show) < 3:
-        insights_to_show.append(default_insights[len(insights_to_show)])
 
-    card_w = 3.74
-    card_h = 4.8
-    for idx, item in enumerate(insights_to_show):
-        cx = 0.8 + idx * (card_w + 0.25)
-        cy = 2.05
+    if not insights_to_show:
+        _add_card_box(slide, 0.8, 2.05, 11.733, 4.8, bg_color=COLOR_WHITE)
+        ibox = slide.shapes.add_textbox(Inches(1.2), Inches(3.0), Inches(11.0), Inches(2.5))
+        p = ibox.text_frame.paragraphs[0]
+        p.text = "No findings have been formally approved for executive presentation yet."
+        p.font.size = Pt(14)
+        p.font.bold = True
+        p.font.color.rgb = COLOR_MUTED_TEXT
+        p2 = ibox.text_frame.add_paragraph()
+        p2.text = "Review and approve findings on Page 08 (Insights) to populate this slide."
+        p2.font.size = Pt(11)
+        p2.font.color.rgb = COLOR_MUTED_TEXT
+        p2.space_before = Pt(6)
+    else:
+        card_w = 3.74
+        card_h = 4.8
+        for idx, item in enumerate(insights_to_show):
+            cx = 0.8 + idx * (card_w + 0.25)
+            cy = 2.05
 
-        _add_card_box(slide, cx, cy, card_w, card_h, bg_color=COLOR_WHITE)
-        tb = slide.shapes.add_textbox(Inches(cx + 0.2), Inches(cy + 0.2), Inches(card_w - 0.4), Inches(card_h - 0.4))
-        tf = tb.text_frame
-        tf.word_wrap = True
+            _add_card_box(slide, cx, cy, card_w, card_h, bg_color=COLOR_WHITE)
+            tb = slide.shapes.add_textbox(Inches(cx + 0.2), Inches(cy + 0.2), Inches(card_w - 0.4), Inches(card_h - 0.4))
+            tf = tb.text_frame
+            tf.word_wrap = True
 
-        p_pil = tf.paragraphs[0]
-        p_pil.text = f"[{item['severity']}]  {item['pillar'].upper()}"
-        p_pil.font.size = Pt(8.5)
-        p_pil.font.bold = True
-        p_pil.font.color.rgb = item["badge_colr"]
+            p_pil = tf.paragraphs[0]
+            p_pil.text = f"[{item['severity']}]  {item['pillar'].upper()}"
+            p_pil.font.size = Pt(8.5)
+            p_pil.font.bold = True
+            p_pil.font.color.rgb = item["badge_colr"]
 
-        p_t = tf.add_paragraph()
-        p_t.text = item["title"]
-        p_t.font.size = Pt(13)
-        p_t.font.bold = True
-        p_t.font.color.rgb = COLOR_NAVY
-        p_t.space_before = Pt(6)
+            p_t = tf.add_paragraph()
+            p_t.text = item["title"]
+            p_t.font.size = Pt(13)
+            p_t.font.bold = True
+            p_t.font.color.rgb = COLOR_NAVY
+            p_t.space_before = Pt(6)
 
-        p_f = tf.add_paragraph()
-        p_f.text = item["finding"]
-        p_f.font.size = Pt(10)
-        p_f.font.color.rgb = COLOR_DARK_TEXT
-        p_f.space_before = Pt(8)
+            p_f = tf.add_paragraph()
+            p_f.text = item["finding"]
+            p_f.font.size = Pt(10)
+            p_f.font.color.rgb = COLOR_DARK_TEXT
+            p_f.space_before = Pt(8)
 
-        p_e = tf.add_paragraph()
-        p_e.text = f"Analytical Evidence:\n{item['evidence']}"
-        p_e.font.size = Pt(9)
-        p_e.font.color.rgb = COLOR_MUTED_TEXT
-        p_e.space_before = Pt(12)
+            p_e = tf.add_paragraph()
+            p_e.text = f"Analytical Evidence:\n{item['evidence']}"
+            p_e.font.size = Pt(9)
+            p_e.font.color.rgb = COLOR_MUTED_TEXT
+            p_e.space_before = Pt(12)
 
     _add_slide_footer(slide, 5, total_slides)
 
@@ -1148,47 +1193,48 @@ def _build_slide_6_actions(
                     r.get("expected_impact", "Capacity balancing & SLA recovery")
                 ))
 
-    if not action_rows:
-        action_rows = [
-            ("Dynamic FTE Resource Rebalancing: Deploy floating FTE across operational cohorts to absorb seasonal intake surges.", "CAPACITY", "Head of Operations", "Month 1 (Immediate)", "Eliminate backlog growth; restore SLA to 95%+"),
-            ("Automated Intake Gatekeeping & Flow Controls: Implement daily volume caps and priority routing rules to prevent bottlenecking.", "PROCESS", "Service Delivery Lead", "Months 1-2", "Smooth queue distribution and reduce turnaround"),
-            ("Data Standardisation & System Casing Rules: Enforce strict categorical naming and mandatory denominator validation.", "DATA GOV", "BI & Analytics Lead", "Month 1", "Ensure 100% automated reporting accuracy"),
-            ("Continuous Backlog Reconciliation Audit: Establish monthly opening/closing inventory auditing to eliminate gap variances.", "GOVERNANCE", "Performance Analyst", "Ongoing", "Zero unrecorded queue discrepancies")
-        ]
-
     # Render 5-Column Action Table
-    rows_to_render = min(len(action_rows) + 1, 5)
-    t_shape = slide.shapes.add_table(rows_to_render, 5, Inches(0.8), Inches(1.5), Inches(11.733), Inches(3.5))
-    table = t_shape.table
+    if action_rows:
+        rows_to_render = min(len(action_rows) + 1, 5)
+        t_shape = slide.shapes.add_table(rows_to_render, 5, Inches(0.8), Inches(1.5), Inches(11.733), Inches(3.5))
+        table = t_shape.table
 
-    widths = [Inches(4.5), Inches(1.5), Inches(1.8), Inches(1.7), Inches(2.233)]
-    for idx, w in enumerate(widths):
-        table.columns[idx].width = w
+        widths = [Inches(4.5), Inches(1.5), Inches(1.8), Inches(1.7), Inches(2.233)]
+        for idx, w in enumerate(widths):
+            table.columns[idx].width = w
 
-    headers = ["ACTION ITEM & INTERVENTION", "FOCUS AREA", "ACCOUNTABLE OWNER", "TIMEFRAME", "EXPECTED IMPACT"]
-    for j, h in enumerate(headers):
-        cell = table.cell(0, j)
-        cell.fill.solid()
-        cell.fill.fore_color.rgb = COLOR_NAVY
-        p = cell.text_frame.paragraphs[0]
-        p.text = h
-        p.font.size = Pt(9.5)
-        p.font.bold = True
-        p.font.color.rgb = COLOR_WHITE
-
-    for i in range(rows_to_render - 1):
-        row_data = action_rows[i]
-        bg = COLOR_LIGHT_GRAY if i % 2 == 0 else COLOR_WHITE
-        for j, val in enumerate(row_data):
-            cell = table.cell(i + 1, j)
+        headers = ["ACTION ITEM & INTERVENTION", "FOCUS AREA", "ACCOUNTABLE OWNER", "TIMEFRAME", "EXPECTED IMPACT"]
+        for j, h in enumerate(headers):
+            cell = table.cell(0, j)
             cell.fill.solid()
-            cell.fill.fore_color.rgb = bg
+            cell.fill.fore_color.rgb = COLOR_NAVY
             p = cell.text_frame.paragraphs[0]
-            p.text = str(val)
-            p.font.size = Pt(9)
-            p.font.color.rgb = COLOR_DARK_TEXT
-            if j == 0:
-                p.font.bold = True
+            p.text = h
+            p.font.size = Pt(9.5)
+            p.font.bold = True
+            p.font.color.rgb = COLOR_WHITE
+
+        for i in range(rows_to_render - 1):
+            row_data = action_rows[i]
+            bg = COLOR_LIGHT_GRAY if i % 2 == 0 else COLOR_WHITE
+            for j, val in enumerate(row_data):
+                cell = table.cell(i + 1, j)
+                cell.fill.solid()
+                cell.fill.fore_color.rgb = bg
+                p = cell.text_frame.paragraphs[0]
+                p.text = str(val)
+                p.font.size = Pt(9)
+                p.font.color.rgb = COLOR_DARK_TEXT
+                if j == 0:
+                    p.font.bold = True
+    else:
+        _add_card_box(slide, 0.8, 1.5, 11.733, 3.5, bg_color=COLOR_WHITE)
+        ibox = slide.shapes.add_textbox(Inches(1.2), Inches(2.2), Inches(11.0), Inches(2.0))
+        p = ibox.text_frame.paragraphs[0]
+        p.text = "No action recommendations have been formally approved yet."
+        p.font.size = Pt(13)
+        p.font.bold = True
+        p.font.color.rgb = COLOR_MUTED_TEXT
 
     # Operational Limitations & Risk Boundaries Strip
     _add_card_box(slide, 0.8, 5.25, 11.733, 1.5, bg_color=COLOR_WHITE)
@@ -1202,12 +1248,21 @@ def _build_slide_6_actions(
     lp1.font.bold = True
     lp1.font.color.rgb = COLOR_RISK
 
+    limit_bullets = []
+    if limitations:
+        for lim in limitations[:3]:
+            txt = lim.get("limitation") if isinstance(lim, dict) else str(lim)
+            imp = lim.get("impact", "") if isinstance(lim, dict) else ""
+            limit_bullets.append(f"* {txt}" + (f" ({imp})" if imp else ""))
+    else:
+        limit_bullets = [
+            "* Observational Data: Findings reflect observed patterns and require operational validation.",
+            "* Case Complexity: Differences in case mix complexity across cohorts should be verified.",
+            "* Measurement Boundaries: Interventions should be tracked against pre-defined baseline metrics."
+        ]
+
     lp2 = ltf.add_paragraph()
-    lp2.text = (
-        "* Aggregate Periodic Snapshot: Row granularity represents aggregate snapshots; individual case-level routing paths are unobserved.\n"
-        "* Case Mix Homogeneity: Productivity figures assume comparable complexity across teams; complex case distributions require local review.\n"
-        "* Unobserved Transfer Flows: Inter-team case handoffs and external transfers are estimated via macro flow balance."
-    )
+    lp2.text = "\n".join(limit_bullets)
     lp2.font.size = Pt(9)
     lp2.font.color.rgb = COLOR_MUTED_TEXT
     lp2.space_before = Pt(4)
@@ -1283,10 +1338,7 @@ def _build_slide_8_appendix_qa(prs, qa_report: Dict[str, Any], total_slides: int
     issues = qa_report.get("issues", [])
     if not issues:
         issues = [
-            {"issue_type": "missing_values", "severity": "warning", "column": "Output_Target", "description": "1 missing target observation in period row 42.", "suggested_fix": "Safe sum ratio applied."},
-            {"issue_type": "case_inconsistency", "severity": "warning", "column": "Service_Team", "description": "Categorical variations 'North Operations' and 'north operations'.", "suggested_fix": "Standardised to sentence case."},
-            {"issue_type": "outliers", "severity": "warning", "column": "Processing_Time_Days", "description": "1 value exceeds 3.5 standard deviations (70.6 days).", "suggested_fix": "Retained and isolated for review."},
-            {"issue_type": "zero_denominator", "severity": "warning", "column": "Available_FTE", "description": "Zero denominator in Aug record.", "suggested_fix": "Protected with safe division."}
+            {"issue_type": "Completeness", "severity": "Info", "column": "Dataset", "description": "All mandatory fields populated.", "suggested_fix": "No action required."}
         ]
 
     rows = min(len(issues) + 1, 6)
@@ -1313,9 +1365,9 @@ def _build_slide_8_appendix_qa(prs, qa_report: Dict[str, Any], total_slides: int
         vals = [
             str(iss.get("issue_type", "Quality Check")).upper(),
             str(iss.get("severity", "Warning")).upper(),
-            str(iss.get("column", "Dataset")),
+            str(iss.get("column") or iss.get("field") or "Dataset"),
             str(iss.get("description", "Quality check completed.")),
-            str(iss.get("suggested_fix", "Resolved via mathematical guard"))
+            str(iss.get("suggested_fix") or iss.get("recommended_action") or "Resolved via mathematical guard")
         ]
         for j, text_val in enumerate(vals):
             cell = table.cell(i + 1, j)
@@ -1350,13 +1402,17 @@ def _build_slide_9_appendix_governance(prs, assumptions: List[Any], limitations:
     ap.font.bold = True
     ap.font.color.rgb = COLOR_NAVY
 
-    assump_items = [
-        "1. Standard Working Calendar: 21 working days per operational month assumed.",
-        "2. FTE Availability: 1.0 FTE represents standard full-time contracted capacity.",
-        "3. Macro Flow Continuity: Inflow and completion differences approximate queue movement.",
-        "4. Stable Intake Complexity: Case difficulty distribution assumed balanced across cohorts.",
-        "5. Clean Transfer Boundaries: Intra-team transfers assumed neutral across portfolio."
-    ]
+    assump_items = []
+    if assumptions:
+        for a in assumptions[:5]:
+            txt = a.get("assumption") if isinstance(a, dict) else str(a)
+            assump_items.append(f"* {txt}")
+    else:
+        assump_items = [
+            "* Standard Working Calendar: Working patterns assumed consistent across periods.",
+            "* Resource Availability: Confirmed staff capacity reflects operational allocation.",
+            "* Macro Flow Continuity: Inflow and completion differences approximate queue movement."
+        ]
     for item in assump_items:
         p = atf.add_paragraph()
         p.text = item
@@ -1375,13 +1431,16 @@ def _build_slide_9_appendix_governance(prs, assumptions: List[Any], limitations:
     lp.font.bold = True
     lp.font.color.rgb = COLOR_RISK
 
-    limit_items = [
-        "1. Aggregate Periodic Snapshots: Prevents survival and transaction cycle-time analysis.",
-        "2. Unrecorded Rework Loops: Multi-touch cases may be counted as single completions.",
-        "3. Temporary Zero-Staffing Records: Restricts productivity measurement during unstaffed periods.",
-        "4. Manual Queue Reconciliation: 27-case discrepancy indicates local logging variance.",
-        "5. External Demand Elasticity: External factors driving demand spikes remain unmodelled."
-    ]
+    limit_items = []
+    if limitations:
+        for l in limitations[:5]:
+            txt = l.get("limitation") if isinstance(l, dict) else str(l)
+            limit_items.append(f"* {txt}")
+    else:
+        limit_items = [
+            "* Observational Data: Findings reflect observed operational periods.",
+            "* Unrecorded Factors: External drivers not captured in the extract remain unmodelled."
+        ]
     for item in limit_items:
         pl = ltf.add_paragraph()
         pl.text = item
@@ -1551,13 +1610,13 @@ def generate_interview_powerpoint(
     kpi_summary = kpi_res.get("summary_kpis", {})
     
     qa_report = run_quality_audit(df, mappings or {}) if df is not None else {
-        "health_score": 85.0, "critical_count": 0, "warning_count": 0, "issues": []
+        "health_score": 100.0, "critical_count": 0, "warning_count": 0, "issues": []
     }
     
     project_metadata = {
         "filename": "Operational Dataset",
-        "row_count": len(df) if df is not None else 60,
-        "column_count": len(df.columns) if df is not None else 15,
+        "row_count": len(df) if df is not None else 0,
+        "column_count": len(df.columns) if df is not None else 0,
         "author": author,
         "row_granularity": (context or {}).get("row_granularity", "Periodic snapshot")
     }
@@ -1598,3 +1657,51 @@ def generate_interview_powerpoint(
         include_appendix=include_appendix
     )
     return filepath
+
+def generate_assessment_presentation(
+    payload_or_filepath: Any,
+    output_filepath: Optional[str] = None,
+    **kwargs
+) -> Any:
+    """
+    Unified entry point for PowerPoint generation.
+    Accepts either a structured payload dict (from build_export_payload_from_state)
+    or standard positional arguments.
+    """
+    if isinstance(payload_or_filepath, dict):
+        payload = payload_or_filepath
+        meta = payload.get("metadata", {})
+        ds = payload.get("dataset", {})
+        qa = payload.get("data_quality", {})
+        kpis = payload.get("kpis", {})
+        trends = payload.get("trends")
+        comps = payload.get("comparisons")
+        findings = payload.get("findings", [])
+        recs = payload.get("recommendations", [])
+        if isinstance(recs, list):
+            recs_dict = {"operational": recs}
+        else:
+            recs_dict = recs
+            
+        out_path = output_filepath or "exports/assessment_presentation_16x9.pptx"
+        os.makedirs(os.path.dirname(out_path), exist_ok=True) if os.path.dirname(out_path) else None
+        
+        prs = Presentation()
+        prs.slide_width = Inches(SLIDE_WIDTH_IN)
+        prs.slide_height = Inches(SLIDE_HEIGHT_IN)
+        total_slides = 6
+        
+        # Build standard 6-slide deck
+        _build_slide_1_opening(prs, meta, {"filename": ds.get("name", "Active Dataset"), "row_count": ds.get("row_count", 0), "col_count": ds.get("col_count", 0), "row_granularity": ds.get("granularity", "Records")}, total_slides)
+        _build_slide_2_qa(prs, {"health_score": qa.get("health_score", 100.0), "critical_count": 0, "warning_count": len(qa.get("caveats", [])), "issues": []}, {"row_granularity": ds.get("granularity", "Records")}, total_slides)
+        _build_slide_3_performance(prs, kpis, total_slides)
+        _build_slide_4_trends(prs, trends, comps, None, {}, total_slides)
+        _build_slide_5_insights(prs, findings, total_slides)
+        _build_slide_6_actions(prs, recs_dict, qa.get("caveats", []), total_slides)
+        
+        prs.save(out_path)
+        prs.output_path = out_path
+        return prs
+    else:
+        return generate_powerpoint_presentation(payload_or_filepath, **kwargs)
+

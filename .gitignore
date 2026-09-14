@@ -41,3 +41,4 @@ outputs/audit/*
 outputs/charts/*
 outputs/visualisations/*
 !outputs/**/.gitkeep
+exports/

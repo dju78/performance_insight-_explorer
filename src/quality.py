@@ -271,8 +271,9 @@ def run_semantic_qa(df: pd.DataFrame, confirmed_mappings: Dict[str, str]) -> Dic
         
     role_to_col = {}
     for c, r in confirmed_mappings.items():
-        if r and c in df.columns:
-            role_to_col[r] = c
+        r_str = r.get("suggested_role") if isinstance(r, dict) else (str(r) if r else None)
+        if r_str and c in df.columns:
+            role_to_col[r_str] = c
             
     # 1. Duplicate Record IDs
     if "record_id" in role_to_col:
@@ -428,3 +429,64 @@ def run_quality_audit(
         "health_score": round(combined_health, 1),
         "overall_missing_pct": struct_res["overall_missing_pct"]
     }
+
+
+def evaluate_data_fitness(
+    qa_report: Dict[str, Any],
+    row_granularity: Any = "Periodic snapshot",
+    confirmed_mappings: Optional[Dict[str, str]] = None,
+    assessment_question: str = ""
+) -> Dict[str, Any]:
+    """Perform contextual Data Fitness Assessment based on QA results, row unit, and mappings."""
+    qa_rep = qa_report or {}
+    crit_count = qa_rep.get("critical_count", 0)
+    warn_count = qa_rep.get("warning_count", 0)
+    score = qa_rep.get("health_score", 100.0)
+    issues = qa_rep.get("issues", [])
+    mappings = confirmed_mappings or {}
+
+    # Guard if a DataFrame is mistakenly passed as row_granularity
+    gran_str = "Periodic snapshot"
+    if isinstance(row_granularity, str) and row_granularity.strip():
+        gran_str = row_granularity.strip()
+
+    reasons = []
+    caveats = []
+    critical_blockers = []
+
+    if crit_count > 0:
+        for iss in issues:
+            if iss.get("severity") == Severity.CRITICAL:
+                msg = f"Critical Blocker: {iss.get('title', 'Unknown')} ({iss.get('description', '')})"
+                critical_blockers.append(msg)
+                reasons.append(msg)
+
+    if warn_count > 0:
+        for iss in issues:
+            if iss.get("severity") == Severity.WARNING:
+                caveats.append(f"{iss.get('title', 'Warning')}: {iss.get('description', '')}")
+
+    if gran_str:
+        caveats.append(f"Row Unit Governance: Record granularity confirmed as '{gran_str}'. Aggregations respect this unit.")
+
+    if crit_count > 0:
+        status = "Insufficient for requested analysis"
+        summary = "Dataset has critical structural blockers that prevent reliable quantitative analysis until resolved."
+    elif warn_count > 0 or len(caveats) > 0:
+        status = "Fit for purpose with caveats"
+        summary = f"Dataset is suitable for indicative operational analysis (Health Score: {score:.1f}/100) subject to documented caveats and mathematical safeguards."
+    else:
+        status = "Fit for purpose"
+        summary = f"Dataset meets high data quality and structural standards (Health Score: {score:.1f}/100) with no identified blockers."
+
+    return {
+        "status": status,
+        "fitness_status": status,
+        "health_score": score,
+        "summary": summary,
+        "reasons": reasons if reasons else ["No fatal structural corruption detected across loaded fields."],
+        "caveats": caveats if caveats else ["Standard operational assumptions apply."],
+        "critical_blockers": critical_blockers,
+        "assessment_question": assessment_question
+    }
+

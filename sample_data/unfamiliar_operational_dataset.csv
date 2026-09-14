@@ -1,0 +1,73 @@
+Submission_Month,Operational_Branch,Permit_Class,Permits_Submitted,Permits_Granted,Processing_Turnaround_Days,Target_Turnaround_Days,Reviewer_Staff_Count
+2024-04,Airport Unit,Tier 1 Fast-Track,63,51,13.1,15.0,2.6
+2024-05,Airport Unit,Tier 1 Fast-Track,179,149,24.1,15.0,5.2
+2024-06,Airport Unit,Tier 1 Fast-Track,59,54,7.7,15.0,7.1
+2024-07,Airport Unit,Tier 1 Fast-Track,213,189,7.8,15.0,7.3
+2024-08,Airport Unit,Tier 1 Fast-Track,287,237,15.1,15.0,4.1
+2024-09,Airport Unit,Tier 1 Fast-Track,74,66,7.4,15.0,4.6
+2024-04,Airport Unit,Tier 2 Standard,245,200,24.3,15.0,5.1
+2024-05,Airport Unit,Tier 2 Standard,81,66,16.9,15.0,7.6
+2024-06,Airport Unit,Tier 2 Standard,69,59,7.1,15.0,5.7
+2024-07,Airport Unit,Tier 2 Standard,142,113,17.1,15.0,3.9
+2024-08,Airport Unit,Tier 2 Standard,80,64,20.6,15.0,4.5
+2024-09,Airport Unit,Tier 2 Standard,179,156,20.1,15.0,5.5
+2024-04,Airport Unit,Tier 3 Specialist Assessment,256,242,9.8,15.0,2.4
+2024-05,Airport Unit,Tier 3 Specialist Assessment,122,111,10.3,15.0,2.7
+2024-06,Airport Unit,Tier 3 Specialist Assessment,193,156,15.2,15.0,8.0
+2024-07,Airport Unit,Tier 3 Specialist Assessment,66,55,9.4,15.0,2.6
+2024-08,Airport Unit,Tier 3 Specialist Assessment,213,187,13.5,15.0,2.3
+2024-09,Airport Unit,Tier 3 Specialist Assessment,165,142,18.1,15.0,3.8
+2024-04,Seaport Unit,Tier 1 Fast-Track,204,175,21.6,15.0,6.3
+2024-05,Seaport Unit,Tier 1 Fast-Track,135,127,10.0,15.0,2.4
+2024-06,Seaport Unit,Tier 1 Fast-Track,198,158,10.2,15.0,6.4
+2024-07,Seaport Unit,Tier 1 Fast-Track,107,88,17.4,15.0,3.6
+2024-08,Seaport Unit,Tier 1 Fast-Track,267,223,24.5,15.0,6.7
+2024-09,Seaport Unit,Tier 1 Fast-Track,222,179,12.4,15.0,3.2
+2024-04,Seaport Unit,Tier 2 Standard,188,163,21.9,15.0,2.1
+2024-05,Seaport Unit,Tier 2 Standard,75,61,22.3,15.0,3.1
+2024-06,Seaport Unit,Tier 2 Standard,131,114,12.5,15.0,4.1
+2024-07,Seaport Unit,Tier 2 Standard,215,184,24.1,15.0,2.4
+2024-08,Seaport Unit,Tier 2 Standard,241,221,11.3,15.0,6.0
+2024-09,Seaport Unit,Tier 2 Standard,109,88,10.6,15.0,7.5
+2024-04,Seaport Unit,Tier 3 Specialist Assessment,237,217,21.5,15.0,4.7
+2024-05,Seaport Unit,Tier 3 Specialist Assessment,57,53,17.7,15.0,5.5
+2024-06,Seaport Unit,Tier 3 Specialist Assessment,237,205,22.6,15.0,2.2
+2024-07,Seaport Unit,Tier 3 Specialist Assessment,221,193,18.6,15.0,1.8
+2024-08,Seaport Unit,Tier 3 Specialist Assessment,298,271,18.2,15.0,6.7
+2024-09,Seaport Unit,Tier 3 Specialist Assessment,276,221,24.1,15.0,6.3
+2024-04,Headquarters,Tier 1 Fast-Track,107,93,24.8,15.0,7.8
+2024-05,Headquarters,Tier 1 Fast-Track,260,233,8.7,15.0,2.6
+2024-06,Headquarters,Tier 1 Fast-Track,54,47,21.6,15.0,1.9
+2024-07,Headquarters,Tier 1 Fast-Track,187,150,6.6,15.0,7.8
+2024-08,Headquarters,Tier 1 Fast-Track,272,249,9.6,15.0,7.8
+2024-09,Headquarters,Tier 1 Fast-Track,256,212,7.4,15.0,5.5
+2024-04,Headquarters,Tier 2 Standard,127,102,24.2,15.0,4.6
+2024-05,Headquarters,Tier 2 Standard,163,138,7.5,15.0,4.6
+2024-06,Headquarters,Tier 2 Standard,51,45,16.6,15.0,6.4
+2024-07,Headquarters,Tier 2 Standard,81,72,8.1,15.0,1.8
+2024-08,Headquarters,Tier 2 Standard,66,61,9.5,15.0,3.9
+2024-09,Headquarters,Tier 2 Standard,108,95,12.8,15.0,2.6
+2024-04,Headquarters,Tier 3 Specialist Assessment,293,244,7.4,15.0,2.8
+2024-05,Headquarters,Tier 3 Specialist Assessment,223,178,24.8,15.0,5.9
+2024-06,Headquarters,Tier 3 Specialist Assessment,271,251,21.9,15.0,7.5
+2024-07,Headquarters,Tier 3 Specialist Assessment,67,59,9.4,15.0,7.9
+2024-08,Headquarters,Tier 3 Specialist Assessment,95,86,20.5,15.0,5.8
+2024-09,Headquarters,Tier 3 Specialist Assessment,252,213,20.1,15.0,3.3
+2024-04,Regional Depot,Tier 1 Fast-Track,141,113,8.3,15.0,2.4
+2024-05,Regional Depot,Tier 1 Fast-Track,256,208,24.3,15.0,4.7
+2024-06,Regional Depot,Tier 1 Fast-Track,200,185,19.7,15.0,5.0
+2024-07,Regional Depot,Tier 1 Fast-Track,238,216,17.2,15.0,2.2
+2024-08,Regional Depot,Tier 1 Fast-Track,72,65,22.5,15.0,5.6
+2024-09,Regional Depot,Tier 1 Fast-Track,177,153,8.2,15.0,5.1
+2024-04,Regional Depot,Tier 2 Standard,121,101,19.5,15.0,7.9
+2024-05,Regional Depot,Tier 2 Standard,153,126,22.6,15.0,5.8
+2024-06,Regional Depot,Tier 2 Standard,266,234,19.7,15.0,5.5
+2024-07,Regional Depot,Tier 2 Standard,204,184,12.5,15.0,5.0
+2024-08,Regional Depot,Tier 2 Standard,213,170,20.2,15.0,1.7
+2024-09,Regional Depot,Tier 2 Standard,258,206,20.0,15.0,6.4
+2024-04,Regional Depot,Tier 3 Specialist Assessment,69,58,8.0,15.0,3.5
+2024-05,Regional Depot,Tier 3 Specialist Assessment,105,91,7.5,15.0,4.0
+2024-06,Regional Depot,Tier 3 Specialist Assessment,181,164,22.7,15.0,5.4
+2024-07,Regional Depot,Tier 3 Specialist Assessment,86,77,5.0,15.0,2.7
+2024-08,Regional Depot,Tier 3 Specialist Assessment,251,224,12.1,15.0,6.7
+2024-09,Regional Depot,Tier 3 Specialist Assessment,69,59,22.5,15.0,4.8

@@ -386,3 +386,27 @@ def generate_pdf_document(
     # Build Document with NumberedCanvas
     doc.build(story, canvasmaker=NumberedCanvas)
     return output_filepath
+
+def generate_pdf_report(
+    payload_or_filepath: Any,
+    payload: Optional[Dict[str, Any]] = None,
+    audience: str = "Senior Leadership",
+    output_filepath: Optional[str] = None
+) -> bytes:
+    """
+    Flexible wrapper for PDF generation. Accepts (payload) or (filepath, payload).
+    Returns raw PDF bytes for downloads and test validation.
+    """
+    if isinstance(payload_or_filepath, dict):
+        p = payload_or_filepath
+        out_path = output_filepath or "exports/assessment_executive_report.pdf"
+    else:
+        out_path = payload_or_filepath
+        p = payload or {}
+        
+    generate_pdf_document(out_path, p, audience=audience)
+    if os.path.exists(out_path):
+        with open(out_path, "rb") as f:
+            return f.read()
+    return b""
+

@@ -165,3 +165,39 @@ def calculate_trends(
         "trajectory_class": traj_class,
         "metric_name": metric_col
     }
+
+
+def calculate_trend_summary(
+    df: Optional[pd.DataFrame],
+    date_col: Optional[str],
+    metric_col: Optional[str]
+) -> Dict[str, Any]:
+    """Calculate quick trend summary with graceful degradation for missing date or metric columns."""
+    if df is None or not date_col or not metric_col:
+        return {
+            "direction": "Insufficient time points",
+            "pct_change": 0.0,
+            "run_chart_signals": [],
+            "reason": "Longitudinal date or metric column not mapped."
+        }
+    if date_col not in df.columns or metric_col not in df.columns:
+        return {
+            "direction": "Insufficient time points",
+            "pct_change": 0.0,
+            "run_chart_signals": [],
+            "reason": "Specified columns not present in dataset."
+        }
+    res = calculate_trends(df, date_col, metric_col)
+    if "error" in res:
+        return {
+            "direction": "Insufficient time points",
+            "pct_change": 0.0,
+            "run_chart_signals": [],
+            "reason": res["error"]
+        }
+    return {
+        "direction": res.get("trajectory", "Stable"),
+        "pct_change": res.get("net_pct_change", 0.0),
+        "run_chart_signals": res.get("run_chart_signals", []),
+        "raw_results": res
+    }

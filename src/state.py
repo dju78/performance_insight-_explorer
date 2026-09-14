@@ -57,6 +57,9 @@ def init_session_state():
     if "assessment_question" not in st.session_state:
         st.session_state.assessment_question = ""
         
+    if "questions_must_answer" not in st.session_state:
+        st.session_state.questions_must_answer = ""
+        
     if "target_audience" not in st.session_state:
         st.session_state.target_audience = "Senior Leadership"
         
@@ -65,6 +68,36 @@ def init_session_state():
         
     if "time_available" not in st.session_state:
         st.session_state.time_available = "15 minutes"
+        
+    if "response_time" not in st.session_state:
+        st.session_state.response_time = "10 minutes presentation + 5 minutes Q&A"
+        
+    if "mandatory_measures" not in st.session_state:
+        st.session_state.mandatory_measures = ""
+        
+    if "required_comparisons" not in st.session_state:
+        st.session_state.required_comparisons = ""
+        
+    if "required_method" not in st.session_state:
+        st.session_state.required_method = ""
+        
+    if "restrictions_rules" not in st.session_state:
+        st.session_state.restrictions_rules = ""
+        
+    if "other_instructions" not in st.session_state:
+        st.session_state.other_instructions = ""
+        
+    if "assessment_intake_pasted" not in st.session_state:
+        st.session_state.assessment_intake_pasted = ""
+        
+    if "selected_analyses" not in st.session_state:
+        st.session_state.selected_analyses = ["KPI Overview", "Trends", "Cohort Comparisons", "Root Cause", "Action Plan"]
+        
+    if "data_fitness" not in st.session_state:
+        st.session_state.data_fitness = None
+        
+    if "rapid_mode" not in st.session_state:
+        st.session_state.rapid_mode = False
         
     if "analyst_notes" not in st.session_state:
         st.session_state.analyst_notes = ""

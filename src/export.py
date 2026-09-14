@@ -40,17 +40,37 @@ def group_recommendations_by_category(recommendations: List[Dict[str, Any]]) -> 
     return categories
 
 
-def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+def build_export_payload_from_state(state_or_df: Any = None) -> Dict[str, Any]:
     """Gather live session state into a single immutable, validated export payload.
     Ensures zero fabricated data, active gate checking, and consistent schema across all export formats.
     """
-    clean_df = df if df is not None else st.session_state.get("clean_df")
-    if clean_df is None:
-        clean_df = st.session_state.get("raw_df")
-        
-    confirmed_mappings = st.session_state.get("confirmed_mappings", {})
-    row_granularity = st.session_state.get("row_granularity", "Not Confirmed")
-    row_granularity_confirmed = st.session_state.get("row_granularity_confirmed", False)
+    if isinstance(state_or_df, dict):
+        state = state_or_df
+        clean_df = state.get("clean_df") if state.get("clean_df") is not None else state.get("raw_df")
+        confirmed_mappings = state.get("confirmed_mappings", {})
+        row_granularity = state.get("row_granularity", "Not Confirmed")
+        row_granularity_confirmed = state.get("row_granularity_confirmed", True)
+        insights_list = state.get("insights_list", [])
+        recs_list = state.get("recommendations_list", [])
+        dataset_name = state.get("dataset_name", "Active Dataset")
+        q_brief = state.get("assessment_question", "")
+        q_must = state.get("questions_must_answer", "")
+        target_aud = state.get("target_audience", "Senior Leadership")
+        resp_time = state.get("response_time", "15 mins")
+    else:
+        clean_df = state_or_df if state_or_df is not None else st.session_state.get("clean_df")
+        if clean_df is None:
+            clean_df = st.session_state.get("raw_df")
+        confirmed_mappings = st.session_state.get("confirmed_mappings", {})
+        row_granularity = st.session_state.get("row_granularity", "Not Confirmed")
+        row_granularity_confirmed = st.session_state.get("row_granularity_confirmed", False)
+        insights_list = st.session_state.get("insights_list", [])
+        recs_list = st.session_state.get("recommendations_list", [])
+        dataset_name = st.session_state.get("dataset_name", "Active Dataset")
+        q_brief = st.session_state.get("assessment_question", "")
+        q_must = state_or_df.get("questions_must_answer", "") if isinstance(state_or_df, dict) else st.session_state.get("questions_must_answer", "")
+        target_aud = st.session_state.get("target_audience", "Senior Leadership")
+        resp_time = st.session_state.get("response_time", "15 mins")
     
     # Validation Gates
     validation_errors = []
@@ -72,19 +92,35 @@ def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[s
         }
         
     # Standardized Assessment Context
+    target_dir_val = "higher_is_better"
+    target_dirs = st.session_state.get("target_directions", {})
+    if isinstance(target_dirs, dict) and target_dirs:
+        target_dir_val = next(iter(target_dirs.values()), "higher_is_better")
+    elif isinstance(target_dirs, str):
+        target_dir_val = target_dirs
+
     assessment_context = {
-        "question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational performance, capacity utilization, and delivery bottlenecks.",
+        "question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational throughput, capacity utilisation, and delivery bottlenecks.",
+        "assessment_question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational throughput, capacity utilisation, and delivery bottlenecks.",
+        "questions_must_answer": st.session_state.get("questions_must_answer", ""),
         "audience": st.session_state.get("target_audience", "Senior Leadership"),
+        "target_audience": st.session_state.get("target_audience", "Senior Leadership"),
         "output_format": st.session_state.get("output_format", "Presentation Deck (PPTX)"),
         "time_available": st.session_state.get("time_available", "15 minutes"),
+        "response_time": st.session_state.get("response_time", "10 minutes presentation + 5 minutes Q&A"),
+        "mandatory_measures": st.session_state.get("mandatory_measures", ""),
+        "required_comparisons": st.session_state.get("required_comparisons", ""),
+        "required_method": st.session_state.get("required_method", ""),
+        "restrictions_rules": st.session_state.get("restrictions_rules", ""),
+        "other_instructions": st.session_state.get("other_instructions", ""),
         "analyst_notes": st.session_state.get("analyst_notes", "")
     }
     
     # Filter approved only
-    all_insights = st.session_state.get("insights_list", [])
+    all_insights = insights_list if insights_list else (st.session_state.get("insights_list", []) if "insights_list" in st.session_state else [])
     approved_insights = [i for i in all_insights if i.get("status") in ["approved", "accepted"]]
     
-    all_recs = st.session_state.get("recommendations_list", [])
+    all_recs = recs_list if recs_list else (st.session_state.get("recommendations_list", []) if "recommendations_list" in st.session_state else [])
     approved_recs = [r for r in all_recs if r.get("status") in ["approved", "accepted"]]
     recs_by_cat = group_recommendations_by_category(approved_recs)
     
@@ -102,26 +138,54 @@ def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[s
     kpi_results = st.session_state.get("kpi_results", {})
     if (not kpi_results or not kpi_results.get("summary_kpis")) and clean_df is not None and confirmed_mappings:
         from src.metrics import calculate_kpis
-        target_dirs = st.session_state.get("target_directions", {})
         try:
-            kpi_results = calculate_kpis(clean_df, confirmed_mappings, target_direction_map=target_dirs)
+            kpi_results = calculate_kpis(clean_df, confirmed_mappings, target_direction=target_dir_val)
             st.session_state["kpi_results"] = kpi_results
         except Exception:
             pass
 
+    ds_name = state.get("dataset_name", "operational_data.csv") if isinstance(state_or_df, dict) else (st.session_state.get("uploaded_file_name") or st.session_state.get("dataset_name", "operational_data.csv"))
+    r_count = len(clean_df) if clean_df is not None else 0
+    c_count = len(clean_df.columns) if clean_df is not None else 0
+
     payload = {
         "assessment_context": assessment_context,
-        "filename": st.session_state.get("uploaded_file_name") or st.session_state.get("dataset_name", "operational_data.csv"),
-        "active_sheet": st.session_state.get("active_sheet", "CSV_Default"),
-        "row_count": len(clean_df) if clean_df is not None else 0,
-        "column_count": len(clean_df.columns) if clean_df is not None else 0,
+        "metadata": {
+            "author": "DARAMOLA OMOYELE",
+            "assessment_question": assessment_context.get("question", ""),
+            "target_audience": target_aud,
+            "response_time": resp_time,
+            "date": datetime.datetime.now().strftime("%d %B %Y"),
+            "role": "Performance Analyst (HEO)"
+        },
+        "dataset": {
+            "name": ds_name,
+            "row_count": r_count,
+            "col_count": c_count,
+            "column_count": c_count,
+            "granularity": row_granularity,
+            "granularity_confirmed": row_granularity_confirmed
+        },
+        "data_quality": {
+            "health_score": qa_report.get("health_score", 100.0) if isinstance(qa_report, dict) else 100.0,
+            "fitness_status": "Fit for purpose" if (qa_report.get("health_score", 100.0) >= 80) else "Fit for purpose with caveats",
+            "fitness_reasons": ["Automated quality and fitness evaluation executed."],
+            "caveats": [i.get("description", "") for i in qa_report.get("issues", [])] if isinstance(qa_report, dict) else []
+        },
+        "kpis": kpi_results.get("summary_kpis", {}) if isinstance(kpi_results, dict) else {},
+        "findings": approved_insights,
+        "recommendations": approved_recs,
+        "filename": ds_name,
+        "active_sheet": state.get("active_sheet", "CSV_Default") if isinstance(state_or_df, dict) else st.session_state.get("active_sheet", "CSV_Default"),
+        "row_count": r_count,
+        "column_count": c_count,
         "row_granularity": row_granularity,
         "row_granularity_confirmed": row_granularity_confirmed,
         "confirmed_mappings": confirmed_mappings,
         "qa_report": qa_report,
         "kpi_results": kpi_results,
-        "trend_summary": st.session_state.get("trend_summary"),
-        "comparison_summary": st.session_state.get("comparison_summary"),
+        "trend_summary": state.get("trend_summary") if isinstance(state_or_df, dict) else st.session_state.get("trend_summary"),
+        "comparison_summary": state.get("comparison_summary") if isinstance(state_or_df, dict) else st.session_state.get("comparison_summary"),
         "approved_insights": approved_insights,
         "approved_recommendations": approved_recs,
         "recommendations_by_category": recs_by_cat,
@@ -129,7 +193,7 @@ def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[s
         "limitations": limitations,
         "audit_trail": audit_events,
         "generation_timestamp": datetime.datetime.now().isoformat(),
-        "dataset_fingerprint": st.session_state.get("dataset_fingerprint", "N/A"),
+        "dataset_fingerprint": state.get("dataset_fingerprint", "N/A") if isinstance(state_or_df, dict) else st.session_state.get("dataset_fingerprint", "N/A"),
         "is_valid_for_export": is_valid_for_export,
         "validation_errors": validation_errors,
         "raw_df": clean_df
