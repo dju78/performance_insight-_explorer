@@ -1,8 +1,8 @@
 """Data Quality Engine for Performance Insight Explorer.
-Executes multi-dimensional quality audits: Completeness, Uniqueness, Validity, Consistency, Integrity, Plausibility.
-Severity classification: Critical, Warning, Information. Status tracking: Unresolved, Reviewed, Accepted.
+Executes two-stage quality assurance:
+Stage A — Automatic Structural QA (Completeness, Uniqueness, Format, Outliers, Constants)
+Stage B — Semantic QA (Record IDs, Denominator zeros, Target validity, Backlog reconciliation)
 """
-import re
 from typing import Dict, Any, List, Optional
 import numpy as np
 import pandas as pd
@@ -20,19 +20,17 @@ class QualityStatus:
     ACCEPTED = "Accepted"
 
 
-def run_quality_audit(
-    df: pd.DataFrame,
-    mappings: Optional[Dict[str, str]] = None
-) -> Dict[str, Any]:
-    """Execute thorough, transparent data quality scan across all dimensions."""
+def run_structural_qa(df: pd.DataFrame) -> Dict[str, Any]:
+    """Stage A — Automatic Structural QA immediately after upload (No semantic mappings required)."""
     issues: List[Dict[str, Any]] = []
     issue_counter = 1
     row_count = len(df)
     
     if row_count == 0:
         return {
+            "stage": "Structural QA",
             "issues": [{
-                "issue_id": "QA-001",
+                "issue_id": "SQA-001",
                 "dimension": "Completeness",
                 "severity": Severity.CRITICAL,
                 "title": "Empty Dataset",
@@ -53,36 +51,18 @@ def run_quality_audit(
             "overall_missing_pct": 100.0
         }
         
-    role_to_col = {}
-    if mappings:
-        for c, r in mappings.items():
-            if r and c in df.columns:
-                role_to_col[r] = c
-                
-    # ---------------- 1. COMPLETENESS ----------------
     total_cells = df.size
     total_nulls = int(df.isna().sum().sum())
     overall_missing_pct = round((total_nulls / total_cells * 100.0) if total_cells > 0 else 0.0, 2)
     
+    # 1. Missingness
     for col in df.columns:
         null_count = int(df[col].isna().sum())
         if null_count > 0:
             null_pct = round(null_count / row_count * 100.0, 2)
-            is_mapped_key = (col in mappings and mappings.get(col) in ["record_id", "date", "actual", "target", "completed", "received", "team"]) if mappings else False
-            
-            if is_mapped_key and null_pct > 10.0:
-                sev = Severity.CRITICAL
-            elif null_pct > 30.0:
-                sev = Severity.CRITICAL
-            elif null_pct > 5.0:
-                sev = Severity.WARNING
-            else:
-                sev = Severity.INFO
-                
-            null_indices = df[df[col].isna()].index.tolist()[:10]
-            
+            sev = Severity.CRITICAL if null_pct > 30.0 else (Severity.WARNING if null_pct > 5.0 else Severity.INFO)
             issues.append({
-                "issue_id": f"QA-{issue_counter:03d}",
+                "issue_id": f"SQA-{issue_counter:03d}",
                 "dimension": "Completeness",
                 "severity": sev,
                 "title": f"Missing Values in '{col}'",
@@ -90,21 +70,20 @@ def run_quality_audit(
                 "field": col,
                 "affected_count": null_count,
                 "affected_pct": null_pct,
-                "sample_indices": null_indices,
+                "sample_indices": df[df[col].isna()].index.tolist()[:10],
                 "sample_values": ["<NULL>"],
-                "recommended_action": "Check if missingness is concentrated in specific periods or groups; do not silently impute.",
+                "recommended_action": "Check whether missingness is systematic; do not silently impute.",
                 "status": QualityStatus.UNRESOLVED
             })
             issue_counter += 1
             
-    # ---------------- 2. UNIQUENESS ----------------
+    # 2. Duplicate Rows
     dup_rows_mask = df.duplicated(keep="first")
     dup_row_count = int(dup_rows_mask.sum())
     if dup_row_count > 0:
         dup_pct = round(dup_row_count / row_count * 100.0, 2)
-        dup_indices = df[dup_rows_mask].index.tolist()[:10]
         issues.append({
-            "issue_id": f"QA-{issue_counter:03d}",
+            "issue_id": f"SQA-{issue_counter:03d}",
             "dimension": "Uniqueness",
             "severity": Severity.CRITICAL if dup_pct > 5.0 else Severity.WARNING,
             "title": "Duplicate Rows Detected",
@@ -112,125 +91,65 @@ def run_quality_audit(
             "field": "ALL_COLUMNS",
             "affected_count": dup_row_count,
             "affected_pct": dup_pct,
-            "sample_indices": dup_indices,
+            "sample_indices": df[dup_rows_mask].index.tolist()[:10],
             "sample_values": ["Entire row duplicate"],
             "recommended_action": "Investigate source extract logic for double-counting; verify before aggregating.",
             "status": QualityStatus.UNRESOLVED
         })
         issue_counter += 1
         
-    if "record_id" in role_to_col:
-        id_col = role_to_col["record_id"]
-        dup_id_mask = df[id_col].duplicated(keep=False) & df[id_col].notna()
-        dup_id_count = int(dup_id_mask.sum())
-        if dup_id_count > 0:
-            dup_id_pct = round(dup_id_count / row_count * 100.0, 2)
-            dup_id_samples = df[dup_id_mask][id_col].head(5).astype(str).tolist()
-            issues.append({
-                "issue_id": f"QA-{issue_counter:03d}",
-                "dimension": "Uniqueness",
-                "severity": Severity.CRITICAL,
-                "title": f"Duplicate Record IDs in '{id_col}'",
-                "description": f"Field '{id_col}' contains {dup_id_count:,} non-unique identifier instances ({dup_id_pct}%).",
-                "field": id_col,
-                "affected_count": dup_id_count,
-                "affected_pct": dup_id_pct,
-                "sample_indices": df[dup_id_mask].index.tolist()[:10],
-                "sample_values": dup_id_samples,
-                "recommended_action": "Check whether dataset is case-level or event/history-level where IDs repeat by stage.",
-                "status": QualityStatus.UNRESOLVED
-            })
-            issue_counter += 1
-            
-    # ---------------- 3. VALIDITY & FORMAT ----------------
+    # 3. Invalid Dates & Unparsed Timestamps
     for col in df.columns:
         series = df[col].dropna()
         if len(series) == 0:
             continue
-            
         col_lower = col.lower()
-        if (mappings and mappings.get(col) in ["date", "reporting_period"]) or any(k in col_lower for k in ["date", "month", "timestamp"]):
+        if any(k in col_lower for k in ["date", "month", "timestamp", "period"]):
             if not pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_datetime64_any_dtype(series):
                 parsed = pd.to_datetime(series.astype(str).str.strip(), errors="coerce")
                 invalid_mask = parsed.isna()
                 invalid_count = int(invalid_mask.sum())
                 if invalid_count > 0:
                     invalid_pct = round(invalid_count / len(series) * 100.0, 2)
-                    bad_samples = series[invalid_mask].head(5).astype(str).tolist()
                     issues.append({
-                        "issue_id": f"QA-{issue_counter:03d}",
+                        "issue_id": f"SQA-{issue_counter:03d}",
                         "dimension": "Validity",
                         "severity": Severity.CRITICAL if invalid_pct > 5.0 else Severity.WARNING,
-                        "title": f"Invalid Date Values in '{col}'",
+                        "title": f"Invalid Date Formats in '{col}'",
                         "description": f"Found {invalid_count:,} values ({invalid_pct}%) that could not be parsed as valid dates.",
                         "field": col,
                         "affected_count": invalid_count,
                         "affected_pct": invalid_pct,
                         "sample_indices": series[invalid_mask].index.tolist()[:10],
-                        "sample_values": bad_samples,
-                        "recommended_action": "Review date strings (e.g. '2025-02-31', 'UNKNOWN'); format errors will cause time-series gaps.",
+                        "sample_values": series[invalid_mask].head(5).astype(str).tolist(),
+                        "recommended_action": "Review date strings (e.g. 'UNKNOWN', invalid days); format errors will cause time-series gaps.",
                         "status": QualityStatus.UNRESOLVED
                     })
                     issue_counter += 1
                     
-        is_capacity_or_vol = False
-        if mappings and mappings.get(col) in ["received", "completed", "opening_backlog", "closing_backlog", "staff", "fte", "hours_available", "hours_used", "actual", "target", "processing_time"]:
-            is_capacity_or_vol = True
-        elif any(k in col_lower for k in ["cases", "fte", "staff", "hours", "count", "received", "completed", "backlog", "days", "turnaround"]):
-            is_capacity_or_vol = True
+    # 4. Negative Values in Numeric Columns
+    for col in df.select_dtypes(include=['number']).columns:
+        neg_mask = (df[col] < 0)
+        neg_count = int(neg_mask.sum())
+        if neg_count > 0:
+            neg_pct = round(neg_count / row_count * 100.0, 2)
+            issues.append({
+                "issue_id": f"SQA-{issue_counter:03d}",
+                "dimension": "Validity",
+                "severity": Severity.WARNING,
+                "title": f"Negative Values in '{col}'",
+                "description": f"Field '{col}' contains {neg_count:,} negative observations ({neg_pct}%).",
+                "field": col,
+                "affected_count": neg_count,
+                "affected_pct": neg_pct,
+                "sample_indices": df[neg_mask].index.tolist()[:10],
+                "sample_values": df[col][neg_mask].head(5).astype(str).tolist(),
+                "recommended_action": "Verify if negative values represent cancellations/adjustments or data entry errors.",
+                "status": QualityStatus.UNRESOLVED
+            })
+            issue_counter += 1
             
-        if is_capacity_or_vol:
-            s_num = pd.to_numeric(series, errors="coerce")
-            neg_mask = (s_num < 0)
-            neg_count = int(neg_mask.sum())
-            if neg_count > 0:
-                neg_pct = round(neg_count / len(series) * 100.0, 2)
-                neg_samples = s_num[neg_mask].head(5).astype(str).tolist()
-                issues.append({
-                    "issue_id": f"QA-{issue_counter:03d}",
-                    "dimension": "Validity",
-                    "severity": Severity.CRITICAL if mappings and mappings.get(col) else Severity.WARNING,
-                    "title": f"Negative Values in Volume/Capacity Field '{col}'",
-                    "description": f"Field '{col}' contains {neg_count:,} negative observations ({neg_pct}%). Negative volumes/capacities are invalid.",
-                    "field": col,
-                    "affected_count": neg_count,
-                    "affected_pct": neg_pct,
-                    "sample_indices": s_num[neg_mask].index.tolist()[:10],
-                    "sample_values": neg_samples,
-                    "recommended_action": "Check if negative values represent adjustments/cancellations rather than genuine operational volume.",
-                    "status": QualityStatus.UNRESOLVED
-                })
-                issue_counter += 1
-                
-        is_denominator = False
-        if mappings and mappings.get(col) in ["target", "fte", "staff", "hours_available"]:
-            is_denominator = True
-        elif any(k in col_lower for k in ["target", "available_hours", "staff_fte", "target_output"]):
-            is_denominator = True
-            
-        if is_denominator:
-            s_num = pd.to_numeric(series, errors="coerce")
-            zero_mask = (s_num == 0)
-            zero_count = int(zero_mask.sum())
-            if zero_count > 0:
-                zero_pct = round(zero_count / len(series) * 100.0, 2)
-                issues.append({
-                    "issue_id": f"QA-{issue_counter:03d}",
-                    "dimension": "Validity",
-                    "severity": Severity.WARNING,
-                    "title": f"Zero Values in Potential Denominator '{col}'",
-                    "description": f"Field '{col}' has {zero_count:,} zero observations ({zero_pct}%). Division by zero will be safely guarded by setting resulting KPI to NaN.",
-                    "field": col,
-                    "affected_count": zero_count,
-                    "affected_pct": zero_pct,
-                    "sample_indices": s_num[zero_mask].index.tolist()[:10],
-                    "sample_values": ["0"],
-                    "recommended_action": "Zero denominators are protected in the KPI engine; ensure reporting captures genuine inactive periods.",
-                    "status": QualityStatus.UNRESOLVED
-                })
-                issue_counter += 1
-                
-    # ---------------- 4. CONSISTENCY ----------------
+    # 5. Category Whitespace / Case Inconsistency
     for col in df.columns:
         if not pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_datetime64_any_dtype(df[col]):
             vals = df[col].dropna().astype(str)
@@ -239,124 +158,233 @@ def run_quality_audit(
             if len(raw_uniques) > len(cleaned_uniques):
                 diff_count = len(raw_uniques) - len(cleaned_uniques)
                 issues.append({
-                    "issue_id": f"QA-{issue_counter:03d}",
+                    "issue_id": f"SQA-{issue_counter:03d}",
                     "dimension": "Consistency",
                     "severity": Severity.WARNING,
                     "title": f"Case / Whitespace Inconsistency in '{col}'",
-                    "description": f"Field '{col}' contains {diff_count} redundant category variants caused by case differences or trailing spaces (e.g. 'Team Alpha' vs 'team alpha').",
+                    "description": f"Field '{col}' contains {diff_count} redundant category variants caused by case differences or trailing spaces.",
                     "field": col,
                     "affected_count": len(raw_uniques),
                     "affected_pct": round(diff_count / max(1, len(raw_uniques)) * 100.0, 1),
                     "sample_indices": [],
-                    "sample_values": list(raw_uniques)[:6],
-                    "recommended_action": "Group comparisons will normalize casing for display; recommend cleaning upstream master data.",
+                    "sample_values": list(raw_uniques)[:5],
+                    "recommended_action": "Apply standard text normalization (strip trailing spaces, consistent title case).",
                     "status": QualityStatus.UNRESOLVED
                 })
                 issue_counter += 1
                 
-    # ---------------- 5. PLAUSIBILITY & DISTRIBUTION ----------------
+    # 6. Constant / Zero-Variance Columns
     for col in df.columns:
-        series = df[col].dropna()
-        if len(series) == 0:
-            continue
-            
-        if series.nunique() <= 1:
+        uniq = df[col].nunique(dropna=True)
+        if uniq <= 1 and row_count > 1:
             issues.append({
-                "issue_id": f"QA-{issue_counter:03d}",
+                "issue_id": f"SQA-{issue_counter:03d}",
                 "dimension": "Plausibility",
                 "severity": Severity.INFO,
-                "title": f"Constant Column '{col}'",
-                "description": f"Field '{col}' has only 1 unique value across all records: '{series.iloc[0]}'.",
+                "title": f"Constant Field '{col}'",
+                "description": f"Field '{col}' has {uniq} unique value across all records (zero variance).",
                 "field": col,
-                "affected_count": len(series),
+                "affected_count": row_count,
                 "affected_pct": 100.0,
-                "sample_indices": [],
-                "sample_values": [str(series.iloc[0])],
-                "recommended_action": "Constant columns provide no variance for statistical comparisons or trend modeling.",
+                "sample_indices": [0],
+                "sample_values": [str(df[col].iloc[0]) if len(df) > 0 else "None"],
+                "recommended_action": "Constant columns provide no variance for segmentation; consider excluding from drivers.",
                 "status": QualityStatus.UNRESOLVED
             })
             issue_counter += 1
             
-        if pd.api.types.is_numeric_dtype(series) and len(series) >= 10:
-            s_num = series.astype(float)
-            q25 = s_num.quantile(0.25)
-            q75 = s_num.quantile(0.75)
-            iqr = q75 - q25
-            if iqr > 0:
-                lower_bound = q25 - 1.5 * iqr
-                upper_bound = q75 + 1.5 * iqr
-                outlier_mask = (s_num < lower_bound) | (s_num > upper_bound)
-                outlier_count = int(outlier_mask.sum())
-                if outlier_count > 0:
-                    outlier_pct = round(outlier_count / len(series) * 100.0, 2)
-                    outlier_samples = s_num[outlier_mask].head(5).tolist()
-                    issues.append({
-                        "issue_id": f"QA-{issue_counter:03d}",
-                        "dimension": "Plausibility",
-                        "severity": Severity.WARNING if outlier_pct > 5.0 else Severity.INFO,
-                        "title": f"Statistical Outliers in '{col}' (IQR Method)",
-                        "description": f"Field '{col}' has {outlier_count} values ({outlier_pct}%) outside standard IQR bounds [{lower_bound:.1f}, {upper_bound:.1f}].",
-                        "field": col,
-                        "affected_count": outlier_count,
-                        "affected_pct": outlier_pct,
-                        "sample_indices": s_num[outlier_mask].index.tolist()[:10],
-                        "sample_values": [str(round(x, 2)) for x in outlier_samples],
-                        "recommended_action": "Review outliers with operational SME. DO NOT delete; use median/IQR robust metrics.",
-                        "status": QualityStatus.UNRESOLVED
-                    })
-                    issue_counter += 1
-                    
-    # ---------------- 6. INTEGRITY & RECONCILIATION ----------------
-    if all(k in role_to_col for k in ["opening_backlog", "closing_backlog", "received", "completed"]):
-        open_col = role_to_col["opening_backlog"]
-        close_col = role_to_col["closing_backlog"]
-        rec_col = role_to_col["received"]
-        comp_col = role_to_col["completed"]
-        
-        try:
-            s_open = pd.to_numeric(df[open_col], errors="coerce").fillna(0)
-            s_close = pd.to_numeric(df[close_col], errors="coerce").fillna(0)
-            s_rec = pd.to_numeric(df[rec_col], errors="coerce").fillna(0)
-            s_comp = pd.to_numeric(df[comp_col], errors="coerce").fillna(0)
-            
-            expected_close = s_open + s_rec - s_comp
-            gap = (s_close - expected_close).abs()
-            mismatch_mask = (gap > 0.001)
-            mismatch_count = int(mismatch_mask.sum())
-            if mismatch_count > 0:
-                mismatch_pct = round(mismatch_count / row_count * 100.0, 2)
-                max_gap = float(gap.max())
-                issues.append({
-                    "issue_id": f"QA-{issue_counter:03d}",
-                    "dimension": "Integrity",
-                    "severity": Severity.CRITICAL,
-                    "title": "Backlog Inventory Reconciliation Discrepancy",
-                    "description": f"Closing backlog does not balance with Opening + Received - Completed in {mismatch_count:,} rows ({mismatch_pct}%). Max gap: {max_gap:,.1f}.",
-                    "field": f"{close_col} vs Expected",
-                    "affected_count": mismatch_count,
-                    "affected_pct": mismatch_pct,
-                    "sample_indices": df[mismatch_mask].index.tolist()[:10],
-                    "sample_values": [f"Reported: {s_close.iloc[i]}, Expected: {expected_close.iloc[i]}" for i in df[mismatch_mask].index[:3]],
-                    "recommended_action": "Investigate unrecorded case transfers, cancellations, or discrepancies between intake and case management systems.",
-                    "status": QualityStatus.UNRESOLVED
-                })
-                issue_counter += 1
-        except Exception:
-            pass
-            
-    crit_count = sum(1 for x in issues if x["severity"] == Severity.CRITICAL)
-    warn_count = sum(1 for x in issues if x["severity"] == Severity.WARNING)
-    info_count = sum(1 for x in issues if x["severity"] == Severity.INFO)
+    crit_count = sum(1 for i in issues if i["severity"] == Severity.CRITICAL)
+    warn_count = sum(1 for i in issues if i["severity"] == Severity.WARNING)
+    info_count = sum(1 for i in issues if i["severity"] == Severity.INFO)
     
-    health_deductions = (crit_count * 25.0) + (warn_count * 5.0) + (info_count * 1.0)
-    health_score = max(0.0, round(100.0 - health_deductions, 1))
+    health_score = max(0.0, 100.0 - (crit_count * 15.0) - (warn_count * 4.0) - (info_count * 1.0))
     
     return {
+        "stage": "Structural QA",
         "issues": issues,
         "critical_count": crit_count,
         "warning_count": warn_count,
         "info_count": info_count,
         "total_issues": len(issues),
-        "health_score": health_score,
+        "health_score": round(health_score, 1),
         "overall_missing_pct": overall_missing_pct
+    }
+
+
+def run_semantic_qa(df: pd.DataFrame, confirmed_mappings: Dict[str, str]) -> Dict[str, Any]:
+    """Stage B — Semantic QA after confirmed mappings (Business logic & relational integrity)."""
+    issues: List[Dict[str, Any]] = []
+    issue_counter = 1
+    row_count = len(df)
+    
+    if not confirmed_mappings:
+        return {
+            "stage": "Semantic QA",
+            "issues": [],
+            "critical_count": 0,
+            "warning_count": 0,
+            "info_count": 0,
+            "total_issues": 0,
+            "health_score": 100.0,
+            "status": "Pending Confirmed Mappings"
+        }
+        
+    role_to_col = {}
+    for c, r in confirmed_mappings.items():
+        if r and c in df.columns:
+            role_to_col[r] = c
+            
+    # 1. Duplicate Record IDs
+    if "record_id" in role_to_col:
+        id_col = role_to_col["record_id"]
+        dup_id_mask = df[id_col].duplicated(keep=False) & df[id_col].notna()
+        dup_id_count = int(dup_id_mask.sum())
+        if dup_id_count > 0:
+            dup_id_pct = round(dup_id_count / row_count * 100.0, 2)
+            issues.append({
+                "issue_id": f"SEM-{issue_counter:03d}",
+                "dimension": "Semantic Integrity",
+                "severity": Severity.CRITICAL,
+                "title": f"Duplicate Record IDs in '{id_col}'",
+                "description": f"Mapped record ID '{id_col}' contains {dup_id_count:,} duplicate instances ({dup_id_pct}%).",
+                "field": id_col,
+                "affected_count": dup_id_count,
+                "affected_pct": dup_id_pct,
+                "sample_indices": df[dup_id_mask].index.tolist()[:10],
+                "sample_values": df[id_col][dup_id_mask].head(5).astype(str).tolist(),
+                "recommended_action": "Check row granularity; ensure multi-event cases are aggregated before rate calculations.",
+                "status": QualityStatus.UNRESOLVED
+            })
+            issue_counter += 1
+            
+    # 2. Mapped Denominator Zero Risks
+    for den_role in ["target", "fte", "staff", "hours_available"]:
+        if den_role in role_to_col:
+            d_col = role_to_col[den_role]
+            s_num = pd.to_numeric(df[d_col], errors="coerce")
+            zero_mask = (s_num == 0)
+            zero_count = int(zero_mask.sum())
+            if zero_count > 0:
+                zero_pct = round(zero_count / row_count * 100.0, 2)
+                issues.append({
+                    "issue_id": f"SEM-{issue_counter:03d}",
+                    "dimension": "Calculation Safety",
+                    "severity": Severity.WARNING,
+                    "title": f"Zero Values in Mapped Denominator '{d_col}' ({den_role})",
+                    "description": f"Mapped denominator '{d_col}' contains {zero_count:,} zeros ({zero_pct}%). KPI engine will safely return NaN.",
+                    "field": d_col,
+                    "affected_count": zero_count,
+                    "affected_pct": zero_pct,
+                    "sample_indices": df[zero_mask].index.tolist()[:10],
+                    "sample_values": ["0"],
+                    "recommended_action": "Ensure zero-capacity periods are documented in assumptions.",
+                    "status": QualityStatus.UNRESOLVED
+                })
+                issue_counter += 1
+                
+    # 3. Backlog Inventory Reconciliation Gap
+    if "opening_backlog" in role_to_col and "closing_backlog" in role_to_col and "received" in role_to_col and ("completed" in role_to_col or "actual" in role_to_col):
+        o_col = role_to_col["opening_backlog"]
+        c_col = role_to_col["closing_backlog"]
+        r_col = role_to_col["received"]
+        comp_col = role_to_col.get("completed") or role_to_col.get("actual")
+        
+        s_open = pd.to_numeric(df[o_col], errors="coerce")
+        s_close = pd.to_numeric(df[c_col], errors="coerce")
+        s_rec = pd.to_numeric(df[r_col], errors="coerce")
+        s_comp = pd.to_numeric(df[comp_col], errors="coerce")
+        
+        expected_close = s_open + s_rec - s_comp
+        gap = s_close - expected_close
+        gap_mask = (gap.abs() > 0.01) & gap.notna()
+        gap_count = int(gap_mask.sum())
+        
+        if gap_count > 0:
+            gap_pct = round(gap_count / row_count * 100.0, 2)
+            tot_gap = float(gap.abs().sum())
+            issues.append({
+                "issue_id": f"SEM-{issue_counter:03d}",
+                "dimension": "Business Rule Integrity",
+                "severity": Severity.WARNING if gap_pct < 10.0 else Severity.CRITICAL,
+                "title": "Backlog Flow Reconciliation Discrepancy",
+                "description": f"Found {gap_count:,} periods ({gap_pct}%) where Closing Backlog != Opening + Received - Completed (Total gap: {tot_gap:,.1f} cases).",
+                "field": f"{c_col} vs Expected",
+                "affected_count": gap_count,
+                "affected_pct": gap_pct,
+                "sample_indices": df[gap_mask].index.tolist()[:10],
+                "sample_values": [f"Gap: {g:+,.1f}" for g in gap[gap_mask].head(5).tolist()],
+                "recommended_action": "Investigate unrecorded transfers, adjustments, or reporting boundary lags.",
+                "status": QualityStatus.UNRESOLVED
+            })
+            issue_counter += 1
+            
+    # 4. Hours Worked Exceeds Hours Scheduled
+    if "hours_used" in role_to_col and "hours_available" in role_to_col:
+        hu_col = role_to_col["hours_used"]
+        ha_col = role_to_col["hours_available"]
+        s_hu = pd.to_numeric(df[hu_col], errors="coerce")
+        s_ha = pd.to_numeric(df[ha_col], errors="coerce")
+        over_mask = (s_hu > s_ha * 1.5) & s_hu.notna() & s_ha.notna()
+        over_count = int(over_mask.sum())
+        if over_count > 0:
+            over_pct = round(over_count / row_count * 100.0, 2)
+            issues.append({
+                "issue_id": f"SEM-{issue_counter:03d}",
+                "dimension": "Plausibility",
+                "severity": Severity.WARNING,
+                "title": f"Excessive Hours Worked in '{hu_col}' vs '{ha_col}'",
+                "description": f"Found {over_count:,} observations ({over_pct}%) where worked hours exceed scheduled capacity by >50% (potential unrecorded overtime).",
+                "field": hu_col,
+                "affected_count": over_count,
+                "affected_pct": over_pct,
+                "sample_indices": df[over_mask].index.tolist()[:10],
+                "sample_values": df[hu_col][over_mask].head(5).astype(str).tolist(),
+                "recommended_action": "Confirm whether overtime capacity is included in baseline hours available.",
+                "status": QualityStatus.UNRESOLVED
+            })
+            issue_counter += 1
+            
+    crit_count = sum(1 for i in issues if i["severity"] == Severity.CRITICAL)
+    warn_count = sum(1 for i in issues if i["severity"] == Severity.WARNING)
+    info_count = sum(1 for i in issues if i["severity"] == Severity.INFO)
+    
+    health_score = max(0.0, 100.0 - (crit_count * 15.0) - (warn_count * 4.0) - (info_count * 1.0))
+    
+    return {
+        "stage": "Semantic QA",
+        "issues": issues,
+        "critical_count": crit_count,
+        "warning_count": warn_count,
+        "info_count": info_count,
+        "total_issues": len(issues),
+        "health_score": round(health_score, 1),
+        "status": "Completed"
+    }
+
+
+def run_quality_audit(
+    df: pd.DataFrame,
+    mappings: Optional[Dict[str, str]] = None
+) -> Dict[str, Any]:
+    """Execute complete two-stage quality audit combining Structural and Semantic QA."""
+    struct_res = run_structural_qa(df)
+    sem_res = run_semantic_qa(df, mappings or {})
+    
+    combined_issues = struct_res["issues"] + sem_res["issues"]
+    crit_count = struct_res["critical_count"] + sem_res["critical_count"]
+    warn_count = struct_res["warning_count"] + sem_res["warning_count"]
+    info_count = struct_res["info_count"] + sem_res["info_count"]
+    
+    combined_health = max(0.0, 100.0 - (crit_count * 12.0) - (warn_count * 3.5) - (info_count * 1.0))
+    
+    return {
+        "structural": struct_res,
+        "semantic": sem_res,
+        "issues": combined_issues,
+        "critical_count": crit_count,
+        "warning_count": warn_count,
+        "info_count": info_count,
+        "total_issues": len(combined_issues),
+        "health_score": round(combined_health, 1),
+        "overall_missing_pct": struct_res["overall_missing_pct"]
     }

@@ -11,35 +11,35 @@ ROLE_CATALOGUE = {
         "label": "Record ID",
         "description": "Unique identifier for each transaction, row, or case",
         "category": "Identity",
-        "keywords": ["id", "record_id", "case_id", "ref", "reference", "identifier", "ticket_id", "urn", "application_id", "app_id", "row_id", "case_reference"],
+        "keywords": ["id", "record_id", "case_id", "ref", "reference", "identifier", "ticket_id", "urn", "application_id", "app_id", "row_id", "case_reference", "transaction_id"],
         "data_types": ["string", "integer"]
     },
     "date": {
         "label": "Date",
         "description": "Primary transaction, received, or observation timestamp/date",
         "category": "Time",
-        "keywords": ["date", "timestamp", "created_date", "received_date", "completion_date", "submission_date", "event_date", "start_date", "end_date", "log_date", "date_received"],
+        "keywords": ["date", "timestamp", "created_date", "received_date", "completion_date", "submission_date", "event_date", "start_date", "end_date", "log_date", "date_received", "case_date"],
         "data_types": ["datetime", "date", "string"]
     },
     "reporting_period": {
         "label": "Reporting Period",
-        "description": "Reporting cycle e.g. month, quarter, week, year, financial year",
+        "description": "Reporting cycle e.g. month, quarter, week, year, financial year, period",
         "category": "Time",
-        "keywords": ["period", "month", "year", "quarter", "week", "reporting_period", "cal_month", "fin_year", "period_name", "period_id", "reporting_month"],
+        "keywords": ["period", "month", "year", "quarter", "week", "reporting_period", "cal_month", "fin_year", "period_name", "period_id", "reporting_month", "cycle", "date_period"],
         "data_types": ["string", "integer", "datetime"]
     },
     "team": {
         "label": "Team",
         "description": "Operational team or squad executing the work",
         "category": "Dimensions",
-        "keywords": ["team", "team_name", "unit", "squad", "group", "crew", "section", "operational_unit", "service_area", "handling_team", "operational_team"],
+        "keywords": ["team", "service_team", "operational_team", "team_name", "unit", "squad", "group", "crew", "section", "operational_unit", "service_area", "handling_team", "ops_team"],
         "data_types": ["string", "category"]
     },
     "department": {
         "label": "Department",
         "description": "Higher organizational unit / department / division",
         "category": "Dimensions",
-        "keywords": ["department", "dept", "division", "directorate", "branch", "service", "function"],
+        "keywords": ["department", "dept", "division", "directorate", "branch", "service", "function", "business_unit"],
         "data_types": ["string", "category"]
     },
     "branch": {
@@ -53,7 +53,7 @@ ROLE_CATALOGUE = {
         "label": "Location",
         "description": "Geographical region, site, or location",
         "category": "Dimensions",
-        "keywords": ["location", "region", "area", "site", "zone", "territory", "city", "postcode", "country"],
+        "keywords": ["location", "region", "area", "site", "zone", "territory", "city", "postcode", "country", "district", "place"],
         "data_types": ["string", "category"]
     },
     "category": {
@@ -81,42 +81,42 @@ ROLE_CATALOGUE = {
         "label": "Actual Performance",
         "description": "Observed volume or KPI output achieved",
         "category": "Performance",
-        "keywords": ["actual", "achieved", "output", "delivered", "result", "performance", "volume", "cases_completed", "cases_out", "target_completed"],
+        "keywords": ["actual", "achieved", "output", "delivered", "result", "performance", "volume", "cases_completed", "cases_out", "target_completed", "actual_output"],
         "data_types": ["numeric", "float", "integer"]
     },
     "target": {
         "label": "Target",
         "description": "Expected performance standard, goal, or SLA benchmark",
         "category": "Performance",
-        "keywords": ["target", "expected", "goal", "benchmark", "standard", "sla", "budget", "plan", "threshold", "target_output", "sla_target_days"],
+        "keywords": ["target", "output_target", "target_output", "expected", "goal", "benchmark", "standard", "sla", "budget", "plan", "threshold", "sla_target", "target_volume", "sla_target_days", "target_cases", "vol_target"],
         "data_types": ["numeric", "float", "integer"]
     },
     "received": {
         "label": "Cases Received",
         "description": "Incoming demand volume / new cases received",
         "category": "Performance",
-        "keywords": ["received", "incoming", "new_cases", "intake", "applications", "demand", "submissions", "opened", "created", "inputs", "cases_received", "cases_in"],
+        "keywords": ["received", "demand_received", "demand", "inflow", "incoming", "new_cases", "intake", "applications", "submissions", "opened", "created", "inputs", "cases_received", "cases_in", "work_in", "vol_received"],
         "data_types": ["numeric", "float", "integer"]
     },
     "completed": {
         "label": "Cases Completed",
         "description": "Processed volume / cases closed / decisions made",
         "category": "Performance",
-        "keywords": ["completed", "closed", "resolved", "processed", "finished", "decisions", "finalised", "outputs", "clearances", "cases_completed", "cases_out"],
+        "keywords": ["completed", "cases_closed", "closed", "resolved", "processed", "finished", "decisions", "finalised", "outputs", "clearances", "cases_completed", "cases_out", "work_out", "done", "vol_completed"],
         "data_types": ["numeric", "float", "integer"]
     },
     "opening_backlog": {
         "label": "Opening Backlog",
         "description": "Queue / work in progress at start of period",
         "category": "Performance",
-        "keywords": ["opening_backlog", "opening_queue", "start_backlog", "opening_wip", "starting_open", "initial_backlog", "beginning_backlog", "opening_bl"],
+        "keywords": ["opening_backlog", "open_work_start", "opening_queue", "start_backlog", "opening_wip", "starting_open", "initial_backlog", "beginning_backlog", "opening_bl", "start_work", "open_start", "start_queue"],
         "data_types": ["numeric", "float", "integer"]
     },
     "closing_backlog": {
         "label": "Closing Backlog",
         "description": "Queue / work in progress at end of period",
         "category": "Performance",
-        "keywords": ["closing_backlog", "closing_queue", "end_backlog", "closing_wip", "ending_open", "final_backlog", "outstanding", "backlog", "pending", "closing_bl"],
+        "keywords": ["closing_backlog", "open_work_end", "closing_queue", "end_backlog", "closing_wip", "ending_open", "final_backlog", "outstanding", "backlog", "pending", "closing_bl", "end_work", "open_end", "end_queue"],
         "data_types": ["numeric", "float", "integer"]
     },
     "staff": {
@@ -130,70 +130,72 @@ ROLE_CATALOGUE = {
         "label": "Available FTE",
         "description": "Full-Time Equivalent staff capacity",
         "category": "Capacity",
-        "keywords": ["fte", "full_time_equivalent", "staff_fte", "capacity_fte", "resource_fte", "available_fte", "active_fte"],
+        "keywords": ["fte", "available_fte", "active_fte", "full_time_equivalent", "staff_fte", "capacity_fte", "resource_fte", "total_fte"],
         "data_types": ["numeric", "float", "integer"]
     },
     "hours_available": {
         "label": "Hours Available",
         "description": "Total scheduled / available working hours",
         "category": "Capacity",
-        "keywords": ["hours_available", "available_hours", "scheduled_hours", "capacity_hours", "total_hours", "standard_hours", "contracted_hours", "hours"],
+        "keywords": ["hours_available", "scheduled_hours", "available_hours", "capacity_hours", "total_hours", "standard_hours", "contracted_hours", "hours_scheduled", "planned_hours", "hours"],
         "data_types": ["numeric", "float", "integer"]
     },
     "hours_used": {
         "label": "Hours Used",
         "description": "Actual productive or recorded working hours",
         "category": "Capacity",
-        "keywords": ["hours_used", "worked_hours", "productive_hours", "logged_hours", "actual_hours", "utilised_hours", "utilized_hours", "hours_spent", "hours_worked"],
+        "keywords": ["hours_used", "productive_hours", "worked_hours", "logged_hours", "actual_hours", "utilised_hours", "utilized_hours", "hours_spent", "hours_worked", "active_hours"],
         "data_types": ["numeric", "float", "integer"]
     },
     "processing_time": {
         "label": "Processing Time",
         "description": "Duration, turnaround days/hours, or cycle time to complete",
         "category": "Performance",
-        "keywords": ["processing_time", "duration", "days", "turnaround", "cycle_time", "elapsed", "handling_time", "tat", "lead_time", "age_days", "avg_turnaround_days", "processing_duration_days"],
+        "keywords": ["processing_time", "median_turnaround_days", "turnaround_days", "turnaround", "tat", "cycle_time", "duration", "days", "elapsed", "handling_time", "lead_time", "age_days", "avg_turnaround_days", "processing_duration_days", "turnaround_time", "avg_days"],
         "data_types": ["numeric", "float", "integer"]
     },
     "cost": {
         "label": "Cost",
         "description": "Financial cost or spend associated with activity",
         "category": "Other",
-        "keywords": ["cost", "spend", "expenditure", "budget_spent", "unit_cost", "expense", "amount", "case_cost_gbp"],
+        "keywords": ["cost", "unit_cost_gbp", "unit_cost", "spend", "expenditure", "budget_spent", "expense", "amount", "case_cost_gbp", "cost_gbp", "cost_per_case"],
         "data_types": ["numeric", "float", "integer"]
     },
     "quality_measure": {
         "label": "Quality Measure",
         "description": "Audit score, accuracy rate, error rate, compliance %",
         "category": "Other",
-        "keywords": ["quality", "accuracy", "error_rate", "audit_score", "compliance", "pass_rate", "defect_rate", "first_time_fix", "quality_audit_score"],
+        "keywords": ["quality_measure", "quality_score_pct", "quality", "accuracy", "error_rate", "audit_score", "compliance", "pass_rate", "defect_rate", "first_time_fix", "quality_audit_score", "quality_score"],
         "data_types": ["numeric", "float", "integer"]
     },
     "customer_measure": {
         "label": "Customer Measure",
         "description": "CSAT, NPS, satisfaction score, complaints count",
         "category": "Other",
-        "keywords": ["csat", "nps", "satisfaction", "complaints", "feedback_score", "rating", "customer_score", "customer_satisfaction_pct"],
+        "keywords": ["customer_measure", "customer_satisfaction_pct", "csat", "nps", "satisfaction", "complaints", "feedback_score", "rating", "customer_score", "customer_satisfaction", "csat_pct", "csat_score"],
         "data_types": ["numeric", "float", "integer"]
     }
 }
 
+SEMANTIC_ROLES = list(ROLE_CATALOGUE.keys())
+
 
 def get_role_catalogue() -> Dict[str, Any]:
-    """Return the full role catalogue dictionary."""
     return ROLE_CATALOGUE
 
 
 def _normalize_name(name: str) -> str:
-    """Normalize column name to lowercase tokens."""
     return re.sub(r"[^a-zA-Z0-9]+", "_", str(name)).lower().strip("_")
 
 
 def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
-    """Analyze DataFrame columns and produce SUGGESTIONS only with confidence scores.
-    NOTE: Suggested mappings NEVER activate KPIs until explicitly confirmed by the user.
+    """Analyze DataFrame columns and produce PROVISIONAL suggestions only.
+    Suggested mappings NEVER activate KPIs until explicitly confirmed by the analyst.
     """
     suggestions = {}
-    
+    if df is None or len(df.columns) == 0:
+        return {}
+        
     for col in df.columns:
         norm_col = _normalize_name(col)
         tokens = set(norm_col.split("_"))
@@ -218,18 +220,23 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
             score = 0.0
             keywords = role_meta["keywords"]
             
+            # Exact match on role key or synonym
             if norm_col == role_key or norm_col in keywords:
                 score = 0.95
             else:
                 for kw in keywords:
                     kw_tokens = set(kw.split("_"))
-                    if kw_tokens.issubset(tokens):
-                        score = max(score, 0.85)
-                    elif any(kt in tokens for kt in kw_tokens):
-                        score = max(score, 0.55)
-                    elif kw in norm_col:
-                        score = max(score, 0.65)
+                    # If all tokens of a multi-word keyword match
+                    if len(kw_tokens) > 1 and kw_tokens.issubset(tokens):
+                        score = max(score, 0.90)
+                    elif kw in norm_col or norm_col in kw:
+                        score = max(score, 0.80)
+                    elif kw_tokens.issubset(tokens):
+                        score = max(score, 0.75)
+                    elif any(kt in tokens for kt in kw_tokens if len(kt) > 2):
+                        score = max(score, 0.50)
                         
+            # Role domain boosts
             if role_meta["category"] in ["Performance", "Capacity", "Other"]:
                 if is_num:
                     score = min(1.0, score + 0.05) if score > 0 else 0.0
@@ -238,9 +245,9 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
                     
             if role_key in ["date", "reporting_period"]:
                 if is_dt:
-                    score = min(1.0, score + 0.1) if score > 0 else 0.4
-                elif not is_num and any(k in norm_col for k in ["date", "time", "month", "year", "period"]):
-                    score = max(score, 0.7)
+                    score = min(1.0, score + 0.15) if score > 0 else 0.80
+                elif not is_num and any(k in norm_col for k in ["date", "time", "month", "year", "period", "quarter", "week"]):
+                    score = max(score, 0.85)
                     
             if score > 0:
                 role_scores.append((role_key, round(score, 2)))
@@ -251,22 +258,26 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
         role_scores.sort(key=lambda x: x[1], reverse=True)
         
         suggestions[col] = {
-            "suggested_role": best_role if best_score >= 0.4 else None,
-            "confidence": round(best_score, 2) if best_role and best_score >= 0.4 else 0.0,
+            "suggested_role": best_role if best_score >= 0.45 else None,
+            "confidence": round(best_score, 2) if best_role and best_score >= 0.45 else 0.0,
             "all_scores": role_scores[:3],
-            "status": "Suggested" if best_role and best_score >= 0.4 else "Unmapped"
+            "status": "Suggested" if best_role and best_score >= 0.45 else "Unmapped"
         }
         
     return suggestions
+
+
+def suggest_column_mappings(df: pd.DataFrame) -> Dict[str, str]:
+    """Simple dictionary helper returning {column_name: suggested_role_or_empty}."""
+    rich_suggestions = suggest_mappings(df)
+    return {col: info["suggested_role"] or "" for col, info in rich_suggestions.items()}
 
 
 def validate_mappings(
     confirmed_mappings: Optional[Dict[str, str]],
     df: pd.DataFrame
 ) -> Dict[str, Any]:
-    """Validate user CONFIRMED mappings and determine enabled analytical modules and KPIs.
-    If confirmed_mappings is empty/None, all KPI modules remain strictly disabled.
-    """
+    """Validate user CONFIRMED mappings and determine enabled analytical modules and KPIs."""
     if not confirmed_mappings:
         return {
             "role_to_col": {},
@@ -286,7 +297,6 @@ def validate_mappings(
             role_to_col[role] = col
             
     kpi_status = {}
-    
     has_actual = "actual" in role_to_col or "completed" in role_to_col
     has_target = "target" in role_to_col
     kpi_status["target_achievement"] = {
@@ -366,15 +376,6 @@ def validate_mappings(
     }
 
 
-SEMANTIC_ROLES = list(ROLE_CATALOGUE.keys())
-
-
-def suggest_column_mappings(df: pd.DataFrame) -> Dict[str, str]:
-    """Simple dictionary helper returning {column_name: suggested_role_or_empty}."""
-    rich_suggestions = suggest_mappings(df)
-    return {col: info["suggested_role"] or "" for col, info in rich_suggestions.items()}
-
-
 def validate_mapping_integrity(df: pd.DataFrame, mappings: Dict[str, str]) -> Dict[str, List[str]]:
     """Validate mapping integrity and return errors and warnings."""
     errors = []
@@ -387,11 +388,9 @@ def validate_mapping_integrity(df: pd.DataFrame, mappings: Dict[str, str]) -> Di
         if col not in df.columns:
             errors.append(f"Mapped column '{col}' does not exist in dataset.")
             
-    # Check numeric requirements
     for col, role in mappings.items():
         if col in df.columns and role in ["actual", "target", "fte", "hours_available", "hours_used", "opening_backlog", "closing_backlog", "received", "completed", "processing_time"]:
             if not pd.api.types.is_numeric_dtype(df[col]):
-                # Check if convertible
                 converted = pd.to_numeric(df[col], errors="coerce")
                 if converted.isna().sum() > len(df) * 0.5:
                     warnings.append(f"Column '{col}' mapped to '{role}' contains >50% non-numeric values.")

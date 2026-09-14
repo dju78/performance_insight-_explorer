@@ -1,70 +1,90 @@
-"""Page 02: Data Quality Engine & Audit Dashboard."""
 import streamlit as st
 import pandas as pd
 from src.state import init_session_state
-from src.quality import run_quality_audit, Severity, QualityStatus
+from src.quality import run_structural_qa, run_semantic_qa, run_quality_audit, Severity, QualityStatus
 
 init_session_state()
 
-st.title("🛡️ 2. Data Quality Engine")
-st.caption("Multi-dimensional quality assurance scan: Completeness, Uniqueness, Validity, Consistency, Plausibility, Integrity.")
+st.title("🛡️ 02. Two-Stage Data Quality Engine")
+st.caption("Automatic Stage A (Structural QA) and Stage B (Semantic QA with confirmed mappings).")
 
-if st.session_state.raw_df is None:
-    st.warning("⚠️ No dataset loaded. Please upload a file in 'Upload & Profile' first.")
-else:
-    # Refresh QA if needed
-    if st.button("🔄 Re-run Quality Scan"):
-        st.session_state.qa_report = run_quality_audit(
-            st.session_state.raw_df,
-            st.session_state.confirmed_mappings
-        )
-        st.session_state.audit_logger.log(
-            "QA_AUDIT_RERUN",
-            f"Executed QA scan. Health Score: {st.session_state.qa_report['health_score']}/100",
-            row_count=len(st.session_state.raw_df)
-        )
-        st.success("Quality audit re-executed.")
+df = st.session_state.get("clean_df")
+mappings = st.session_state.get("confirmed_mappings", {})
+
+if df is None:
+    st.warning("⚠️ No dataset loaded. Please upload a file on Page 01 first.")
+    st.stop()
+
+# Ensure Stage A Structural QA is populated
+if not st.session_state.get("structural_qa_report"):
+    st.session_state["structural_qa_report"] = run_structural_qa(df)
+
+# If mappings exist, ensure Stage B Semantic QA is populated
+if mappings and not st.session_state.get("semantic_qa_report"):
+    st.session_state["semantic_qa_report"] = run_semantic_qa(df, mappings)
+
+if st.button("🔄 Refresh & Re-run Full Quality Scan"):
+    st.session_state["structural_qa_report"] = run_structural_qa(df)
+    if mappings:
+        st.session_state["semantic_qa_report"] = run_semantic_qa(df, mappings)
+    st.session_state["qa_report"] = run_quality_audit(df, mappings)
+    st.session_state.audit_logger.log(
+        "QA_AUDIT_RERUN",
+        f"Re-executed quality scan. Overall Health: {st.session_state['qa_report']['health_score']}/100",
+        row_count=len(df)
+    )
+    st.success("Quality audit re-executed successfully.")
+    st.rerun()
+
+struct_qa = st.session_state.get("structural_qa_report", {})
+sem_qa = st.session_state.get("semantic_qa_report", {})
+
+st.markdown("---")
+tab_a, tab_b = st.tabs(["🏗️ Stage A: Structural QA (Immediate)", "🎯 Stage B: Semantic QA (Business Logic)"])
+
+with tab_a:
+    st.subheader("Stage A: Automatic Structural Quality Audit")
+    st.caption("Scans completeness, duplicate rows, invalid dates, negative numbers, zeros, text inconsistencies, and constant columns without needing column mappings.")
+    
+    ca1, ca2, ca3, ca4 = st.columns(4)
+    ca1.metric("Structural Health Score", f"{struct_qa.get('health_score', 100):.1f} / 100")
+    ca2.metric("Critical Issues", f"{struct_qa.get('critical_count', 0)}")
+    ca3.metric("Warning Issues", f"{struct_qa.get('warning_count', 0)}")
+    ca4.metric("Info Items", f"{struct_qa.get('info_count', 0)}")
+    
+    s_issues = struct_qa.get("issues", [])
+    if not s_issues:
+        st.success("🎉 No structural quality issues detected! Dataset passed all Stage A checks.")
+    else:
+        for iss in s_issues:
+            sev = iss["severity"]
+            badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
+            with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL)):
+                st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
+                st.markdown(f"**Description:** {iss['description']}")
+                st.markdown(f"**Recommended Action:** {iss['recommended_action']}")
+
+with tab_b:
+    st.subheader("Stage B: Semantic Business Rule QA")
+    st.caption("Validates business relationships, duplicate record IDs, mapped denominator zero-risks, and backlog reconciliation gaps once column mappings are confirmed.")
+    
+    if not mappings:
+        st.info("ℹ️ **Semantic QA Pending:** Please go to **03. Column Mapping** and confirm column mappings to activate Stage B business logic checks.")
+    else:
+        cb1, cb2, cb3, cb4 = st.columns(4)
+        cb1.metric("Semantic Health Score", f"{sem_qa.get('health_score', 100):.1f} / 100")
+        cb2.metric("Critical Semantic Issues", f"{sem_qa.get('critical_count', 0)}")
+        cb3.metric("Warning Issues", f"{sem_qa.get('warning_count', 0)}")
+        cb4.metric("Info Items", f"{sem_qa.get('info_count', 0)}")
         
-    qa = st.session_state.qa_report
-    if qa:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Data Health Score", f"{qa['health_score']:.1f} / 100")
-        c2.metric("Critical Issues", f"{qa['critical_count']}", delta="Requires Review" if qa['critical_count'] > 0 else "Clean", delta_color="inverse")
-        c3.metric("Warning Issues", f"{qa['warning_count']}")
-        c4.metric("Information Items", f"{qa['info_count']}")
-        
-        st.markdown("---")
-        st.subheader("📋 Detected Data Quality Issues")
-        
-        issues = qa.get("issues", [])
-        if not issues:
-            st.success("🎉 No data quality issues detected! Dataset passed all checks.")
+        b_issues = sem_qa.get("issues", [])
+        if not b_issues:
+            st.success("✅ All semantic and business logic checks passed cleanly!")
         else:
-            # Filter severity
-            sev_filter = st.multiselect("Filter by Severity:", [Severity.CRITICAL, Severity.WARNING, Severity.INFO], default=[Severity.CRITICAL, Severity.WARNING])
-            filtered_issues = [i for i in issues if i["severity"] in sev_filter]
-            
-            for iss in filtered_issues:
+            for iss in b_issues:
                 sev = iss["severity"]
-                if sev == Severity.CRITICAL:
-                    badge = "🔴 **CRITICAL**"
-                elif sev == Severity.WARNING:
-                    badge = "🟡 **WARNING**"
-                else:
-                    badge = "🔵 **INFO**"
-                    
+                badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
                 with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL)):
-                    st.markdown(f"**Dimension:** {iss['dimension']} | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
+                    st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
                     st.markdown(f"**Description:** {iss['description']}")
-                    st.markdown(f"**Recommended Analyst Action:** {iss['recommended_action']}")
-                    
-                    if iss.get("sample_values"):
-                        st.markdown(f"**Sample Affected Values:** `{', '.join([str(v) for v in iss['sample_values'][:5]])}`")
-                        
-                    if iss.get("sample_indices") and len(iss["sample_indices"]) > 0:
-                        st.markdown("**Sample Affected Rows in Dataset:**")
-                        st.dataframe(st.session_state.raw_df.loc[iss["sample_indices"]], use_container_width=True)
-                        
-        st.markdown("---")
-        st.markdown("### 📌 Non-Destructive Data Handling Notice")
-        st.info("The Data Quality Engine flags anomalies for your awareness but **NEVER automatically deletes, mutates, or fabricates observations**. Preserving raw evidence is essential for transparent analysis.")
+                    st.markdown(f"**Recommended Action:** {iss['recommended_action']}")

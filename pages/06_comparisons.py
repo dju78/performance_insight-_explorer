@@ -1,4 +1,3 @@
-"""Page 06: Group & Segment Comparisons."""
 import streamlit as st
 import pandas as pd
 from src.state import init_session_state, get_working_df
@@ -7,54 +6,62 @@ from src.visualisations import create_comparison_bar
 
 init_session_state()
 
-st.title("👥 6. Group & Segment Comparisons")
-st.caption("Compare performance across teams, branches, categories, or case types with normalised rates and small-sample safeguards.")
+st.title("⚖️ 06. Operational Comparisons & Cohorts")
+st.caption("Rank operational units, compare quartile throughput distributions, and benchmark segment variance.")
 
 df = get_working_df()
+mappings = st.session_state.get("confirmed_mappings", {})
+
 if df is None:
     st.warning("⚠️ Please load an operational dataset first.")
+    st.stop()
+
+if not mappings:
+    st.warning("⚠️ **Workflow Gate:** Please confirm column mappings on **03. Column Mapping** before running analytical comparisons.")
+    st.stop()
+
+# Group by confirmed dimensions
+mapped_dims = [c for c, r in mappings.items() if r in ["team", "department", "branch", "location", "category"] and c in df.columns]
+mapped_metrics = [c for c, r in mappings.items() if r in ["completed", "actual", "received", "target", "processing_time", "hours_used", "hours_available", "cost", "quality_measure", "customer_measure"] and c in df.columns]
+mapped_denoms = ["<None>"] + [c for c, r in mappings.items() if r in ["fte", "staff", "hours_available"] and c in df.columns]
+
+if not mapped_dims:
+    st.error("No confirmed Dimension column (Team, Dept, Location, Category) found in mappings. Please map a dimension on Page 03.")
+    st.stop()
+
+if not mapped_metrics:
+    st.error("No confirmed Performance Metric found in mappings. Please map at least one metric on Page 03.")
+    st.stop()
+
+c1, c2, c3, c4 = st.columns(4)
+selected_group = c1.selectbox("Confirmed Dimension to Compare:", mapped_dims)
+selected_metric = c2.selectbox("Primary Performance Metric:", mapped_metrics)
+selected_denom = c3.selectbox("Capacity Denominator (Optional):", mapped_denoms)
+agg_choice = c4.selectbox("Metric Aggregation:", ["sum", "mean"])
+
+denom_param = None if selected_denom == "<None>" else selected_denom
+comp_res = compare_groups(df, selected_group, selected_metric, denom_param, agg_choice)
+
+if "error" in comp_res:
+    st.error(comp_res["error"])
 else:
-    group_candidates = [c for c in df.columns if df[c].nunique() <= 50 and not pd.api.types.is_numeric_dtype(df[c])]
-    numeric_candidates = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
-    denom_candidates = ["<None>"] + [c for c in numeric_candidates if any(k in c.lower() for k in ["fte", "staff", "hours", "cases", "total", "received"])]
+    st.session_state.audit_logger.log(
+        "COMPARISON_ANALYSIS_RUN",
+        f"Compared groups in '{selected_group}' on '{selected_metric}'",
+        details={"group_count": comp_res["group_count"], "iqr_ratio": comp_res.get("iqr_ratio")}
+    )
     
-    if not group_candidates or not numeric_candidates:
-        st.error("Comparison requires categorical group dimensions and numeric performance fields.")
-    else:
-        c1, c2, c3 = st.columns(3)
-        selected_group = c1.selectbox("Select Segment / Dimension Field:", group_candidates)
-        selected_metric = c2.selectbox("Select Performance Metric:", numeric_candidates)
-        selected_denom = c3.selectbox("Normalise by Denominator (Optional):", denom_candidates)
-        
-        denom_param = None if selected_denom == "<None>" else selected_denom
-        comp_res = compare_groups(df, selected_group, selected_metric, denom_param)
-        
-        if "error" in comp_res:
-            st.error(comp_res["error"])
-        else:
-            st.markdown("---")
-            c_top, c_bot, c_avg = st.columns(3)
-            c_top.metric("Top Performing Segment", comp_res["top_performer"])
-            c_bot.metric("Lowest Segment", comp_res["bottom_performer"])
-            c_avg.metric("Overall Population Average", f"{comp_res['overall_mean']:,.2f}")
-            
-            if comp_res.get("small_sample_groups"):
-                st.warning(f"⚠️ Small Sample Warning: Groups {comp_res['small_sample_groups']} contain <5 observations. Interpret rankings cautiously.")
-                
-            comp_df = comp_res["comparison_df"]
-            bar_y = "normalised_rate" if denom_param and "normalised_rate" in comp_df and comp_df["normalised_rate"].notna().sum() > 0 else "mean"
-            bar_y_label = f"Rate ({selected_metric} per {denom_param})" if denom_param else f"Mean {selected_metric}"
-            
-            fig_bar = create_comparison_bar(
-                comp_df,
-                x_col="group",
-                y_col=bar_y,
-                title=f"Comparison of '{selected_group}' by {bar_y_label}",
-                x_label=selected_group,
-                y_label=bar_y_label,
-                target_val=comp_res["overall_mean"] if not denom_param else None
-            )
-            st.plotly_chart(fig_bar, use_container_width=True)
-            
-            st.markdown("#### 📋 Ranked Segment Performance Matrix")
-            st.dataframe(comp_df, use_container_width=True)
+    st.markdown("---")
+    m1, m2, m3, m4 = st.columns(4)
+    m1.metric("Compared Groups", comp_res["group_count"])
+    m2.metric("Top Performer", comp_res.get("top_group", "N/A"), f"{comp_res.get('top_value', 0):,.2f}")
+    m3.metric("Lowest Performer", comp_res.get("bottom_group", "N/A"), f"{comp_res.get('bottom_value', 0):,.2f}")
+    m4.metric("Variance Spread (Max / Min)", f"{comp_res.get('variance_ratio', 1.0):.2f}x")
+    
+    st.markdown("#### 📊 Comparative League Table")
+    comp_df = comp_res["comparison_df"]
+    fig_comp = create_comparison_bar(comp_df, selected_group, "value", title=f"Comparison of '{selected_metric}' by '{selected_group}'")
+    st.plotly_chart(fig_comp, use_container_width=True)
+    
+    st.markdown("#### 📋 Detailed Group Breakdown")
+    st.dataframe(comp_df, use_container_width=True)

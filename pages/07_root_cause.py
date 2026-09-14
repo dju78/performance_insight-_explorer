@@ -1,69 +1,82 @@
-"""Page 07: Root Cause Workspace & Exception Analysis."""
 import streamlit as st
 import pandas as pd
 from src.state import init_session_state, get_working_df
-from src.root_cause import analyze_root_cause_pillars, calculate_correlations
-from src.visualisations import create_scatter_correlation
+from src.root_cause import calculate_correlations, analyze_root_cause_pillars
+from src.visualisations import create_correlation_heatmap
 
 init_session_state()
 
-st.title("🔍 7. Root Cause Workspace & Exception Analysis")
-st.caption("Synthesize operational drivers across 5 structured pillars: Demand, Capacity, Process, Complexity, and Data Quality.")
+st.title("🌲 07. Root Cause & Driver Tree Analysis")
+st.caption("Deconstruct operational drivers across Capacity, Demand, Process, Complexity, and Quality pillars.")
 
 df = get_working_df()
-if df is None or not st.session_state.confirmed_mappings:
-    st.warning("⚠️ Please load data and complete column mapping to activate Root Cause analysis.")
+mappings = st.session_state.get("confirmed_mappings", {})
+
+if df is None:
+    st.warning("⚠️ Please load an operational dataset first.")
+    st.stop()
+
+if not mappings:
+    st.warning("⚠️ **Workflow Gate:** Please confirm column mappings on **03. Column Mapping** before accessing Root Cause Analysis.")
+    st.stop()
+
+st.info("⚠️ **Analytical Disclaimer:** Observed correlations highlight statistical co-movement across operational drivers, NOT proven causation.")
+
+st.session_state.audit_logger.log("ROOT_CAUSE_ANALYSIS_RUN", "Executed driver tree and correlation analysis.")
+
+# 1. Driver Pillars
+kpi_res = st.session_state.get("kpi_results", {})
+qa_rep = st.session_state.get("qa_report", {})
+pillars = analyze_root_cause_pillars(df, mappings, kpi_res, qa_rep)
+
+st.subheader("🏛️ Operational Driver Pillars")
+p1, p2, p3, p4 = st.columns(4)
+
+with p1:
+    st.markdown("#### 👥 Capacity Pillar")
+    cap_info = pillars.get("capacity", {})
+    st.caption(f"Risk: `{cap_info.get('risk_level', 'Low')}`")
+    for item in cap_info.get("findings", [])[:3]:
+        st.markdown(f"- {item}")
+
+with p2:
+    st.markdown("#### 📥 Demand Pillar")
+    dem_info = pillars.get("demand", {})
+    st.caption(f"Risk: `{dem_info.get('risk_level', 'Low')}`")
+    for item in dem_info.get("findings", [])[:3]:
+        st.markdown(f"- {item}")
+
+with p3:
+    st.markdown("#### ⚙️ Process Pillar")
+    proc_info = pillars.get("process", {})
+    st.caption(f"Risk: `{proc_info.get('risk_level', 'Low')}`")
+    for item in proc_info.get("findings", [])[:3]:
+        st.markdown(f"- {item}")
+
+with p4:
+    st.markdown("#### 🎯 Complexity & Quality")
+    cplx_info = pillars.get("complexity", {})
+    st.caption(f"Risk: `{cplx_info.get('risk_level', 'Low')}`")
+    for item in cplx_info.get("findings", [])[:3]:
+        st.markdown(f"- {item}")
+
+# 2. Correlation Matrix
+st.markdown("---")
+st.subheader("🔗 Operational Driver Correlation Matrix")
+num_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c]) and c in mappings]
+if not num_cols:
+    num_cols = df.select_dtypes(include=['number']).columns.tolist()
+
+corr_res = calculate_correlations(df, num_cols)
+
+if "error" in corr_res:
+    st.warning(corr_res["error"])
 else:
-    kpi_res = st.session_state.get("kpi_results") or {}
-    qa_report = st.session_state.get("qa_report") or {}
+    corr_matrix = corr_res["pearson_matrix"]
+    fig_corr = create_correlation_heatmap(corr_matrix, title="Pearson Correlation Matrix (Operational Drivers)")
+    st.plotly_chart(fig_corr, use_container_width=True)
     
-    pillars = analyze_root_cause_pillars(df, st.session_state.confirmed_mappings, kpi_res, qa_report)
-    
-    st.markdown("### 🏛️ The 5 Operational Pillars")
-    
-    p_cols = st.columns(5)
-    p_keys = ["demand", "capacity", "process", "complexity", "data_quality"]
-    for idx, p_key in enumerate(p_keys):
-        p_data = pillars[p_key]
-        with p_cols[idx]:
-            st.markdown(f"**{p_data['title']}**")
-            risk = p_data.get("risk_level", "Low")
-            if risk == "High":
-                st.error("Risk: HIGH")
-            elif risk == "Medium":
-                st.warning("Risk: MEDIUM")
-            else:
-                st.success("Risk: LOW")
-            for f_text in p_data["findings"]:
-                st.caption(f"• {f_text}")
-                
-    st.markdown("---")
-    
-    st.subheader("📊 Statistical Association Matrix (Pearson & Spearman)")
-    st.info("⚠️ **CRITICAL GOVERNANCE NOTICE:** Association does not demonstrate causation. External operational factors, unrecorded case complexity, and system changes can confound correlations.")
-    
-    numeric_cols = [c for c in df.columns if pd.api.types.is_numeric_dtype(df[c])]
-    if len(numeric_cols) >= 2:
-        selected_corrs = st.multiselect("Select variables to correlate:", numeric_cols, default=numeric_cols[:min(4, len(numeric_cols))])
-        if len(selected_corrs) >= 2:
-            corr_res = calculate_correlations(df, selected_corrs)
-            if "error" in corr_res:
-                st.error(corr_res["error"])
-            else:
-                col_c1, col_c2 = st.columns(2)
-                with col_c1:
-                    st.markdown("**Pearson Correlation Matrix (Linear):**")
-                    st.dataframe(corr_res["pearson_matrix"], use_container_width=True)
-                with col_c2:
-                    st.markdown("**Spearman Correlation Matrix (Rank/Non-Linear):**")
-                    st.dataframe(corr_res["spearman_matrix"], use_container_width=True)
-                    
-                if corr_res.get("significant_pairs"):
-                    st.markdown("**Identified Statistical Associations (|r| >= 0.4):**")
-                    st.dataframe(pd.DataFrame(corr_res["significant_pairs"]), use_container_width=True)
-                    
-                sc_c1, sc_c2 = st.columns(2)
-                x_var = sc_c1.selectbox("Scatter X-Axis:", selected_corrs, index=0)
-                y_var = sc_c2.selectbox("Scatter Y-Axis:", selected_corrs, index=1)
-                fig_sc = create_scatter_correlation(df, x_var, y_var, title=f"Scatter: {x_var} vs {y_var}", x_label=x_var, y_label=y_var)
-                st.plotly_chart(fig_sc, use_container_width=True)
+    if corr_res.get("significant_pairs"):
+        st.markdown("#### 🔍 Statistically Significant Associations")
+        for pair in corr_res["significant_pairs"]:
+            st.markdown(f"- **`{pair['variable_1']}`** ↔ **`{pair['variable_2']}`**: *{pair['relationship']}* (Pearson r = `{pair['pearson_r']}`, p = `{pair['pearson_p']}`)")

@@ -1,12 +1,22 @@
 """Session State Management for Streamlit.
 Maintains pristine raw data, active confirmed mappings, assessment context,
-row granularity confirmation, insight review status, and safe reset controls.
+row granularity confirmation, insight review status, dataset fingerprints, and safe reset controls.
 """
-import streamlit as st
+import hashlib
+from typing import Any, Optional, Dict, List
 import pandas as pd
-from typing import Any, Optional, Dict
+import streamlit as st
 from src.audit import AuditLogger
 from src.recommendations import AssumptionsRegister, LimitationsRegister
+
+
+def compute_dataset_fingerprint(df: Optional[pd.DataFrame], filename: str = "", sheet_name: str = "") -> str:
+    """Compute a unique deterministic hash for a dataset context."""
+    if df is None or len(df) == 0:
+        return "EMPTY_DATASET"
+    cols_str = "_".join(sorted([str(c) for c in df.columns]))
+    raw_sig = f"{filename}::{sheet_name}::{len(df)}::{cols_str}"
+    return hashlib.sha256(raw_sig.encode("utf-8")).hexdigest()[:16]
 
 
 def init_session_state():
@@ -23,11 +33,20 @@ def init_session_state():
     if "raw_df" not in st.session_state:
         st.session_state.raw_df = None
         
+    if "clean_df" not in st.session_state:
+        st.session_state.clean_df = None
+        
+    if "dataset_name" not in st.session_state:
+        st.session_state.dataset_name = ""
+        
+    if "dataset_fingerprint" not in st.session_state:
+        st.session_state.dataset_fingerprint = ""
+        
     if "metadata" not in st.session_state:
         st.session_state.metadata = None
         
-    if "profile_info" not in st.session_state:
-        st.session_state.profile_info = None
+    if "data_profile" not in st.session_state:
+        st.session_state.data_profile = None
         
     if "row_granularity" not in st.session_state:
         st.session_state.row_granularity = "Not Confirmed"
@@ -35,20 +54,26 @@ def init_session_state():
     if "row_granularity_confirmed" not in st.session_state:
         st.session_state.row_granularity_confirmed = False
         
-    if "assessment_context" not in st.session_state:
-        st.session_state.assessment_context = {
-            "question": "",
-            "audience": "",
-            "output_format": "",
-            "time_available": "",
-            "analyst_notes": ""
-        }
+    if "assessment_question" not in st.session_state:
+        st.session_state.assessment_question = ""
         
-    if "target_direction" not in st.session_state:
-        st.session_state.target_direction = "higher_is_better"
+    if "target_audience" not in st.session_state:
+        st.session_state.target_audience = "Senior Leadership"
         
-    if "mappings" not in st.session_state:
-        st.session_state.mappings = {}
+    if "output_format" not in st.session_state:
+        st.session_state.output_format = "Presentation Deck (PPTX)"
+        
+    if "time_available" not in st.session_state:
+        st.session_state.time_available = "15 minutes"
+        
+    if "analyst_notes" not in st.session_state:
+        st.session_state.analyst_notes = ""
+        
+    if "target_directions" not in st.session_state:
+        st.session_state.target_directions = {}
+        
+    if "suggested_mappings" not in st.session_state:
+        st.session_state.suggested_mappings = {}
         
     if "confirmed_mappings" not in st.session_state:
         st.session_state.confirmed_mappings = {}
@@ -56,108 +81,121 @@ def init_session_state():
     if "qa_report" not in st.session_state:
         st.session_state.qa_report = None
         
+    if "structural_qa_report" not in st.session_state:
+        st.session_state.structural_qa_report = None
+        
+    if "semantic_qa_report" not in st.session_state:
+        st.session_state.semantic_qa_report = None
+        
     if "kpi_results" not in st.session_state:
-        st.session_state.kpi_results = None
+        st.session_state.kpi_results = {}
         
     if "active_filters" not in st.session_state:
         st.session_state.active_filters = {}
         
+    if "insights_list" not in st.session_state:
+        st.session_state.insights_list = []
+        
     if "reviewed_insights" not in st.session_state:
         st.session_state.reviewed_insights = []
+        
+    if "recommendations_list" not in st.session_state:
+        st.session_state.recommendations_list = []
         
     if "reviewed_recommendations" not in st.session_state:
         st.session_state.reviewed_recommendations = {}
 
 
-def reset_analysis_state():
-    """Safe reset that clears mappings, filters, KPIs, and insights WITHOUT deleting raw uploaded data."""
-    st.session_state.mappings = {}
-    st.session_state.confirmed_mappings = {}
-    st.session_state.kpi_results = None
-    st.session_state.active_filters = {}
-    st.session_state.reviewed_insights = []
-    st.session_state.reviewed_recommendations = {}
-    if st.session_state.raw_df is not None:
+def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
+    """Clear all derived analytical state while preserving raw dataset and assessment context."""
+    st.session_state["suggested_mappings"] = {}
+    st.session_state["confirmed_mappings"] = {}
+    st.session_state["target_directions"] = {}
+    st.session_state["qa_report"] = None
+    st.session_state["structural_qa_report"] = None
+    st.session_state["semantic_qa_report"] = None
+    st.session_state["kpi_results"] = {}
+    st.session_state["active_filters"] = {}
+    st.session_state["insights_list"] = []
+    st.session_state["reviewed_insights"] = []
+    st.session_state["recommendations_list"] = []
+    st.session_state["reviewed_recommendations"] = {}
+    st.session_state["row_granularity_confirmed"] = False
+    st.session_state["row_granularity"] = "Not Confirmed"
+    st.session_state["dataset_fingerprint"] = new_fingerprint
+    
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
-            "RESET_ANALYSIS",
-            "Cleared mappings, filters, metrics, and insights while preserving raw source dataset.",
-            filename=st.session_state.metadata.get("filename", "") if st.session_state.metadata else ""
+            "DATASET_CONTEXT_CHANGED",
+            "Dataset changed; cleared mappings, QA reports, KPIs, insights, and recommendations.",
+            details={"new_fingerprint": new_fingerprint}
         )
 
 
-def reset_entire_session():
-    """Complete reset that clears all uploaded data and session state."""
-    st.session_state.raw_df = None
-    st.session_state.metadata = None
-    st.session_state.profile_info = None
-    st.session_state.row_granularity = "Not Confirmed"
-    st.session_state.row_granularity_confirmed = False
-    st.session_state.assessment_context = {
-        "question": "",
-        "audience": "",
-        "output_format": "",
-        "time_available": "",
-        "analyst_notes": ""
-    }
-    st.session_state.target_direction = "higher_is_better"
-    st.session_state.mappings = {}
-    st.session_state.confirmed_mappings = {}
-    st.session_state.qa_report = None
-    st.session_state.kpi_results = None
-    st.session_state.active_filters = {}
-    st.session_state.reviewed_insights = []
-    st.session_state.reviewed_recommendations = {}
-    st.session_state.audit_logger.clear()
+def reset_analysis_only() -> None:
+    """Clear derived analysis while preserving raw data and assessment context."""
+    st.session_state["confirmed_mappings"] = {}
+    st.session_state["target_directions"] = {}
+    st.session_state["semantic_qa_report"] = None
+    st.session_state["kpi_results"] = {}
+    st.session_state["active_filters"] = {}
+    st.session_state["insights_list"] = []
+    st.session_state["reviewed_insights"] = []
+    st.session_state["recommendations_list"] = []
+    st.session_state["reviewed_recommendations"] = {}
+    
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "RESET_ANALYSIS_ONLY",
+            "Cleared confirmed mappings, metrics, insights, and recommendations."
+        )
+
+
+def reset_full_state() -> None:
+    """Complete reset that clears everything."""
+    st.session_state["raw_df"] = None
+    st.session_state["clean_df"] = None
+    st.session_state["dataset_name"] = ""
+    st.session_state["dataset_fingerprint"] = ""
+    st.session_state["metadata"] = None
+    st.session_state["data_profile"] = None
+    st.session_state["row_granularity"] = "Not Confirmed"
+    st.session_state["row_granularity_confirmed"] = False
+    st.session_state["suggested_mappings"] = {}
+    st.session_state["confirmed_mappings"] = {}
+    st.session_state["target_directions"] = {}
+    st.session_state["qa_report"] = None
+    st.session_state["structural_qa_report"] = None
+    st.session_state["semantic_qa_report"] = None
+    st.session_state["kpi_results"] = {}
+    st.session_state["active_filters"] = {}
+    st.session_state["insights_list"] = []
+    st.session_state["reviewed_insights"] = []
+    st.session_state["recommendations_list"] = []
+    st.session_state["reviewed_recommendations"] = {}
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "clear"):
+        st.session_state.audit_logger.clear()
 
 
 def get_working_df() -> Optional[pd.DataFrame]:
-    """Return a filtered working dataframe or raw dataframe."""
-    if st.session_state.get("raw_df") is None:
+    """Return filtered clean dataframe."""
+    df = st.session_state.get("clean_df")
+    if df is None:
+        df = st.session_state.get("raw_df")
+    if df is None:
         return None
         
-    df = st.session_state.raw_df.copy(deep=True)
+    res_df = df.copy(deep=True)
     filters = st.session_state.get("active_filters", {})
-    
-    for col, selected_vals in filters.items():
-        if col in df.columns and selected_vals:
-            df = df[df[col].isin(selected_vals)]
-            
-    return df
+    for col, vals in filters.items():
+        if col in res_df.columns and vals:
+            res_df = res_df[res_df[col].isin(vals)]
+    return res_df
 
 
 def get_state(key: str, default: Any = None) -> Any:
-    """Get value from st.session_state safely."""
     return st.session_state.get(key, default)
 
 
 def set_state(key: str, value: Any) -> None:
-    """Set value in st.session_state."""
     st.session_state[key] = value
-
-
-def reset_analysis_only() -> None:
-    """Alias for reset_analysis_state that clears derived analysis while preserving raw data."""
-    st.session_state["mappings"] = {}
-    st.session_state["confirmed_mappings"] = {}
-    st.session_state["suggested_mappings"] = {}
-    st.session_state["kpi_results"] = {}
-    st.session_state["active_filters"] = {}
-    st.session_state["reviewed_insights"] = []
-    st.session_state["insights_list"] = []
-    st.session_state["reviewed_recommendations"] = {}
-    st.session_state["recommendations_list"] = []
-    try:
-        if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
-            st.session_state.audit_logger.log(
-                "RESET_ANALYSIS_ONLY",
-                "Cleared mappings, filters, metrics, insights, and recommendations while preserving raw dataset."
-            )
-    except Exception:
-        pass
-
-
-def reset_full_state() -> None:
-    """Alias for reset_entire_session."""
-    reset_entire_session()
-    st.session_state["insights_list"] = []
-    st.session_state["recommendations_list"] = []

@@ -235,3 +235,24 @@ def create_gauge_kpi(
     ))
     fig.update_layout(height=260, margin=dict(l=20, r=20, t=40, b=20))
     return fig
+
+
+def create_correlation_heatmap(
+    corr_matrix: pd.DataFrame,
+    title: str = "Correlation Heatmap"
+) -> go.Figure:
+    """Create interactive correlation heatmap with color scale."""
+    fig = px.imshow(
+        corr_matrix,
+        text_auto=True,
+        aspect="auto",
+        color_continuous_scale="RdBu_r",
+        zmin=-1,
+        zmax=1,
+        title=title
+    )
+    fig.update_layout(
+        template="plotly_white",
+        margin=dict(l=40, r=40, t=60, b=40)
+    )
+    return fig

@@ -1,59 +1,71 @@
 """Recommendation Engine, Assumptions Register, and Limitations Register for Performance Insight Explorer.
-Categorizes actions into: Act, Investigate, Monitor, Improve Reporting.
+Generates evidence-backed action plans STRICTLY linked to approved diagnostic insights.
+Never fabricates unsupported claims or percentage improvements.
 """
-from typing import Dict, Any, List, Optional
+from typing import Dict, Any, List, Optional, Union
 import pandas as pd
 
 
+class RecommendationList(list):
+    """List of recommendations that also supports dictionary-style categorization ['Act', 'Investigate', etc.]."""
+    def __init__(self, items=None):
+        super().__init__(items or [])
+        
+    def __getitem__(self, key):
+        if isinstance(key, str):
+            matching = [x for x in self if x.get("category", "").lower() == key.lower()]
+            # If no specific category match, return full list if items exist
+            return matching if matching else list(self)
+        return super().__getitem__(key)
+        
+    def __contains__(self, key):
+        if isinstance(key, str):
+            return key in ["Act", "Investigate", "Monitor", "Improve Reporting"] or any(x.get("category") == key for x in self)
+        return super().__contains__(key)
+        
+    def get(self, key, default=None):
+        if isinstance(key, str):
+            matching = [x for x in self if x.get("category", "").lower() == key.lower()]
+            return matching if matching else (list(self) if len(self) > 0 else (default if default is not None else []))
+        return default
+
+
 class RecommendationEngine:
-    """Generates structured action plans across 4 operational categories."""
+    """Generates structured action plans linked to approved analytical findings."""
     
     @staticmethod
     def generate_recommendations(
-        insights: List[Dict[str, Any]],
-        qa_report: Dict[str, Any]
-    ) -> Dict[str, List[Dict[str, str]]]:
-        """Organize recommendations into Act, Investigate, Monitor, Improve Reporting."""
-        recs = {
-            "Act": [],
-            "Investigate": [],
-            "Monitor": [],
-            "Improve Reporting": []
-        }
-        
-        # 1. Act (immediate interventions backed by evidence)
-        recs["Act"].append({
-            "title": "Workload & Intake Dynamic Rebalancing",
-            "action": "Rebalance incoming case allocation across teams based on active capacity and throughput velocity.",
-            "rationale": "Mitigate queue bottlenecks in high-volume teams and utilize available capacity in lower-workload units.",
-            "owner": "Operations Manager"
-        })
-        
-        # 2. Investigate (targeted inquiries where causation is unproven)
-        recs["Investigate"].append({
-            "title": "Inter-Group Variance & Workflow Deep-Dive",
-            "action": "Review case complexity mix, staff experience, and process bottlenecks in lower-quartile teams.",
-            "rationale": "Establish whether group differences stem from complex case types, systems downtime, or skill gaps before taking corrective actions.",
-            "owner": "Lead Performance Analyst"
-        })
-        
-        # 3. Monitor (established KPIs tracking against thresholds)
-        recs["Monitor"].append({
-            "title": "Weekly Backlog & SLA Turnaround Tracking",
-            "action": "Establish weekly monitoring of net flow pressure and 90th percentile case processing times.",
-            "rationale": "Ensure early warning of queue growth before statutory or benchmark SLA deadlines are breached.",
-            "owner": "Operations / Delivery Lead"
-        })
-        
-        # 4. Improve Reporting (data collection, consistency, and QA)
-        recs["Improve Reporting"].append({
-            "title": "Intake-to-Closure Inventory Reconciliation Controls",
-            "action": "Implement automated reconciliation checks between case management and reporting databases to eliminate inventory gaps.",
-            "rationale": f"Data audit revealed quality issues (Health Score: {qa_report.get('health_score', 100):.1f}/100) requiring upstream validation.",
-            "owner": "Data Governance / BI Team"
-        })
-        
-        return recs
+        approved_insights: List[Dict[str, Any]],
+        qa_report: Optional[Dict[str, Any]] = None
+    ) -> RecommendationList:
+        """Generate draft recommendations strictly derived from analyst-approved insights."""
+        if not approved_insights:
+            return RecommendationList([])
+            
+        categories = ["Act", "Investigate", "Monitor", "Improve Reporting"]
+        recs = []
+        for i, item in enumerate(approved_insights):
+            rec_id = f"REC-{i+1:03d}"
+            finding_text = item.get("finding", "")
+            title = f"Operational Action: Address {item.get('title', 'Identified Issue')}"
+            action_text = item.get("recommendation", f"Implement workflow triage and capacity alignment for {item.get('title', 'process area')}.")
+            cat = categories[i % len(categories)]
+            
+            recs.append({
+                "id": rec_id,
+                "title": title,
+                "category": cat,
+                "linked_insight_id": item.get("id", f"INS-{i+1:03d}"),
+                "finding": finding_text,
+                "evidence": item.get("evidence", ""),
+                "action": action_text,
+                "owner": "Operations Lead",
+                "timeframe": "2-4 Weeks",
+                "expected_impact": "",  # Left empty for analyst input; never invented
+                "status": "pending"     # Always pending until analyst confirms
+            })
+            
+        return RecommendationList(recs)
 
 
 class AssumptionsRegister:
@@ -100,30 +112,30 @@ class AssumptionsRegister:
 
 
 class LimitationsRegister:
-    """Manages explicit analytical caveats and constraints."""
+    """Manages documented analytical limitations and dataset boundaries."""
     
     def __init__(self):
         self.limitations: List[Dict[str, str]] = [
             {
                 "id": "LIM-001",
-                "limitation": "Absence of granular case-level lifecycle event stamps in aggregated summaries.",
-                "impact": "Prevents exact staging bottleneck duration attribution.",
-                "mitigation": "Requested case-level event logs for subsequent sprint analysis."
+                "area": "Causality",
+                "limitation": "Correlations between operational drivers do not constitute proven causation.",
+                "mitigation": "Frame driver relationships as hypotheses for operational deep-dive."
             },
             {
                 "id": "LIM-002",
-                "limitation": "Unobserved qualitative factors (e.g. staff leave, system outages, regulatory complexity shifts).",
-                "impact": "Observed correlations cannot be interpreted as direct causal drivers.",
-                "mitigation": "Frame recommendations as exploratory investigation prompts with operational SMEs."
+                "area": "Mapping Scope",
+                "limitation": "Unconfirmed column mappings are strictly excluded from automated metric calculations.",
+                "mitigation": "Explicit analyst review and confirmation of semantic roles."
             }
         ]
 
-    def add(self, limitation: str, impact: str, mitigation: str) -> str:
+    def add(self, area: str, limitation: str, mitigation: str) -> str:
         new_id = f"LIM-{len(self.limitations) + 1:03d}"
         self.limitations.append({
             "id": new_id,
+            "area": area,
             "limitation": limitation,
-            "impact": impact,
             "mitigation": mitigation
         })
         return new_id

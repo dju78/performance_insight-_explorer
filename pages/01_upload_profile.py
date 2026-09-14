@@ -1,73 +1,151 @@
 import streamlit as st
 import pandas as pd
-from src.state import init_session_state
+from src.state import (
+    init_session_state,
+    compute_dataset_fingerprint,
+    reset_derived_state_for_new_dataset
+)
 from src.ingestion import ingest_file, generate_dataset_profile
+from src.quality import run_structural_qa
+from src.mapping import suggest_mappings
 
 init_session_state()
 
 st.title("📂 01. Data Upload & Profiling")
-st.markdown("Upload any operational dataset (`.csv`, `.xlsx`, `.xls`) or load sample benchmarking data.")
+st.markdown("Upload any operational dataset (`.csv`, `.xlsx`, `.xls`) or load benchmark test data.")
 
 uploaded_file = st.file_uploader("Upload Operational Data File", type=["csv", "xlsx", "xls"])
 
-col_s1, col_s2, col_s3 = st.columns(3)
+col_s1, col_s2, col_s3, col_s4 = st.columns(4)
 with col_s1:
-    if st.button("Load Sample: Standard Operations (Dataset A)", use_container_width=True):
+    if st.button("Load: Standard Ops (Dataset A)", use_container_width=True):
         try:
             df = pd.read_csv("sample_data/dataset_a_team_month.csv")
+            fp = compute_dataset_fingerprint(df, "dataset_a_team_month.csv")
+            if fp != st.session_state.get("dataset_fingerprint"):
+                reset_derived_state_for_new_dataset(fp)
             st.session_state["raw_df"] = df.copy()
             st.session_state["clean_df"] = df.copy()
             st.session_state["dataset_name"] = "Dataset A (Team-Month Benchmark)"
             st.session_state["data_profile"] = generate_dataset_profile(df)
+            st.session_state["structural_qa_report"] = run_structural_qa(df)
+            st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+            st.session_state["suggested_mappings"] = suggest_mappings(df)
             st.session_state["row_granularity"] = "Periodic snapshot"
             st.session_state["row_granularity_confirmed"] = True
-            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset A", details={"name": "Dataset A"})
+            st.session_state.audit_logger.log(
+                "FILE_UPLOADED", "Loaded Dataset A", filename="dataset_a_team_month.csv",
+                row_count=len(df), col_count=len(df.columns), details={"fingerprint": fp}
+            )
+            st.session_state.audit_logger.log("STRUCTURAL_QA_COMPLETED", "Executed Stage A Structural QA", details={"health_score": st.session_state["qa_report"]["health_score"]})
             st.success("Loaded Dataset A successfully!")
             st.rerun()
         except Exception as e:
             st.error(f"Error loading sample: {e}")
 
 with col_s2:
-    if st.button("Load Sample: Case-Level Details (Dataset B)", use_container_width=True):
+    if st.button("Load: Case Details (Dataset B)", use_container_width=True):
         try:
             df = pd.read_csv("sample_data/dataset_b_case_level.csv")
+            fp = compute_dataset_fingerprint(df, "dataset_b_case_level.csv")
+            if fp != st.session_state.get("dataset_fingerprint"):
+                reset_derived_state_for_new_dataset(fp)
             st.session_state["raw_df"] = df.copy()
             st.session_state["clean_df"] = df.copy()
             st.session_state["dataset_name"] = "Dataset B (Case Level Details)"
             st.session_state["data_profile"] = generate_dataset_profile(df)
+            st.session_state["structural_qa_report"] = run_structural_qa(df)
+            st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+            st.session_state["suggested_mappings"] = suggest_mappings(df)
             st.session_state["row_granularity"] = "Case / record"
             st.session_state["row_granularity_confirmed"] = True
-            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset B", details={"name": "Dataset B"})
+            st.session_state.audit_logger.log(
+                "FILE_UPLOADED", "Loaded Dataset B", filename="dataset_b_case_level.csv",
+                row_count=len(df), col_count=len(df.columns), details={"fingerprint": fp}
+            )
+            st.session_state.audit_logger.log("STRUCTURAL_QA_COMPLETED", "Executed Stage A Structural QA", details={"health_score": st.session_state["qa_report"]["health_score"]})
             st.success("Loaded Dataset B successfully!")
             st.rerun()
         except Exception as e:
             st.error(f"Error loading sample: {e}")
 
 with col_s3:
-    if st.button("Load Sample: Poor Quality Anomaly (Dataset C)", use_container_width=True):
+    if st.button("Load: Dirty Anomaly (Dataset C)", use_container_width=True):
         try:
             df = pd.read_csv("sample_data/dataset_c_poor_quality.csv")
+            fp = compute_dataset_fingerprint(df, "dataset_c_poor_quality.csv")
+            if fp != st.session_state.get("dataset_fingerprint"):
+                reset_derived_state_for_new_dataset(fp)
             st.session_state["raw_df"] = df.copy()
             st.session_state["clean_df"] = df.copy()
             st.session_state["dataset_name"] = "Dataset C (Poor Quality Anomaly)"
             st.session_state["data_profile"] = generate_dataset_profile(df)
+            st.session_state["structural_qa_report"] = run_structural_qa(df)
+            st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+            st.session_state["suggested_mappings"] = suggest_mappings(df)
             st.session_state["row_granularity"] = "Transaction / event"
             st.session_state["row_granularity_confirmed"] = True
-            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset C", details={"name": "Dataset C"})
+            st.session_state.audit_logger.log(
+                "FILE_UPLOADED", "Loaded Dataset C", filename="dataset_c_poor_quality.csv",
+                row_count=len(df), col_count=len(df.columns), details={"fingerprint": fp}
+            )
+            st.session_state.audit_logger.log("STRUCTURAL_QA_COMPLETED", "Executed Stage A Structural QA", details={"health_score": st.session_state["qa_report"]["health_score"]})
             st.success("Loaded Dataset C successfully!")
             st.rerun()
         except Exception as e:
             st.error(f"Error loading sample: {e}")
 
+with col_s4:
+    if st.button("Load: 15-Col Assessment Test", use_container_width=True):
+        try:
+            df = pd.read_csv("sample_data/performance_insight_explorer_test_data.csv")
+            fp = compute_dataset_fingerprint(df, "performance_insight_explorer_test_data.csv")
+            if fp != st.session_state.get("dataset_fingerprint"):
+                reset_derived_state_for_new_dataset(fp)
+            st.session_state["raw_df"] = df.copy()
+            st.session_state["clean_df"] = df.copy()
+            st.session_state["dataset_name"] = "Assessment Benchmark Test Data (15 Cols)"
+            st.session_state["data_profile"] = generate_dataset_profile(df)
+            st.session_state["structural_qa_report"] = run_structural_qa(df)
+            st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+            st.session_state["suggested_mappings"] = suggest_mappings(df)
+            st.session_state["row_granularity"] = "Periodic snapshot"
+            st.session_state["row_granularity_confirmed"] = True
+            st.session_state.audit_logger.log(
+                "FILE_UPLOADED", "Loaded 15-Col Assessment Benchmark", filename="performance_insight_explorer_test_data.csv",
+                row_count=len(df), col_count=len(df.columns), details={"fingerprint": fp}
+            )
+            st.session_state.audit_logger.log("STRUCTURAL_QA_COMPLETED", "Executed Stage A Structural QA", details={"health_score": st.session_state["qa_report"]["health_score"]})
+            st.success("Loaded 15-Column Test Data successfully!")
+            st.rerun()
+        except Exception as e:
+            st.error(f"Error loading test CSV: {e}")
+
 if uploaded_file is not None:
     try:
         raw_df, clean_df, profile = ingest_file(uploaded_file, uploaded_file.name)
+        fp = compute_dataset_fingerprint(clean_df, uploaded_file.name)
+        if fp != st.session_state.get("dataset_fingerprint"):
+            reset_derived_state_for_new_dataset(fp)
+            
         st.session_state["raw_df"] = raw_df
         st.session_state["clean_df"] = clean_df
         st.session_state["dataset_name"] = uploaded_file.name
         st.session_state["data_profile"] = profile
-        st.session_state.audit_logger.log("FILE_UPLOADED", f"Uploaded {uploaded_file.name}", filename=uploaded_file.name, row_count=len(raw_df), col_count=len(raw_df.columns))
-        st.success(f"Successfully uploaded and profiled `{uploaded_file.name}` ({len(raw_df):,} rows, {len(raw_df.columns)} columns)")
+        st.session_state["structural_qa_report"] = run_structural_qa(clean_df)
+        st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+        st.session_state["suggested_mappings"] = suggest_mappings(clean_df)
+        
+        st.session_state.audit_logger.log(
+            "FILE_UPLOADED", f"Uploaded {uploaded_file.name}",
+            filename=uploaded_file.name, row_count=len(raw_df), col_count=len(raw_df.columns),
+            details={"fingerprint": fp}
+        )
+        st.session_state.audit_logger.log(
+            "STRUCTURAL_QA_COMPLETED", "Executed Stage A Structural QA",
+            details={"health_score": st.session_state["qa_report"]["health_score"]}
+        )
+        st.success(f"Successfully uploaded `{uploaded_file.name}` ({len(raw_df):,} rows, {len(raw_df.columns)} cols). Stage A Structural QA completed.")
     except Exception as e:
         st.error(f"Error ingesting file: {e}")
 
@@ -109,40 +187,28 @@ if st.session_state.get("raw_df") is not None:
         if st.button("✅ Confirm Row Granularity", type="primary", use_container_width=True):
             st.session_state["row_granularity"] = selected_gran
             st.session_state["row_granularity_confirmed"] = True
-            st.session_state.audit_logger.log("CONFIRM_ROW_GRANULARITY", f"Confirmed granularity: {selected_gran}", details={"granularity": selected_gran})
+            st.session_state.audit_logger.log("ROW_GRANULARITY_CONFIRMED", f"Confirmed granularity: {selected_gran}", details={"granularity": selected_gran})
             st.success(f"Confirmed: 1 Row = {selected_gran}")
             st.rerun()
 
     if st.session_state.get("row_granularity_confirmed", False):
         st.success(f"🎯 **Confirmed Unit of Analysis:** 1 Row = `{st.session_state['row_granularity']}`")
     else:
-        st.warning("Granularity not yet explicitly confirmed. Click 'Confirm Row Granularity' above.")
+        st.warning("Granularity not yet confirmed. Click 'Confirm Row Granularity' above.")
 
     # Data Profile Summary
     st.markdown("---")
     st.subheader("📊 Dataset Health & Profile Overview")
     profile = st.session_state.get("data_profile", {})
+    qa = st.session_state.get("structural_qa_report", {})
     
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total Rows", f"{profile.get('row_count', 0):,}")
-    c2.metric("Total Columns", profile.get("col_count", 0))
-    c3.metric("Duplicate Rows", f"{profile.get('duplicate_rows', 0):,}")
-    c4.metric("Complete Rows %", f"{profile.get('completeness_pct', 0):.1f}%")
+    c2.metric("Total Columns", profile.get('col_count', 0))
+    c3.metric("Structural Health Score", f"{qa.get('health_score', 100):.1f} / 100")
+    c4.metric("Completeness %", f"{profile.get('completeness_pct', 0):.1f}%")
     
     st.markdown("#### Sample Preview (First 5 Rows)")
     st.dataframe(st.session_state["clean_df"].head(5), use_container_width=True)
-    
-    with st.expander("Detailed Column Schema & Types"):
-        col_summary = []
-        for col, meta in profile.get("columns", {}).items():
-            col_summary.append({
-                "Column Name": col,
-                "Inferred Type": meta.get("inferred_type"),
-                "Null Count": meta.get("null_count"),
-                "Null Pct": f"{meta.get('null_pct', 0):.1f}%",
-                "Unique Values": meta.get("unique_count"),
-                "Sample Values": ", ".join(map(str, meta.get("sample_values", [])[:3]))
-            })
-        st.dataframe(pd.DataFrame(col_summary), use_container_width=True)
 else:
-    st.info("Please upload a file or load one of the sample benchmark datasets above to begin.")
+    st.info("Please upload a file or load one of the benchmark datasets above to begin.")
