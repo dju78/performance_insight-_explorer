@@ -1,107 +1,293 @@
-"""Export module for Performance Insight Explorer.
-Provides helpers for Excel packs, text audit trails, and configuration loading.
+"""Unified Export Module for Performance Insight Explorer.
+Builds standardized export payloads from active session state and dispatches
+to PowerPoint, PDF Briefings, Multi-tab Excel Packs, and Plaintext Audit Trails.
+Strictly adheres to analytical governance: Approved-Findings only, No Hallucinated Metrics.
 """
 import os
 import datetime
-import yaml
 from typing import Dict, Any, List, Optional
 import pandas as pd
+import streamlit as st
+
+from src.quality import run_quality_audit
+from src.powerpoint import generate_powerpoint_presentation
+from src.pdf_report import generate_pdf_document
 from src.reporting import generate_excel_summary
-from src.metrics import calculate_kpis
 
-
-def load_app_config(config_path: str = "config/app_config.yaml") -> Dict[str, Any]:
-    """Load application configuration YAML safely."""
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r", encoding="utf-8") as f:
-                return yaml.safe_load(f) or {}
-        except Exception:
-            return {}
+def load_app_config() -> Dict[str, Any]:
+    """Return application configuration and metadata."""
     return {
-        "app_name": "Performance Insight Explorer",
+        "app_title": "Performance Insight Explorer",
         "author": "DARAMOLA OMOYELE",
-        "version": "2.0.0"
+        "version": "2.0.0",
+        "default_target_direction": "higher_is_better"
     }
+
+
+def group_recommendations_by_category(recommendations: List[Dict[str, Any]]) -> Dict[str, List[Dict[str, Any]]]:
+    """Group flat recommendation records into standard operational categories."""
+    categories = {
+        "Act": [],
+        "Investigate": [],
+        "Monitor": [],
+        "Improve Reporting": []
+    }
+    for rec in (recommendations or []):
+        cat = rec.get("category", "Act")
+        if cat not in categories:
+            cat = "Act"
+        categories[cat].append(rec)
+    return categories
+
+
+def build_export_payload_from_state(df: Optional[pd.DataFrame] = None) -> Dict[str, Any]:
+    """Gather live session state into a single immutable, validated export payload.
+    Ensures zero fabricated data, active gate checking, and consistent schema across all export formats.
+    """
+    clean_df = df if df is not None else st.session_state.get("clean_df")
+    if clean_df is None:
+        clean_df = st.session_state.get("raw_df")
+        
+    confirmed_mappings = st.session_state.get("confirmed_mappings", {})
+    row_granularity = st.session_state.get("row_granularity", "Not Confirmed")
+    row_granularity_confirmed = st.session_state.get("row_granularity_confirmed", False)
+    
+    # Validation Gates
+    validation_errors = []
+    if clean_df is None or len(clean_df) == 0:
+        validation_errors.append("No active dataset loaded.")
+    if not row_granularity_confirmed or row_granularity == "Not Confirmed":
+        validation_errors.append("Row granularity has not been confirmed on Page 01.")
+    if not confirmed_mappings:
+        validation_errors.append("Column mappings have not been confirmed on Page 03.")
+        
+    is_valid_for_export = (len(validation_errors) == 0)
+    
+    # Re-run or collect real Quality Audit
+    if clean_df is not None and len(clean_df) > 0:
+        qa_report = run_quality_audit(clean_df, confirmed_mappings)
+    else:
+        qa_report = st.session_state.get("qa_report") or {
+            "health_score": 0.0, "critical_count": 0, "warning_count": 0, "issues": []
+        }
+        
+    # Standardized Assessment Context
+    assessment_context = {
+        "question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational performance, capacity utilization, and delivery bottlenecks.",
+        "audience": st.session_state.get("target_audience", "Senior Leadership"),
+        "output_format": st.session_state.get("output_format", "Presentation Deck (PPTX)"),
+        "time_available": st.session_state.get("time_available", "15 minutes"),
+        "analyst_notes": st.session_state.get("analyst_notes", "")
+    }
+    
+    # Filter approved only
+    all_insights = st.session_state.get("insights_list", [])
+    approved_insights = [i for i in all_insights if i.get("status") in ["approved", "accepted"]]
+    
+    all_recs = st.session_state.get("recommendations_list", [])
+    approved_recs = [r for r in all_recs if r.get("status") in ["approved", "accepted"]]
+    recs_by_cat = group_recommendations_by_category(approved_recs)
+    
+    # Assumptions & Limitations Registers
+    assumptions = st.session_state.assumptions_register.get_all() if "assumptions_register" in st.session_state and hasattr(st.session_state.assumptions_register, "get_all") else []
+    limitations = st.session_state.limitations_register.get_all() if "limitations_register" in st.session_state and hasattr(st.session_state.limitations_register, "get_all") else []
+    
+    # Audit trail
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "get_events"):
+        audit_events = st.session_state.audit_logger.get_events()
+    else:
+        audit_events = st.session_state.get("audit_trail", [])
+        
+    payload = {
+        "assessment_context": assessment_context,
+        "filename": st.session_state.get("uploaded_file_name") or st.session_state.get("dataset_name", "operational_data.csv"),
+        "active_sheet": st.session_state.get("active_sheet", "CSV_Default"),
+        "row_count": len(clean_df) if clean_df is not None else 0,
+        "column_count": len(clean_df.columns) if clean_df is not None else 0,
+        "row_granularity": row_granularity,
+        "row_granularity_confirmed": row_granularity_confirmed,
+        "confirmed_mappings": confirmed_mappings,
+        "qa_report": qa_report,
+        "kpi_results": st.session_state.get("kpi_results", {}),
+        "trend_summary": st.session_state.get("trend_summary"),
+        "comparison_summary": st.session_state.get("comparison_summary"),
+        "approved_insights": approved_insights,
+        "approved_recommendations": approved_recs,
+        "recommendations_by_category": recs_by_cat,
+        "assumptions": assumptions,
+        "limitations": limitations,
+        "audit_trail": audit_events,
+        "generation_timestamp": datetime.datetime.now().isoformat(),
+        "dataset_fingerprint": st.session_state.get("dataset_fingerprint", "N/A"),
+        "is_valid_for_export": is_valid_for_export,
+        "validation_errors": validation_errors,
+        "raw_df": clean_df
+    }
+    
+    st.session_state["last_export_payload"] = payload
+    return payload
 
 
 def generate_executive_excel_pack(
-    df: Optional[pd.DataFrame] = None,
-    mappings: Optional[Dict[str, str]] = None,
-    target_directions: Optional[Dict[str, str]] = None,
-    insights: Optional[List[Dict[str, Any]]] = None,
-    recommendations: Optional[List[Dict[str, Any]]] = None,
-    output_dir: Optional[str] = None
+    payload: Optional[Dict[str, Any]] = None,
+    output_filepath: Optional[str] = None
 ) -> str:
-    """Build multi-tab executive Excel pack."""
-    out_dir = output_dir or os.path.join(os.getcwd(), "outputs", "reports")
+    """Generate comprehensive multi-tab Excel analytical workbook from payload."""
+    data = payload or build_export_payload_from_state()
+    out_dir = os.path.join(os.getcwd(), "outputs", "reports")
     os.makedirs(out_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filepath = os.path.join(out_dir, f"Executive_Performance_Pack_{timestamp}.xlsx")
+    filepath = output_filepath or os.path.join(out_dir, f"Performance_Analytical_Pack_{timestamp}.xlsx")
     
-    tgt_dir = "higher_is_better"
-    if target_directions:
-        for d in target_directions.values():
-            if d:
-                tgt_dir = d
-                break
-                
-    kpi_res = calculate_kpis(df, mappings or {}, target_direction=tgt_dir) if df is not None else {}
-    
-    raw_df_to_use = df if df is not None else pd.DataFrame()
+    raw_df_to_use = data.get("raw_df") if data.get("raw_df") is not None else pd.DataFrame()
     profile_info = {
-        "filename": "Active Operational Dataset",
-        "row_count": len(raw_df_to_use),
-        "column_count": len(raw_df_to_use.columns)
+        "filename": data.get("filename", "Operational Dataset"),
+        "sheet_name": data.get("active_sheet", "Default"),
+        "row_count": data.get("row_count", 0),
+        "column_count": data.get("column_count", 0)
     }
     
-    qa_report = {
-        "health_score": 98.5,
-        "critical_count": 0,
-        "warning_count": 0,
-        "issues": []
-    }
+    assumptions_df = pd.DataFrame(data.get("assumptions", []))
+    limitations_df = pd.DataFrame(data.get("limitations", []))
+    audit_df = pd.DataFrame(data.get("audit_trail", []))
     
-    recs_dict = {"immediate": recommendations or []}
-    assumptions_df = pd.DataFrame([{"Area": "Operational Capacity", "Assumption": "Standard operational shift patterns apply."}])
-    limitations_df = pd.DataFrame([{"Area": "Mapping Scope", "Limitation": "Unconfirmed column mappings excluded from KPI calculation."}])
-    audit_df = pd.DataFrame([{"Timestamp": datetime.datetime.now().isoformat(), "Event": "EXCEL_PACK_GENERATED", "Status": "SUCCESS"}])
+    trend_df = data.get("trend_summary", {}).get("trend_df") if data.get("trend_summary") else None
+    comp_df = data.get("comparison_summary", {}).get("comparison_df") if data.get("comparison_summary") else None
     
     generate_excel_summary(
         output_filepath=filepath,
         raw_df=raw_df_to_use,
         profile_info=profile_info,
-        qa_report=qa_report,
-        kpi_results=kpi_res,
-        trend_df=None,
-        comp_df=None,
-        insights=insights or [],
-        recommendations=recs_dict,
+        qa_report=data.get("qa_report", {}),
+        kpi_results=data.get("kpi_results", {}),
+        trend_df=trend_df,
+        comp_df=comp_df,
+        insights=data.get("approved_insights", []),
+        recommendations=data.get("recommendations_by_category", {}),
         assumptions_df=assumptions_df,
         limitations_df=limitations_df,
         audit_df=audit_df
     )
     
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "EXCEL_EXPORT_GENERATED", "Generated Analytical Excel Workbook",
+            filename=os.path.basename(filepath),
+            details={"fingerprint": data.get("dataset_fingerprint"), "sheet": data.get("active_sheet")}
+        )
+        
     return filepath
 
 
-def generate_audit_trail_text(audit_events: List[Dict[str, Any]], output_dir: Optional[str] = None) -> str:
-    """Generate plaintext reproducible audit log file."""
-    out_dir = output_dir or os.path.join(os.getcwd(), "outputs", "audit")
+def generate_powerpoint_deck(
+    payload: Optional[Dict[str, Any]] = None,
+    output_filepath: Optional[str] = None
+) -> str:
+    """Generate professional 6-slide PowerPoint presentation deck from live payload."""
+    data = payload or build_export_payload_from_state()
+    out_dir = os.path.join(os.getcwd(), "outputs", "presentations")
     os.makedirs(out_dir, exist_ok=True)
     timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    filepath = os.path.join(out_dir, f"audit_trail_{timestamp}.txt")
+    filepath = output_filepath or os.path.join(out_dir, f"Performance_Briefing_{timestamp}.pptx")
+    
+    project_metadata = {
+        "filename": data.get("filename", "Operational Dataset"),
+        "active_sheet": data.get("active_sheet", "Default"),
+        "row_count": data.get("row_count", 0),
+        "column_count": data.get("column_count", 0),
+        "author": "DARAMOLA OMOYELE"
+    }
+    
+    kpi_summary = data.get("kpi_results", {}).get("summary_kpis", {})
+    
+    generate_powerpoint_presentation(
+        output_filepath=filepath,
+        project_metadata=project_metadata,
+        qa_report=data.get("qa_report", {}),
+        kpi_summary=kpi_summary,
+        trend_summary=data.get("trend_summary"),
+        comparison_summary=data.get("comparison_summary"),
+        insights=data.get("approved_insights", []),
+        recommendations=data.get("recommendations_by_category", {}),
+        limitations=data.get("limitations", []),
+        assumptions=data.get("assumptions", []),
+        assessment_context=data.get("assessment_context", {}),
+        row_granularity=data.get("row_granularity", "Not Confirmed")
+    )
+    
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "PPTX_EXPORT_GENERATED", "Generated Executive PowerPoint Presentation",
+            filename=os.path.basename(filepath),
+            details={"fingerprint": data.get("dataset_fingerprint"), "sheet": data.get("active_sheet")}
+        )
+        
+    return filepath
+
+
+def generate_pdf_report(
+    payload: Optional[Dict[str, Any]] = None,
+    audience: str = "Senior Leadership",
+    output_filepath: Optional[str] = None
+) -> str:
+    """Generate audience-adapted A4 PDF brief using ReportLab Platypus."""
+    data = payload or build_export_payload_from_state()
+    out_dir = os.path.join(os.getcwd(), "outputs", "briefs")
+    os.makedirs(out_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    aud_slug = audience.lower().replace(" ", "_").replace("/", "_")
+    filepath = output_filepath or os.path.join(out_dir, f"Executive_Briefing_{aud_slug}_{timestamp}.pdf")
+    
+    generate_pdf_document(
+        output_filepath=filepath,
+        payload=data,
+        audience=audience
+    )
+    
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "PDF_EXPORT_GENERATED", f"Generated Executive PDF Briefing ({audience})",
+            filename=os.path.basename(filepath),
+            details={"fingerprint": data.get("dataset_fingerprint"), "audience": audience}
+        )
+        
+    return filepath
+
+
+def generate_audit_trail_text(
+    audit_events: Optional[List[Dict[str, Any]]] = None,
+    output_filepath: Optional[str] = None
+) -> str:
+    """Generate plaintext reproducible audit log file."""
+    events = audit_events
+    if events is None:
+        if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "get_events"):
+            events = st.session_state.audit_logger.get_events()
+        else:
+            events = st.session_state.get("audit_trail", [])
+            
+    out_dir = os.path.join(os.getcwd(), "outputs", "audit")
+    os.makedirs(out_dir, exist_ok=True)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    filepath = output_filepath or os.path.join(out_dir, f"audit_trail_{timestamp}.txt")
     
     with open(filepath, "w", encoding="utf-8") as f:
-        f.write("="*80 + "\n")
-        f.write("PERFORMANCE INSIGHT EXPLORER - AUDIT & REPRODUCIBILITY LOG\n")
+        f.write("="*85 + "\n")
+        f.write("PERFORMANCE INSIGHT EXPLORER - AUDIT & REPRODUCIBILITY TRAIL\n")
         f.write(f"Author: DARAMOLA OMOYELE | Generated: {datetime.datetime.now().isoformat()}\n")
-        f.write("="*80 + "\n\n")
+        f.write(f"Fingerprint: {st.session_state.get('dataset_fingerprint', 'N/A')}\n")
+        f.write("="*85 + "\n\n")
         
-        if not audit_events:
+        if not events:
             f.write("No interactive events recorded in session.\n")
         else:
-            for ev in audit_events:
-                f.write(f"[{ev.get('timestamp', 'N/A')}] EVENT: {ev.get('event_type', 'UNKNOWN')} | DETAILS: {ev.get('details', {})}\n")
+            for ev in events:
+                f.write(f"[{ev.get('timestamp', 'N/A')}] EVENT: {ev.get('event_type', 'UNKNOWN')} | {ev.get('action', '')} | DETAILS: {ev.get('details', {})}\n")
                 
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "AUDIT_EXPORT_GENERATED", "Exported Plaintext Audit Trail",
+            filename=os.path.basename(filepath)
+        )
+        
     return filepath

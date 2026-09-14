@@ -52,6 +52,7 @@ comp_res = compare_groups(
 if "error" in comp_res:
     st.error(comp_res["error"])
 else:
+    st.session_state["comparison_summary"] = comp_res
     st.session_state.audit_logger.log(
         "COMPARISON_ANALYSIS_RUN",
         f"Compared groups in '{selected_group}' on '{selected_metric}' (Agg: {agg_choice}, Denom: {denom_param})",

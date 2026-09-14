@@ -172,7 +172,7 @@ def calculate_kpis(
         }
         active_kpi_keys.extend(["target_achievement_pct", "target_variance", "target_variance_pct"])
         
-    # 2. PRODUCTIVITY (Completed / FTE or Staff)
+    # 2. PRODUCTIVITY (Sum(Completed) / Sum(FTE or Staff))
     comp_col = role_to_col.get("completed") or role_to_col.get("actual")
     fte_col = role_to_col.get("fte")
     staff_col = role_to_col.get("staff")
@@ -186,19 +186,18 @@ def calculate_kpis(
         calc_df["productivity"] = safe_divide(s_comp, s_denom)
         
         tot_comp = float(s_comp.sum())
-        avg_denom = float(s_denom.mean())
         tot_denom = float(s_denom.sum())
         
-        prod_val = safe_divide(tot_comp, avg_denom) if len(df) > 1 else safe_divide(tot_comp, tot_denom)
+        prod_val = safe_divide(tot_comp, tot_denom)
         
         summary_kpis["productivity"] = {
             "name": f"Productivity (Completed / {denom_name})",
             "value": round(prod_val, 2) if not np.isnan(prod_val) else None,
-            "unit": f"Cases per {denom_name}",
+            "unit": f"Cases per {denom_name}-period",
             "is_estimated": False,
-            "formula": f"Total Completed / Mean({denom_name})",
-            "description": f"Average throughput per available operational {denom_name}.",
-            "interpretation": f"Throughput delivery rate is {prod_val:.2f} cases per {denom_name}. Case mix complexity should be reviewed before evaluating team differences."
+            "formula": f"Sum(Completed) / Sum({denom_name})",
+            "description": f"Overall throughput delivery per aggregate {denom_name}-period exposure.",
+            "interpretation": f"Overall throughput delivery rate is {prod_val:.2f} cases per {denom_name}-period. Case mix complexity and segment capacity should be reviewed before evaluating team variances."
         }
         active_kpi_keys.append("productivity")
         
@@ -223,7 +222,7 @@ def calculate_kpis(
             "is_estimated": False,
             "formula": "Sum(Hours Used) / Sum(Hours Available) * 100",
             "description": "Proportion of scheduled capacity hours actively worked.",
-            "interpretation": "Optimal operational utilization typically ranges 80-90%; >95% signals bottleneck/burnout risk."
+            "interpretation": f"Utilisation is {agg_util:.1f}%. Interpret against the organisation's agreed operational benchmark; elevated levels may indicate capacity pressure."
         }
         active_kpi_keys.append("utilisation_pct")
         
@@ -231,20 +230,35 @@ def calculate_kpis(
     open_bl_col = role_to_col.get("opening_backlog")
     close_bl_col = role_to_col.get("closing_backlog")
     rec_col = role_to_col.get("received")
+    time_col = role_to_col.get("reporting_period") or role_to_col.get("date")
     
     if open_bl_col and close_bl_col:
         s_open = pd.to_numeric(df[open_bl_col], errors="coerce")
         s_close = pd.to_numeric(df[close_bl_col], errors="coerce")
         calc_df["backlog_change"] = s_close - s_open
         
-        obs_net_change = float(s_close.iloc[-1] - s_open.iloc[0]) if len(df) > 0 and s_close.notna().iloc[-1] and s_open.notna().iloc[0] else float(s_close.sum() - s_open.sum())
-        
+        if time_col and time_col in df.columns and len(df) > 0:
+            df_time = df[[time_col, open_bl_col, close_bl_col]].dropna(subset=[time_col]).copy()
+            df_time["_dt"] = pd.to_datetime(df_time[time_col], format="mixed", errors="coerce")
+            if df_time["_dt"].notna().sum() > 0:
+                min_p = df_time.sort_values("_dt").iloc[0]["_dt"]
+                max_p = df_time.sort_values("_dt").iloc[-1]["_dt"]
+                init_open = float(pd.to_numeric(df_time[df_time["_dt"] == min_p][open_bl_col], errors="coerce").sum())
+                final_close = float(pd.to_numeric(df_time[df_time["_dt"] == max_p][close_bl_col], errors="coerce").sum())
+            else:
+                periods_sorted = sorted(df_time[time_col].astype(str).unique())
+                init_open = float(pd.to_numeric(df_time[df_time[time_col].astype(str) == periods_sorted[0]][open_bl_col], errors="coerce").sum())
+                final_close = float(pd.to_numeric(df_time[df_time[time_col].astype(str) == periods_sorted[-1]][close_bl_col], errors="coerce").sum())
+            obs_net_change = final_close - init_open
+        else:
+            obs_net_change = float(s_close.iloc[-1] - s_open.iloc[0]) if len(df) > 0 and s_close.notna().iloc[-1] and s_open.notna().iloc[0] else float(s_close.sum() - s_open.sum())
+            
         summary_kpis["backlog_change"] = {
             "name": "Observed Backlog Change",
             "value": round(obs_net_change, 2),
             "unit": "Cases",
             "is_estimated": False,
-            "formula": "Final Closing Backlog - Initial Opening Backlog",
+            "formula": "Latest Period Total Closing Backlog - Earliest Period Total Opening Backlog" if time_col else "Final Closing - Initial Opening",
             "description": "Net observed queue inventory change across the active dataset.",
             "interpretation": "Positive indicates expanding backlog queue; negative indicates queue reduction."
         }

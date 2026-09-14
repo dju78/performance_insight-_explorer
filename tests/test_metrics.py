@@ -50,8 +50,8 @@ def test_calculate_kpis_comprehensive():
     assert summary["target_achievement_pct"]["value"] == 100.0
     assert summary["target_variance"]["value"] == 0.0
     
-    # Productivity: 150 / 5.0 = 30.0 cases/FTE
-    assert summary["productivity"]["value"] == 30.0
+    # Productivity: 150 / 15.0 = 10.0 cases/FTE-period (ratio-of-sums)
+    assert summary["productivity"]["value"] == 10.0
     
     # Utilisation: 1050 / 1200 * 100 = 87.5%
     assert summary["utilisation_pct"]["value"] == 87.5

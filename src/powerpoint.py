@@ -261,14 +261,18 @@ def generate_powerpoint_presentation(
     
     for ins in approved_insights[:3]:
         p_ins = tf5.add_paragraph()
-        p_ins.text = f"- [{ins.get('category')}] {ins.get('finding')}"
+        cat_lbl = ins.get('category') or ins.get('pillar') or "Insight"
+        title_lbl = ins.get('title') or ins.get('finding') or "Operational Observation"
+        p_ins.text = f"- [{cat_lbl}] {title_lbl}"
         p_ins.font.size = Pt(12)
         p_ins.font.bold = True
         p_ins.font.color.rgb = COLOR_NAVY
         p_ins.space_before = Pt(6)
         
+        evidence_lbl = ins.get('evidence') or ins.get('finding') or "Operational logs"
+        imp_lbl = ins.get('business_implication') or ins.get('action') or "Requires operational review"
         p_det = tf5.add_paragraph()
-        p_det.text = f"   Evidence: {ins.get('evidence')} | Implication: {ins.get('business_implication')}"
+        p_det.text = f"   Evidence: {evidence_lbl} | Implication: {imp_lbl}"
         p_det.font.size = Pt(10.5)
         p_det.font.color.rgb = COLOR_DARK
         
@@ -292,7 +296,9 @@ def generate_powerpoint_presentation(
         cat_items = [it for it in recommendations.get(cat, []) if it.get("status", "accepted") != "rejected"]
         if cat_items:
             p_cat = tf6.add_paragraph()
-            p_cat.text = f"- {cat}: {cat_items[0].get('title')} | {cat_items[0].get('action')}"
+            title_text = cat_items[0].get('title', '')
+            action_text = cat_items[0].get('action', '')
+            p_cat.text = f"- {cat}: {title_text} | {action_text}"
             p_cat.font.size = Pt(11.5)
             p_cat.font.bold = True
             p_cat.font.color.rgb = COLOR_DARK
@@ -307,7 +313,12 @@ def generate_powerpoint_presentation(
     
     for lim in limitations[:2]:
         p_lim = tf6.add_paragraph()
-        p_lim.text = f"  - {lim.get('limitation')}: {lim.get('impact')}"
+        if isinstance(lim, str):
+            p_lim.text = f"  - {lim}"
+        elif isinstance(lim, dict):
+            p_lim.text = f"  - {lim.get('limitation', '')}: {lim.get('impact', '')}"
+        else:
+            p_lim.text = f"  - {str(lim)}"
         p_lim.font.size = Pt(10.5)
         p_lim.font.color.rgb = COLOR_GRAY
         

@@ -102,8 +102,85 @@ def init_session_state():
     if "recommendations_list" not in st.session_state:
         st.session_state.recommendations_list = []
         
-    if "reviewed_recommendations" not in st.session_state:
-        st.session_state.reviewed_recommendations = {}
+    if "active_sheet" not in st.session_state:
+        st.session_state.active_sheet = ""
+        
+    if "uploaded_file_name" not in st.session_state:
+        st.session_state.uploaded_file_name = ""
+        
+    if "uploaded_file_bytes" not in st.session_state:
+        st.session_state.uploaded_file_bytes = None
+        
+    if "upload_widget_version" not in st.session_state:
+        st.session_state.upload_widget_version = 0
+        
+    if "trend_summary" not in st.session_state:
+        st.session_state.trend_summary = None
+        
+    if "comparison_summary" not in st.session_state:
+        st.session_state.comparison_summary = None
+        
+    if "root_cause_summary" not in st.session_state:
+        st.session_state.root_cause_summary = None
+        
+    if "last_export_payload" not in st.session_state:
+        st.session_state.last_export_payload = None
+
+
+def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> None:
+    """Clear active dataset and all derived analytical results to start a clean upload.
+    Optionally preserves user-entered assessment question, audience, and notes.
+    """
+    st.session_state["raw_df"] = None
+    st.session_state["clean_df"] = None
+    st.session_state["dataset_name"] = ""
+    st.session_state["uploaded_file_name"] = ""
+    st.session_state["uploaded_file_bytes"] = None
+    st.session_state["dataset_fingerprint"] = ""
+    st.session_state["metadata"] = None
+    st.session_state["data_profile"] = None
+    st.session_state["active_sheet"] = ""
+    
+    st.session_state["row_granularity"] = "Not Confirmed"
+    st.session_state["row_granularity_confirmed"] = False
+    
+    st.session_state["suggested_mappings"] = {}
+    st.session_state["confirmed_mappings"] = {}
+    st.session_state["target_directions"] = {}
+    
+    st.session_state["qa_report"] = None
+    st.session_state["structural_qa_report"] = None
+    st.session_state["semantic_qa_report"] = None
+    
+    st.session_state["kpi_results"] = {}
+    st.session_state["active_filters"] = {}
+    st.session_state["trend_summary"] = None
+    st.session_state["comparison_summary"] = None
+    st.session_state["root_cause_summary"] = None
+    
+    st.session_state["insights_list"] = []
+    st.session_state["reviewed_insights"] = []
+    st.session_state["recommendations_list"] = []
+    st.session_state["reviewed_recommendations"] = {}
+    st.session_state["last_export_payload"] = None
+    
+    # Increment uploader version to clear file_uploader widget state
+    current_ver = st.session_state.get("upload_widget_version", 0)
+    st.session_state["upload_widget_version"] = current_ver + 1
+    
+    if not preserve_assessment_context:
+        st.session_state["assessment_question"] = ""
+        st.session_state["target_audience"] = "Senior Leadership"
+        st.session_state["output_format"] = "Presentation Deck (PPTX)"
+        st.session_state["time_available"] = "15 minutes"
+        st.session_state["analyst_notes"] = ""
+        
+    if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
+        st.session_state.audit_logger.log(
+            "DATASET_CLEARED_FOR_NEW_UPLOAD",
+            "Cleared dataset and derived analytical state for new upload.",
+            details={"preserve_assessment_context": preserve_assessment_context, "new_widget_version": st.session_state["upload_widget_version"]}
+        )
 
 
 def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
@@ -116,10 +193,14 @@ def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
     st.session_state["semantic_qa_report"] = None
     st.session_state["kpi_results"] = {}
     st.session_state["active_filters"] = {}
+    st.session_state["trend_summary"] = None
+    st.session_state["comparison_summary"] = None
+    st.session_state["root_cause_summary"] = None
     st.session_state["insights_list"] = []
     st.session_state["reviewed_insights"] = []
     st.session_state["recommendations_list"] = []
     st.session_state["reviewed_recommendations"] = {}
+    st.session_state["last_export_payload"] = None
     st.session_state["row_granularity_confirmed"] = False
     st.session_state["row_granularity"] = "Not Confirmed"
     st.session_state["dataset_fingerprint"] = new_fingerprint
@@ -127,7 +208,7 @@ def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
             "DATASET_CONTEXT_CHANGED",
-            "Dataset changed; cleared mappings, QA reports, KPIs, insights, and recommendations.",
+            "Dataset changed; cleared mappings, QA reports, KPIs, trends, comparisons, insights, and recommendations.",
             details={"new_fingerprint": new_fingerprint}
         )
 
@@ -139,40 +220,29 @@ def reset_analysis_only() -> None:
     st.session_state["semantic_qa_report"] = None
     st.session_state["kpi_results"] = {}
     st.session_state["active_filters"] = {}
+    st.session_state["trend_summary"] = None
+    st.session_state["comparison_summary"] = None
+    st.session_state["root_cause_summary"] = None
     st.session_state["insights_list"] = []
     st.session_state["reviewed_insights"] = []
     st.session_state["recommendations_list"] = []
     st.session_state["reviewed_recommendations"] = {}
+    st.session_state["last_export_payload"] = None
     
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
             "RESET_ANALYSIS_ONLY",
-            "Cleared confirmed mappings, metrics, insights, and recommendations."
+            "Cleared confirmed mappings, metrics, trends, comparisons, insights, and recommendations."
         )
 
 
 def reset_full_state() -> None:
     """Complete reset that clears everything."""
-    st.session_state["raw_df"] = None
-    st.session_state["clean_df"] = None
-    st.session_state["dataset_name"] = ""
-    st.session_state["dataset_fingerprint"] = ""
-    st.session_state["metadata"] = None
-    st.session_state["data_profile"] = None
-    st.session_state["row_granularity"] = "Not Confirmed"
-    st.session_state["row_granularity_confirmed"] = False
-    st.session_state["suggested_mappings"] = {}
-    st.session_state["confirmed_mappings"] = {}
-    st.session_state["target_directions"] = {}
-    st.session_state["qa_report"] = None
-    st.session_state["structural_qa_report"] = None
-    st.session_state["semantic_qa_report"] = None
-    st.session_state["kpi_results"] = {}
-    st.session_state["active_filters"] = {}
-    st.session_state["insights_list"] = []
-    st.session_state["reviewed_insights"] = []
-    st.session_state["recommendations_list"] = []
-    st.session_state["reviewed_recommendations"] = {}
+    clear_dataset_for_new_upload(preserve_assessment_context=False)
+    if "assumptions_register" in st.session_state and hasattr(st.session_state.assumptions_register, "clear"):
+        st.session_state.assumptions_register.clear()
+    if "limitations_register" in st.session_state and hasattr(st.session_state.limitations_register, "clear"):
+        st.session_state.limitations_register.clear()
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "clear"):
         st.session_state.audit_logger.clear()
 
@@ -199,3 +269,4 @@ def get_state(key: str, default: Any = None) -> Any:
 
 def set_state(key: str, value: Any) -> None:
     st.session_state[key] = value
+

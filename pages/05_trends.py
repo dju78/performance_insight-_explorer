@@ -45,6 +45,7 @@ trend_res = calculate_trends(df, selected_date, selected_metric, group_param, ag
 if "error" in trend_res:
     st.error(trend_res["error"])
 else:
+    st.session_state["trend_summary"] = trend_res
     st.session_state.audit_logger.log(
         "TREND_ANALYSIS_RUN",
         f"Executed trend analysis for '{selected_metric}' over '{selected_date}'",
