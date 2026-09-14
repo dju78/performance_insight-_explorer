@@ -9,7 +9,7 @@ from src.state import (
     clear_dataset_for_new_upload
 )
 from src.ingestion import ingest_file, generate_dataset_profile, get_excel_sheet_names
-from src.quality import run_structural_qa, evaluate_data_fitness
+from src.quality import run_structural_qa
 from src.mapping import suggest_mappings
 
 init_session_state()
@@ -95,20 +95,20 @@ if uploaded_file is not None:
             else:
                 selected_sheet = sheets[0] if sheets else None
 
-        df_uploaded, profile = ingest_file(file_bytes, uploaded_file.name, sheet_name=selected_sheet)
+        df_uploaded, clean_uploaded, profile = ingest_file(file_bytes, uploaded_file.name, sheet_name=selected_sheet)
         fp = compute_dataset_fingerprint(df_uploaded, uploaded_file.name)
         
         if fp != st.session_state.get("dataset_fingerprint"):
             reset_derived_state_for_new_dataset(fp)
             
         st.session_state["raw_df"] = df_uploaded.copy()
-        st.session_state["clean_df"] = df_uploaded.copy()
+        st.session_state["clean_df"] = clean_uploaded.copy()
         st.session_state["dataset_name"] = uploaded_file.name
-        st.session_state["active_sheet"] = selected_sheet or "Default"
+        st.session_state["active_sheet"] = selected_sheet or profile.get("active_sheet", "Default")
         st.session_state["data_profile"] = profile
         st.session_state["structural_qa_report"] = run_structural_qa(df_uploaded)
         st.session_state["qa_report"] = st.session_state["structural_qa_report"]
-        st.session_state["suggested_mappings"] = suggest_mappings(df_uploaded)
+        st.session_state["suggested_mappings"] = suggest_mappings(clean_uploaded)
         
         st.session_state.audit_logger.log(
             "FILE_UPLOADED", "User uploaded data file", filename=uploaded_file.name,
