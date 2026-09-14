@@ -194,3 +194,65 @@ def test_fifteen_column_test_dataset_mappings():
         confidence = sugs[col]["confidence"]
         assert actual_role == expected_role, f"Column '{col}' mapped to '{actual_role}', expected '{expected_role}'"
         assert confidence >= 0.70, f"Confidence for '{col}' was {confidence}, expected >= 0.70"
+
+
+def test_qa_planted_anomalies_verification():
+    """Test Item 8: Verify QA engine detects all 5 planted anomalies in test dataset."""
+    csv_path = os.path.join(ROOT, "sample_data", "performance_insight_explorer_test_data.csv")
+    df = pd.read_csv(csv_path)
+    
+    # 1. Structural QA
+    struct_qa = run_structural_qa(df)
+    assert struct_qa["stage"] == "Structural QA"
+    assert struct_qa["overall_missing_pct"] == 0.11  # 1 / 900 = 0.11%
+    
+    # Condition 1: Missing Output_Target (1 missing observation)
+    target_missing = [i for i in struct_qa["issues"] if i["field"] == "Output_Target" and i["dimension"] == "Completeness"]
+    assert len(target_missing) == 1
+    assert target_missing[0]["affected_count"] == 1
+    
+    # Condition 4: Category Inconsistency in Service_Team (North Operations vs north operations)
+    team_inconsistency = [i for i in struct_qa["issues"] if i["field"] == "Service_Team" and i["dimension"] == "Consistency"]
+    assert len(team_inconsistency) == 1
+    assert "north operations" in str(team_inconsistency[0]["description"]).lower()
+    
+    # Condition 5: Processing Time Outlier (Median_Turnaround_Days = 74)
+    tat_outliers = [i for i in struct_qa["issues"] if i["field"] == "Median_Turnaround_Days" and i["dimension"] == "Plausibility"]
+    assert len(tat_outliers) == 1
+    assert tat_outliers[0]["affected_count"] == 1
+    assert any("74" in s for s in tat_outliers[0]["sample_values"])
+    assert "IQR" in tat_outliers[0]["method_used"]
+    assert "Potential statistical outlier — analyst review required." in tat_outliers[0]["description"]
+    
+    # 2. Semantic QA
+    confirmed_mappings = {
+        "Period": "reporting_period",
+        "Service_Team": "team",
+        "Region": "location",
+        "Demand_Received": "received",
+        "Cases_Closed": "completed",
+        "Output_Target": "target",
+        "Open_Work_Start": "opening_backlog",
+        "Open_Work_End": "closing_backlog",
+        "Available_FTE": "fte",
+        "Scheduled_Hours": "hours_available",
+        "Productive_Hours": "hours_used",
+        "Median_Turnaround_Days": "processing_time",
+        "Quality_Score_Pct": "quality_measure",
+        "Customer_Satisfaction_Pct": "customer_measure",
+        "Unit_Cost_GBP": "cost"
+    }
+    sem_qa = run_semantic_qa(df, confirmed_mappings)
+    assert sem_qa["stage"] == "Semantic QA"
+    
+    # Condition 2: Zero FTE denominator warning on Available_FTE
+    fte_zero = [i for i in sem_qa["issues"] if i["field"] == "Available_FTE" and "zero values" in i["title"].lower()]
+    assert len(fte_zero) == 1
+    assert fte_zero[0]["affected_count"] == 1
+    
+    # Condition 3: Backlog reconciliation discrepancy of 27 cases on West Operations
+    backlog_discrepancy = [i for i in sem_qa["issues"] if "backlog flow reconciliation" in i["title"].lower()]
+    assert len(backlog_discrepancy) == 1
+    assert backlog_discrepancy[0]["affected_count"] == 1
+    assert "27.0" in backlog_discrepancy[0]["description"] or "27" in backlog_discrepancy[0]["description"]
+

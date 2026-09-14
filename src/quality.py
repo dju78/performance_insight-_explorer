@@ -153,27 +153,67 @@ def run_structural_qa(df: pd.DataFrame) -> Dict[str, Any]:
     for col in df.columns:
         if not pd.api.types.is_numeric_dtype(df[col]) and not pd.api.types.is_datetime64_any_dtype(df[col]):
             vals = df[col].dropna().astype(str)
-            raw_uniques = set(vals.unique())
-            cleaned_uniques = set(vals.str.strip().str.lower().unique())
-            if len(raw_uniques) > len(cleaned_uniques):
-                diff_count = len(raw_uniques) - len(cleaned_uniques)
+            raw_uniques = list(vals.unique())
+            cleaned_map = {}
+            for v in raw_uniques:
+                norm = v.strip().lower()
+                cleaned_map.setdefault(norm, []).append(v)
+            inconsistent_groups = [variants for variants in cleaned_map.values() if len(variants) > 1]
+            if inconsistent_groups:
+                diff_count = sum(len(g) - 1 for g in inconsistent_groups)
+                # Find affected row indices where non-standard/lowercase occurs
+                all_variants = [item for sublist in inconsistent_groups for item in sublist]
+                affected_indices = df[df[col].astype(str).isin(all_variants)].index.tolist()
                 issues.append({
                     "issue_id": f"SQA-{issue_counter:03d}",
                     "dimension": "Consistency",
                     "severity": Severity.WARNING,
-                    "title": f"Case / Whitespace Inconsistency in '{col}'",
-                    "description": f"Field '{col}' contains {diff_count} redundant category variants caused by case differences or trailing spaces.",
+                    "title": f"Category Case / Whitespace Inconsistency in '{col}'",
+                    "description": f"Field '{col}' contains case/spacing discrepancies across categories: {inconsistent_groups}.",
                     "field": col,
-                    "affected_count": len(raw_uniques),
-                    "affected_pct": round(diff_count / max(1, len(raw_uniques)) * 100.0, 1),
-                    "sample_indices": [],
-                    "sample_values": list(raw_uniques)[:5],
-                    "recommended_action": "Apply standard text normalization (strip trailing spaces, consistent title case).",
+                    "affected_count": len(all_variants),
+                    "affected_pct": round(len(all_variants) / row_count * 100.0, 1),
+                    "sample_indices": affected_indices[:10],
+                    "sample_values": [f"Variants: {g}" for g in inconsistent_groups[:5]],
+                    "recommended_action": "Apply standard text normalization (e.g. Title Case or standard lookup mapping).",
                     "status": QualityStatus.UNRESOLVED
                 })
                 issue_counter += 1
                 
-    # 6. Constant / Zero-Variance Columns
+    # 6. Statistical Outliers (Robust IQR Method: Q1 - 3*IQR, Q3 + 3*IQR)
+    for col in df.select_dtypes(include=['number']).columns:
+        s = df[col].dropna()
+        if len(s) >= 4:
+            q1 = float(s.quantile(0.25))
+            q3 = float(s.quantile(0.75))
+            iqr = q3 - q1
+            if iqr > 0:
+                lower_bound = q1 - 3.0 * iqr
+                upper_bound = q3 + 3.0 * iqr
+                outlier_mask = (df[col] < lower_bound) | (df[col] > upper_bound)
+                outlier_count = int(outlier_mask.sum())
+                if outlier_count > 0:
+                    outlier_indices = df[outlier_mask].index.tolist()
+                    outlier_vals = df[col][outlier_mask].tolist()
+                    issues.append({
+                        "issue_id": f"SQA-{issue_counter:03d}",
+                        "dimension": "Plausibility",
+                        "severity": Severity.WARNING,
+                        "title": f"Potential Statistical Outlier in '{col}'",
+                        "description": "Potential statistical outlier — analyst review required.",
+                        "field": col,
+                        "affected_count": outlier_count,
+                        "affected_pct": round(outlier_count / row_count * 100.0, 2),
+                        "sample_indices": outlier_indices[:10],
+                        "sample_values": [f"Row {idx}: {val}" for idx, val in zip(outlier_indices[:10], outlier_vals[:10])],
+                        "method_used": "Robust IQR (Q1 - 3.0*IQR, Q3 + 3.0*IQR)",
+                        "threshold": f"Lower: {lower_bound:.2f}, Upper: {upper_bound:.2f}",
+                        "recommended_action": "Potential statistical outlier — analyst review required. Do not automatically delete or alter; verify if genuine operational event.",
+                        "status": QualityStatus.UNRESOLVED
+                    })
+                    issue_counter += 1
+
+    # 7. Constant / Zero-Variance Columns
     for col in df.columns:
         uniq = df[col].nunique(dropna=True)
         if uniq <= 1 and row_count > 1:

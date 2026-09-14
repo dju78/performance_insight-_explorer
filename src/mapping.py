@@ -206,7 +206,7 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
         if not is_dt and not is_num and len(series.dropna()) > 0:
             try:
                 sample_valid = series.dropna().astype(str).str.strip().head(20)
-                parsed = pd.to_datetime(sample_valid, errors="coerce")
+                parsed = pd.to_datetime(sample_valid, format="mixed", errors="coerce")
                 if parsed.notna().sum() / len(sample_valid) >= 0.8:
                     is_dt = True
             except Exception:

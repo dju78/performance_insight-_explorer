@@ -58,7 +58,7 @@ def profile_dataset(df: pd.DataFrame, filename: str = "", sheet_name: str = "") 
             if len(valid_series) > 0:
                 try:
                     test_sample = valid_series.head(100)
-                    parsed = pd.to_datetime(test_sample, errors="coerce")
+                    parsed = pd.to_datetime(test_sample, format="mixed", errors="coerce")
                     if parsed.notna().sum() / len(test_sample) >= 0.7:
                         is_datetime = True
                         inferred_type = "datetime"

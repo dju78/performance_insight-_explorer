@@ -59,9 +59,15 @@ with tab_a:
         for iss in s_issues:
             sev = iss["severity"]
             badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
-            with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL)):
+            with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL or sev == Severity.WARNING)):
                 st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
                 st.markdown(f"**Description:** {iss['description']}")
+                if "method_used" in iss:
+                    st.markdown(f"**Method Used:** `{iss['method_used']}` | **Threshold:** `{iss.get('threshold', 'N/A')}`")
+                if iss.get("sample_values"):
+                    st.markdown(f"**Sample Values / Context:** `{', '.join(str(x) for x in iss['sample_values'][:5])}`")
+                if iss.get("sample_indices"):
+                    st.markdown(f"**Affected Row Indices:** `{iss['sample_indices'][:10]}`")
                 st.markdown(f"**Recommended Action:** {iss['recommended_action']}")
 
 with tab_b:
@@ -84,7 +90,11 @@ with tab_b:
             for iss in b_issues:
                 sev = iss["severity"]
                 badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
-                with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL)):
+                with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL or sev == Severity.WARNING)):
                     st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
                     st.markdown(f"**Description:** {iss['description']}")
+                    if iss.get("sample_values"):
+                        st.markdown(f"**Sample Values / Context:** `{', '.join(str(x) for x in iss['sample_values'][:5])}`")
+                    if iss.get("sample_indices"):
+                        st.markdown(f"**Affected Row Indices:** `{iss['sample_indices'][:10]}`")
                     st.markdown(f"**Recommended Action:** {iss['recommended_action']}")
