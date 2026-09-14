@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from src.state import init_session_state
-from src.audit import log_audit_event
 
 init_session_state()
 
@@ -67,17 +66,17 @@ for i, rec in enumerate(recs):
         with b1:
             if st.button("✅ Accept", key=f"acc_rec_{i}", use_container_width=True):
                 rec['status'] = "approved"
-                log_audit_event("ACCEPT_RECOMMENDATION", {"id": rec.get("id"), "title": rec.get("title")})
+                st.session_state.audit_logger.log("ACCEPT_RECOMMENDATION", f"Accepted recommendation {rec.get('id')}", details={"id": rec.get("id"), "title": rec.get("title")})
                 st.rerun()
         with b2:
             if st.button("❌ Reject", key=f"rej_rec_{i}", use_container_width=True):
                 rec['status'] = "rejected"
-                log_audit_event("REJECT_RECOMMENDATION", {"id": rec.get("id"), "title": rec.get("title")})
+                st.session_state.audit_logger.log("REJECT_RECOMMENDATION", f"Rejected recommendation {rec.get('id')}", details={"id": rec.get("id"), "title": rec.get("title")})
                 st.rerun()
         with b3:
             if st.button("✏️ Save & Approve", key=f"save_rec_{i}"):
                 rec['status'] = "approved"
-                log_audit_event("EDIT_APPROVE_RECOMMENDATION", {"id": rec.get("id")})
+                st.session_state.audit_logger.log("EDIT_APPROVE_RECOMMENDATION", f"Edited recommendation {rec.get('id')}", details={"id": rec.get("id")})
                 st.success("Saved and approved!")
                 st.rerun()
                 
@@ -103,6 +102,6 @@ with st.expander("➕ Add Custom Recommendation"):
                 "status": "approved"
             })
             st.session_state["recommendations_list"] = recs
-            log_audit_event("ADD_CUSTOM_RECOMMENDATION", {"title": new_title})
+            st.session_state.audit_logger.log("ADD_CUSTOM_RECOMMENDATION", f"Added recommendation: {new_title}")
             st.success("Custom recommendation added and approved!")
             st.rerun()

@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from src.state import init_session_state
 from src.ingestion import ingest_file, generate_dataset_profile
-from src.audit import log_audit_event
 
 init_session_state()
 
@@ -22,7 +21,7 @@ with col_s1:
             st.session_state["data_profile"] = generate_dataset_profile(df)
             st.session_state["row_granularity"] = "Periodic snapshot"
             st.session_state["row_granularity_confirmed"] = True
-            log_audit_event("LOAD_SAMPLE_DATASET", {"name": "Dataset A"})
+            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset A", details={"name": "Dataset A"})
             st.success("Loaded Dataset A successfully!")
             st.rerun()
         except Exception as e:
@@ -38,7 +37,7 @@ with col_s2:
             st.session_state["data_profile"] = generate_dataset_profile(df)
             st.session_state["row_granularity"] = "Case / record"
             st.session_state["row_granularity_confirmed"] = True
-            log_audit_event("LOAD_SAMPLE_DATASET", {"name": "Dataset B"})
+            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset B", details={"name": "Dataset B"})
             st.success("Loaded Dataset B successfully!")
             st.rerun()
         except Exception as e:
@@ -54,7 +53,7 @@ with col_s3:
             st.session_state["data_profile"] = generate_dataset_profile(df)
             st.session_state["row_granularity"] = "Transaction / event"
             st.session_state["row_granularity_confirmed"] = True
-            log_audit_event("LOAD_SAMPLE_DATASET", {"name": "Dataset C"})
+            st.session_state.audit_logger.log("LOAD_SAMPLE_DATASET", "Loaded Dataset C", details={"name": "Dataset C"})
             st.success("Loaded Dataset C successfully!")
             st.rerun()
         except Exception as e:
@@ -67,7 +66,7 @@ if uploaded_file is not None:
         st.session_state["clean_df"] = clean_df
         st.session_state["dataset_name"] = uploaded_file.name
         st.session_state["data_profile"] = profile
-        log_audit_event("FILE_UPLOADED", {"filename": uploaded_file.name, "rows": len(raw_df), "cols": len(raw_df.columns)})
+        st.session_state.audit_logger.log("FILE_UPLOADED", f"Uploaded {uploaded_file.name}", filename=uploaded_file.name, row_count=len(raw_df), col_count=len(raw_df.columns))
         st.success(f"Successfully uploaded and profiled `{uploaded_file.name}` ({len(raw_df):,} rows, {len(raw_df.columns)} columns)")
     except Exception as e:
         st.error(f"Error ingesting file: {e}")
@@ -110,7 +109,7 @@ if st.session_state.get("raw_df") is not None:
         if st.button("✅ Confirm Row Granularity", type="primary", use_container_width=True):
             st.session_state["row_granularity"] = selected_gran
             st.session_state["row_granularity_confirmed"] = True
-            log_audit_event("CONFIRM_ROW_GRANULARITY", {"granularity": selected_gran})
+            st.session_state.audit_logger.log("CONFIRM_ROW_GRANULARITY", f"Confirmed granularity: {selected_gran}", details={"granularity": selected_gran})
             st.success(f"Confirmed: 1 Row = {selected_gran}")
             st.rerun()
 

@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 from src.state import init_session_state
 from src.insights import generate_rule_based_insights
-from src.audit import log_audit_event
 
 init_session_state()
 
@@ -54,17 +53,17 @@ else:
             with b1:
                 if st.button("✅ Accept", key=f"acc_ins_{i}", use_container_width=True):
                     item['status'] = "approved"
-                    log_audit_event("ACCEPT_INSIGHT", {"id": item.get("id"), "title": item.get("title")})
+                    st.session_state.audit_logger.log("ACCEPT_INSIGHT", f"Accepted insight {item.get('id')}", details={"id": item.get("id"), "title": item.get("title")})
                     st.rerun()
             with b2:
                 if st.button("❌ Reject", key=f"rej_ins_{i}", use_container_width=True):
                     item['status'] = "rejected"
-                    log_audit_event("REJECT_INSIGHT", {"id": item.get("id"), "title": item.get("title")})
+                    st.session_state.audit_logger.log("REJECT_INSIGHT", f"Rejected insight {item.get('id')}", details={"id": item.get("id"), "title": item.get("title")})
                     st.rerun()
             with b3:
                 if st.button("✏️ Save Edits & Approve", key=f"save_ins_{i}"):
                     item['status'] = "approved"
-                    log_audit_event("EDIT_APPROVE_INSIGHT", {"id": item.get("id"), "text": edited_finding})
+                    st.session_state.audit_logger.log("EDIT_APPROVE_INSIGHT", f"Edited insight {item.get('id')}", details={"id": item.get("id"), "text": edited_finding})
                     st.success("Saved and approved!")
                     st.rerun()
             

@@ -1,7 +1,6 @@
 import streamlit as st
 import pandas as pd
 from src.state import init_session_state, get_state, reset_analysis_only, reset_full_state
-from src.audit import log_audit_event
 from src.export import load_app_config
 
 st.set_page_config(

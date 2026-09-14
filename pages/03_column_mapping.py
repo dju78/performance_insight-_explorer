@@ -6,7 +6,6 @@ from src.mapping import (
     validate_mapping_integrity,
     SEMANTIC_ROLES
 )
-from src.audit import log_audit_event
 
 init_session_state()
 
@@ -90,7 +89,7 @@ with col_btn1:
     if st.button("✅ Confirm All Column Mappings & Target Directions", type="primary", use_container_width=True):
         st.session_state["confirmed_mappings"] = {k: v for k, v in mapping_form.items() if v != "unmapped"}
         st.session_state["target_directions"] = direction_form
-        log_audit_event("CONFIRM_COLUMN_MAPPINGS", {
+        st.session_state.audit_logger.log("CONFIRM_COLUMN_MAPPINGS", f"Confirmed {len(st.session_state['confirmed_mappings'])} column mappings", details={
             "confirmed_count": len(st.session_state["confirmed_mappings"]),
             "mappings": st.session_state["confirmed_mappings"],
             "target_directions": st.session_state["target_directions"]

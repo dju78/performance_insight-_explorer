@@ -3,7 +3,6 @@ import os
 from src.state import init_session_state, reset_analysis_only
 from src.export import generate_executive_excel_pack, generate_audit_trail_text
 from src.powerpoint import generate_interview_powerpoint
-from src.audit import log_audit_event
 
 init_session_state()
 
