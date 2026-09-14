@@ -40,27 +40,54 @@ selected_denom = c3.selectbox("Capacity Denominator (Optional):", mapped_denoms)
 agg_choice = c4.selectbox("Metric Aggregation:", ["sum", "mean"])
 
 denom_param = None if selected_denom == "<None>" else selected_denom
-comp_res = compare_groups(df, selected_group, selected_metric, denom_param, agg_choice)
+comp_res = compare_groups(
+    df=df,
+    group_col=selected_group,
+    metric_col=selected_metric,
+    denominator_col=denom_param,
+    agg_func=agg_choice,
+    min_sample_threshold=5
+)
 
 if "error" in comp_res:
     st.error(comp_res["error"])
 else:
     st.session_state.audit_logger.log(
         "COMPARISON_ANALYSIS_RUN",
-        f"Compared groups in '{selected_group}' on '{selected_metric}'",
+        f"Compared groups in '{selected_group}' on '{selected_metric}' (Agg: {agg_choice}, Denom: {denom_param})",
         details={"group_count": comp_res["group_count"], "iqr_ratio": comp_res.get("iqr_ratio")}
     )
     
     st.markdown("---")
+    
+    # Configuration and context banner
+    norm_text = f"Rate per {denom_param}" if denom_param else "None (Absolute Volume / Average)"
+    st.info(f"⚙️ **Active Configuration:** Dimension: `{selected_group}` | Metric: `{selected_metric}` | Aggregation: `{agg_choice.title()}` | Capacity Normalisation: `{norm_text}`")
+    
+    if comp_res.get("small_sample_groups"):
+        st.warning(f"⚠️ **Small Sample Alert:** The following group(s) have <5 observations: `{', '.join(comp_res['small_sample_groups'])}`. Interpret rankings with caution.")
+    
     m1, m2, m3, m4 = st.columns(4)
     m1.metric("Compared Groups", comp_res["group_count"])
-    m2.metric("Top Performer", comp_res.get("top_group", "N/A"), f"{comp_res.get('top_value', 0):,.2f}")
-    m3.metric("Lowest Performer", comp_res.get("bottom_group", "N/A"), f"{comp_res.get('bottom_value', 0):,.2f}")
-    m4.metric("Variance Spread (Max / Min)", f"{comp_res.get('variance_ratio', 1.0):.2f}x")
+    m2.metric("Top Performer", str(comp_res.get("top_group", "N/A")), f"{comp_res.get('top_value', 0.0):,.2f}")
+    m3.metric("Lowest Performer", str(comp_res.get("bottom_group", "N/A")), f"{comp_res.get('bottom_value', 0.0):,.2f}")
+    
+    var_ratio = comp_res.get("variance_ratio")
+    var_str = f"{var_ratio:.2f}x" if var_ratio is not None and not pd.isna(var_ratio) else "N/A"
+    m4.metric("Variance Spread (Max / Min)", var_str)
     
     st.markdown("#### 📊 Comparative League Table")
     comp_df = comp_res["comparison_df"]
-    fig_comp = create_comparison_bar(comp_df, selected_group, "value", title=f"Comparison of '{selected_metric}' by '{selected_group}'")
+    y_label = f"{selected_metric} per {denom_param}" if denom_param else f"{selected_metric} ({agg_choice.title()})"
+    fig_comp = create_comparison_bar(
+        comp_df,
+        x_col="group",
+        y_col="value",
+        title=f"Comparison of '{selected_metric}' by '{selected_group}'",
+        x_label=selected_group,
+        y_label=y_label,
+        target_val=comp_res.get("benchmark_value")
+    )
     st.plotly_chart(fig_comp, use_container_width=True)
     
     st.markdown("#### 📋 Detailed Group Breakdown")
