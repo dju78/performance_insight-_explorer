@@ -55,8 +55,8 @@ def build_export_payload_from_state(state_or_df: Any = None) -> Dict[str, Any]:
         dataset_name = state.get("dataset_name", "Active Dataset")
         q_brief = state.get("assessment_question", "")
         q_must = state.get("questions_must_answer", "")
-        target_aud = state.get("target_audience", "Senior Leadership")
-        resp_time = state.get("response_time", "15 mins")
+        target_aud = state.get("target_audience") or "Not specified"
+        resp_time = state.get("response_time") or "Not specified"
     else:
         clean_df = state_or_df if state_or_df is not None else st.session_state.get("clean_df")
         if clean_df is None:
@@ -69,7 +69,7 @@ def build_export_payload_from_state(state_or_df: Any = None) -> Dict[str, Any]:
         dataset_name = st.session_state.get("dataset_name", "Active Dataset")
         q_brief = st.session_state.get("assessment_question", "")
         q_must = state_or_df.get("questions_must_answer", "") if isinstance(state_or_df, dict) else st.session_state.get("questions_must_answer", "")
-        target_aud = st.session_state.get("target_audience", "Senior Leadership")
+        target_aud = st.session_state.get("target_audience") or "Not specified"
         resp_time = st.session_state.get("response_time", "15 mins")
     
     # Validation Gates
@@ -100,14 +100,14 @@ def build_export_payload_from_state(state_or_df: Any = None) -> Dict[str, Any]:
         target_dir_val = target_dirs
 
     assessment_context = {
-        "question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational throughput, capacity utilisation, and delivery bottlenecks.",
-        "assessment_question": st.session_state.get("assessment_question", "").strip() or "Evaluate operational throughput, capacity utilisation, and delivery bottlenecks.",
+        "question": st.session_state.get("assessment_question", "").strip() or "Operational performance evaluation as defined in assessment brief.",
+        "assessment_question": st.session_state.get("assessment_question", "").strip() or "Operational performance evaluation as defined in assessment brief.",
         "questions_must_answer": st.session_state.get("questions_must_answer", ""),
-        "audience": st.session_state.get("target_audience", "Senior Leadership"),
-        "target_audience": st.session_state.get("target_audience", "Senior Leadership"),
-        "output_format": st.session_state.get("output_format", "Presentation Deck (PPTX)"),
-        "time_available": st.session_state.get("time_available", "15 minutes"),
-        "response_time": st.session_state.get("response_time", "10 minutes presentation + 5 minutes Q&A"),
+        "audience": st.session_state.get("target_audience") or "Not specified",
+        "target_audience": st.session_state.get("target_audience") or "Not specified",
+        "output_format": st.session_state.get("output_format") or "Not specified / Await instructions",
+        "time_available": st.session_state.get("time_available") or "Not specified",
+        "response_time": st.session_state.get("response_time") or "Not specified",
         "mandatory_measures": st.session_state.get("mandatory_measures", ""),
         "required_comparisons": st.session_state.get("required_comparisons", ""),
         "required_method": st.session_state.get("required_method", ""),

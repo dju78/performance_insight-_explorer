@@ -13,6 +13,17 @@ st.set_page_config(
 init_session_state()
 config = load_app_config()
 
+OUTPUT_FORMAT_OPTIONS = [
+    "Not specified / Await instructions",
+    "Verbal discussion / Q&A",
+    "Live analytical briefing",
+    "PowerPoint",
+    "PDF briefing",
+    "Excel analytical pack",
+    "Written analytical summary",
+    "Other"
+]
+
 # Sidebar: Assessment Pack Context & Global Controls
 with st.sidebar:
     st.title("🎯 Assessment Hub")
@@ -25,26 +36,24 @@ with st.sidebar:
             "Problem Statement / Core Question",
             value=st.session_state.get("assessment_question", ""),
             height=80,
-            placeholder="e.g. Investigate backlogs and recommend 3 operational interventions..."
+            placeholder="As defined in assessment brief (leave blank if unstated)..."
         )
         st.session_state["target_audience"] = st.text_input(
             "Target Audience",
-            value=st.session_state.get("target_audience", "Senior Leadership"),
-            placeholder="e.g. Operations Director, Assessment Panel"
+            value=st.session_state.get("target_audience", ""),
+            placeholder="e.g. As specified in assessment pack or 'Not specified'"
         )
         st.session_state["response_time"] = st.text_input(
             "Time Available",
-            value=st.session_state.get("response_time", "15 minutes (10 presentation + 5 Q&A)"),
-            placeholder="e.g. 15 mins"
+            value=st.session_state.get("response_time", ""),
+            placeholder="e.g. As specified in assessment pack or 'Not specified'"
         )
+        current_fmt = st.session_state.get("output_format", "Not specified / Await instructions")
+        fmt_idx = OUTPUT_FORMAT_OPTIONS.index(current_fmt) if current_fmt in OUTPUT_FORMAT_OPTIONS else 0
         st.session_state["output_format"] = st.selectbox(
             "Output Format",
-            ["Presentation Deck (PPTX)", "Executive Summary (Word/PDF)", "Live Briefing / Dashboard", "Analytical Memo"],
-            index=0 if st.session_state.get("output_format") is None else (
-                ["Presentation Deck (PPTX)", "Executive Summary (Word/PDF)", "Live Briefing / Dashboard", "Analytical Memo"].index(st.session_state.get("output_format", "Presentation Deck (PPTX)"))
-                if st.session_state.get("output_format") in ["Presentation Deck (PPTX)", "Executive Summary (Word/PDF)", "Live Briefing / Dashboard", "Analytical Memo"]
-                else 0
-            )
+            OUTPUT_FORMAT_OPTIONS,
+            index=fmt_idx
         )
         st.session_state["rapid_mode"] = st.checkbox(
             "⚡ Rapid Assessment Mode",
@@ -69,6 +78,16 @@ st.title("📊 Performance Insight Explorer")
 st.markdown("### Operational Performance & Diagnostic Toolkit for Practical Assessments")
 st.caption("Candidate / Analyst: **DARAMOLA OMOYELE** | BSR Performance Analyst Assessment Ready")
 
+# Assessment-Rules Gate
+st.info("""
+⚠️ **Check assessment rules before using this tool.**  
+If the assessment instructions prohibit pre-built tools, external assistance, AI, cloud upload, or particular software, the analyst must follow the assessment instructions.
+""")
+st.session_state["assessment_rules_confirmed"] = st.checkbox(
+    "✅ **I have reviewed the assessment rules and confirmed this workflow is permitted.**",
+    value=st.session_state.get("assessment_rules_confirmed", False)
+)
+
 # Active Dataset Status Banner
 if st.session_state.get("raw_df") is not None:
     st.info(f"📁 **Active Dataset:** {st.session_state.get('dataset_name', 'Uploaded File')} | **Rows:** {len(st.session_state['raw_df']):,} | **Columns:** {len(st.session_state['raw_df'].columns)}")
@@ -88,7 +107,7 @@ st.markdown("---")
 st.header("📋 Stage 0: Assessment Pack Intake")
 st.markdown("""
 Enter the specific questions, targets, and constraints from your assessment brief below. 
-The application will automatically adapt its analysis, talking points, and executive presentation to address your exact brief.
+The application adapts its analysis, talking points, and outputs to address your exact brief without pre-assuming any problem domain.
 """)
 
 with st.container():
@@ -98,46 +117,53 @@ with st.container():
             "1. Core Problem Statement / Main Question",
             value=st.session_state.get("assessment_question", ""),
             height=90,
-            placeholder="e.g. Identify why processing lead times have increased and recommend resource reallocations."
+            placeholder="Enter the exact problem or scenario defined in your assessment brief..."
         )
         st.session_state["questions_must_answer"] = st.text_area(
             "2. Specific Questions That Must Be Answered (one per line)",
             value=st.session_state.get("questions_must_answer", ""),
             height=90,
-            placeholder="e.g.\n- Which teams are underperforming against SLA?\n- Is backlog growth driven by demand surge or reduced capacity?\n- What are the 3 priority actions for next month?"
+            placeholder="List specific questions required by the assessment brief (one per line)..."
         )
         st.session_state["mandatory_measures"] = st.text_input(
-            "3. Mandatory Measures / Targets Specified",
+            "3. Mandatory Measures / Targets / Benchmarks (if specified)",
             value=st.session_state.get("mandatory_measures", ""),
-            placeholder="e.g. SLA: 85% in 20 days; Backlog target: <500; Staff utilisation: 80-90%"
+            placeholder="e.g. As stated in assessment brief (leave blank if none provided)"
         )
         st.session_state["required_comparisons"] = st.text_input(
-            "4. Required Comparisons / Cohorts",
+            "4. Required Comparisons / Cohorts (if specified)",
             value=st.session_state.get("required_comparisons", ""),
-            placeholder="e.g. Compare regional performance, product tier variance, monthly trend"
+            placeholder="e.g. Cohorts or groupings requested in brief (leave blank if unguided)"
         )
         
     with c_q2:
         st.session_state["target_audience"] = st.text_input(
             "5. Target Audience",
-            value=st.session_state.get("target_audience", "Senior Leadership / Operations Director"),
-            placeholder="e.g. Operations Director, Assessment Panel, Casework Team Leads"
+            value=st.session_state.get("target_audience", ""),
+            placeholder="e.g. As specified in assessment pack or 'Not specified'"
         )
         st.session_state["response_time"] = st.text_input(
             "6. Response / Presentation Time Available",
-            value=st.session_state.get("response_time", "15 minutes (10 mins presentation + 5 mins Q&A)"),
-            placeholder="e.g. 10 mins briefing"
+            value=st.session_state.get("response_time", ""),
+            placeholder="e.g. As specified in assessment pack or 'Not specified'"
+        )
+        current_fmt_main = st.session_state.get("output_format", "Not specified / Await instructions")
+        fmt_idx_main = OUTPUT_FORMAT_OPTIONS.index(current_fmt_main) if current_fmt_main in OUTPUT_FORMAT_OPTIONS else 0
+        st.session_state["output_format"] = st.selectbox(
+            "7. Required Output Format",
+            OUTPUT_FORMAT_OPTIONS,
+            index=fmt_idx_main
         )
         st.session_state["restrictions_rules"] = st.text_input(
-            "7. Key Restrictions / Assessment Rules",
+            "8. Key Restrictions / Assessment Rules",
             value=st.session_state.get("restrictions_rules", ""),
-            placeholder="e.g. Maximum 6 slides, evidence-based recommendations only, no hiring assumptions"
+            placeholder="e.g. Word limits, slide limits, forbidden assumptions (leave blank if none)"
         )
         st.session_state["other_instructions"] = st.text_area(
-            "8. Other Instructions / Working Assumptions / Analyst Notes",
+            "9. Other Instructions / Working Assumptions / Analyst Notes",
             value=st.session_state.get("other_instructions", ""),
-            height=90,
-            placeholder="e.g. Assume baseline FTE remains constant; flag any data quality issues early."
+            height=70,
+            placeholder="Any specific constraints or analyst working notes..."
         )
 
     col_btn1, col_btn2 = st.columns([2, 1])
@@ -153,7 +179,11 @@ with st.container():
 st.markdown("---")
 
 # Quick Workflow Navigation Guide
-st.subheader("🧭 End-to-End Analytical Workflow")
+st.subheader("🧭 Practical Assessment Workflow Sequence")
+st.markdown("""
+`READ BRIEF` → `CONFIRM REQUIREMENT` → `UPLOAD` → `GRANULARITY` → `QA` → `MAP` → `SELECT ANALYSIS` → `ANALYSE` → `FINDINGS` → `LIMITATIONS` → `RECOMMENDATIONS` → `DEFEND`
+""")
+
 w_col1, w_col2, w_col3 = st.columns(3)
 
 with w_col1:
@@ -161,16 +191,16 @@ with w_col1:
     #### 1️⃣ Ingestion & Quality
     - **01 Upload & Profile:** Ingest dataset (`.csv`, `.xlsx`, `.xls`) & confirm **Row Granularity**.
     - **02 Data Quality:** Run structural & semantic checks, inspect nulls, zero denominators, and anomalies.
-    - **03 Column Mapping:** Auto-detect and confirm roles (`volume`, `target`, `fte`, `wait_time`, `dates`).
+    - **03 Column Mapping:** Detect and confirm roles (`volume`, `target`, `fte`, `wait_time`, `dates`).
     """)
 
 with w_col2:
     st.markdown("""
     #### 2️⃣ Diagnostics & Drivers
-    - **04 Performance Overview:** Review KPI scorecard against target directionality.
-    - **05 Trends:** Evaluate time series, run charts, and stability.
+    - **04 Performance Overview:** Review KPI scorecard against configured target directionality.
+    - **05 Trends:** Evaluate time series, run charts, and stability if longitudinal dates exist.
     - **06 Comparisons:** Group variance analysis across operational cohorts.
-    - **07 Driver Trees:** Root cause exploration and capacity/demand balancing.
+    - **07 Driver Trees:** Root cause exploration and driver breakdown.
     """)
 
 with w_col3:
@@ -178,8 +208,8 @@ with w_col3:
     #### 3️⃣ Governance & Defense
     - **08 Insights:** Accept, edit, or reject data-backed findings.
     - **09 Recommendations:** Formulate actionable operational interventions.
-    - **10 Interview View:** 13-Section Assessment Summary & Assessor Q&A Defense.
-    - **11 Export:** Download 16:9 Widescreen PowerPoint with dynamic speaker notes & PDF reports.
+    - **10 Interview View:** Assessment Summary, Prompt Card Mode & Assessor Q&A Defense.
+    - **11 Export:** Download requested output format (PowerPoint, PDF, Excel, Memo).
     """)
 
 st.markdown("---")

@@ -61,16 +61,16 @@ def init_session_state():
         st.session_state.questions_must_answer = ""
         
     if "target_audience" not in st.session_state:
-        st.session_state.target_audience = "Senior Leadership"
+        st.session_state.target_audience = "Not specified"
         
     if "output_format" not in st.session_state:
-        st.session_state.output_format = "Presentation Deck (PPTX)"
+        st.session_state.output_format = "Not specified / Await instructions"
         
     if "time_available" not in st.session_state:
-        st.session_state.time_available = "15 minutes"
+        st.session_state.time_available = "Not specified"
         
     if "response_time" not in st.session_state:
-        st.session_state.response_time = "10 minutes presentation + 5 minutes Q&A"
+        st.session_state.response_time = "Not specified"
         
     if "mandatory_measures" not in st.session_state:
         st.session_state.mandatory_measures = ""
@@ -95,6 +95,9 @@ def init_session_state():
         
     if "data_fitness" not in st.session_state:
         st.session_state.data_fitness = None
+        
+    if "assessment_rules_confirmed" not in st.session_state:
+        st.session_state.assessment_rules_confirmed = False
         
     if "rapid_mode" not in st.session_state:
         st.session_state.rapid_mode = False
@@ -203,9 +206,9 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     
     if not preserve_assessment_context:
         st.session_state["assessment_question"] = ""
-        st.session_state["target_audience"] = "Senior Leadership"
-        st.session_state["output_format"] = "Presentation Deck (PPTX)"
-        st.session_state["time_available"] = "15 minutes"
+        st.session_state["target_audience"] = "Not specified"
+        st.session_state["output_format"] = "Not specified / Await instructions"
+        st.session_state["time_available"] = "Not specified"
         st.session_state["analyst_notes"] = ""
         
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):

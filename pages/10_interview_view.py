@@ -42,14 +42,14 @@ if view_mode == "📑 Full 13-Section Assessment Summary":
     m1, m2, m3, m4 = st.columns(4)
     m1.markdown("**Candidate / Analyst:**\nDARAMOLA OMOYELE")
     m2.markdown(f"**Date:**\n{datetime.now().strftime('%d %B %Y')}")
-    m3.markdown(f"**Target Audience:**\n{st.session_state.get('target_audience', 'Senior Leadership')}")
+    m3.markdown(f"**Target Audience:**\n{st.session_state.get('target_audience') or 'Not specified'}")
     m4.markdown(f"**Role:**\nPerformance Analyst (HEO)")
     
     st.markdown("---")
     
     # Section 2: Problem Statement & Core Questions
     st.subheader("2. Problem Statement & Core Questions to Answer")
-    q_main = st.session_state.get("assessment_question", "Operational performance evaluation and diagnostic investigation.")
+    q_main = st.session_state.get("assessment_question") or "Operational performance evaluation as defined in assessment brief."
     st.info(f"**Primary Problem Statement:**\n{q_main}")
     
     q_must = st.session_state.get("questions_must_answer", "")
@@ -233,23 +233,23 @@ if view_mode == "📑 Full 13-Section Assessment Summary":
     with st.expander("🛡️ Q1: 'How do you know this variance isn't just random noise?'"):
         st.markdown("""
         **Candidate Response:**
+        - I would first determine whether the apparent difference is persistent across periods or groups, assess sample size and variation, and avoid describing it as meaningful beyond the evidence available.
         - I verified data quality and completeness before running cohort comparisons.
-        - The variance between cohorts is systematic and persistent across observation periods rather than an isolated outlier.
-        - Target directionality was explicitly verified to ensure metrics like lead times and error rates are judged on reduction rather than increase.
+        - Target directionality was explicitly verified so that measures requiring reduction are distinguished from those requiring growth.
         """)
-    with st.expander("🛡️ Q2: 'What immediate interventions would you implement in Week 1?'"):
+    with st.expander("🛡️ Q2: 'What immediate interventions would you implement in initial stages?'"):
         st.markdown("""
         **Candidate Response:**
-        - Implement daily 15-minute operational triage to rebalance inbound demand across active teams.
-        - Establish standardized operating procedures on stages with the highest error and rework rates.
-        - Establish weekly lead-time tracking against agreed SLA thresholds.
+        - Focus initial actions on low-risk, high-clarity operational adjustments with clear ownership and measurable check-in milestones.
+        - Establish operational monitoring and short-interval triage to address bottlenecks identified in the evidence.
+        - Review standard processes for high-variance areas and confirm underlying data capture accuracy.
         """)
     with st.expander("🛡️ Q3: 'What data limitations did you identify in this dataset?'"):
         st.markdown(f"""
         **Candidate Response:**
         - Confirmed unit of analysis is `{gran}`.
-        - Identified and accounted for data hygiene caveats and missingness rates during initial profiling.
-        - Bounded findings strictly to verified evidence, avoiding unevidenced assumptions about staff capability or external factors.
+        - Identified data completeness, null rates, and any recorded caveats during initial quality profiling.
+        - Bounded conclusions strictly to verified observations, avoiding unevidenced assumptions about unrecorded causal factors.
         """)
 
 # MODE 2: PROMPT CARD MODE
@@ -304,7 +304,7 @@ elif view_mode == "📋 Plain-Text Assessment Memo":
         "=" * 70,
         f"CANDIDATE: DARAMOLA OMOYELE",
         f"DATE: {datetime.now().strftime('%d %B %Y')}",
-        f"TARGET AUDIENCE: {st.session_state.get('target_audience', 'Senior Leadership')}",
+        f"TARGET AUDIENCE: {st.session_state.get('target_audience') or 'Not specified'}",
         f"ROLE: Performance Analyst (HEO)",
         "-" * 70,
         "1. PROBLEM STATEMENT & OBJECTIVES",

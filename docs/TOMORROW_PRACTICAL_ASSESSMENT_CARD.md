@@ -13,27 +13,44 @@
 
 ---
 
-## ⏱️ 2. Rapid 10-Minute Assessment Workflow
+## ⏱️ 2. Rapid Practical Assessment Workflow
 
-| Phase | Page | Key Actions | Time |
-|---|---|---|---|
-| **0. Intake** | `app.py` (Home) | Paste problem statement, mandatory SLA targets, audience, and required comparisons. | 1 min |
-| **1. Ingest & Unit** | `01_Upload` | Ingest `.csv` / `.xlsx` / `.xls`. **Confirm Row Granularity** (e.g., 1 row = 1 case vs 1 month aggregate). | 1 min |
-| **2. QA & Fitness** | `02_Quality` | Inspect Data Health Score, null rates, zero denominators, and record data fitness caveats. | 1 min |
-| **3. Mappings** | `03_Mapping` | Confirm semantic roles (`volume`, `target`, `fte`, `wait_time`, `dates`). Set **Target Directionality** (higher/lower is better). | 1 min |
-| **4. Diagnostic** | `04 - 07` | Inspect KPI variances, run chart trends, team/cohort comparisons, and bottleneck drivers. | 3 mins |
-| **5. Governance** | `08 & 09` | Review, edit, and **Approve** evidence-based findings and actionable recommendations. | 2 mins |
-| **6. Delivery** | `10 & 11` | Open **13-Section Assessment Summary** / Prompt Card Mode; download 16:9 Widescreen PowerPoint. | 1 min |
+```
+READ BRIEF 
+  → CONFIRM REQUIREMENT 
+  → UPLOAD 
+  → GRANULARITY 
+  → QA 
+  → MAP 
+  → SELECT ANALYSIS 
+  → ANALYSE 
+  → FINDINGS 
+  → LIMITATIONS 
+  → RECOMMENDATIONS 
+  → DEFEND
+```
+
+*(Note: Total available time and per-stage pacing are determined entirely by the assessment pack instructions.)*
+
+| Phase | Page / Step | Key Analytical Actions |
+|---|---|---|
+| **0. Rules & Intake** | `app.py` (Home) | Review assessment rules gate. Enter problem statement, audience, mandatory targets, and output format. |
+| **1. Ingest & Unit** | `01_Upload` | Ingest `.csv` / `.xlsx` / `.xls`. **Confirm Row Granularity** (e.g., 1 row = 1 case vs 1 periodic aggregate). |
+| **2. QA & Fitness** | `02_Quality` | Inspect Data Health Score, null rates, zero denominators, and record data fitness caveats. |
+| **3. Mappings** | `03_Mapping` | Confirm semantic roles (`volume`, `target`, `fte`, `wait_time`, `dates`). Set **Target Directionality** (higher/lower is better). |
+| **4. Diagnostic** | `04 - 07` | Inspect KPI variances, run chart trends (if longitudinal), cohort comparisons, and driver breakdowns. |
+| **5. Governance** | `08 & 09` | Review, edit, and **Approve** evidence-based findings and actionable recommendations. |
+| **6. Delivery & Defense** | `10 & 11` | Open **Assessment Summary** / Prompt Card Mode; download requested export (PowerPoint, PDF, Excel, Memo). |
 
 ---
 
 ## 🛡️ 3. Panel Q&A Defense Playbook
 
 ### Q1: "How do you know this variance isn't just normal random noise?"
-- **Defense:** "I began by establishing data fitness and completeness. The observed variance is systematic across distinct operational cohorts and consistent across observation periods rather than a single anomalous outlier. Furthermore, target directionality was verified to ensure processing times and error rates were judged on reduction rather than increase."
+- **Defense:** "I would first determine whether the apparent difference is persistent across periods or groups, assess sample size and variation, and avoid describing it as meaningful beyond the evidence available. Target directionality was explicitly verified so that measures requiring reduction are distinguished from those requiring growth."
 
-### Q2: "What immediate actions would you take in Week 1?"
-- **Defense:** "Establish a daily 15-minute operational triage standup to balance intake queues across high-variance units, implement standardized operating procedures on sub-processes with the highest error rates, and institute weekly lead-time tracking against our agreed SLA."
+### Q2: "What immediate interventions would you implement in initial stages?"
+- **Defense:** "Focus initial actions on low-risk, high-clarity operational adjustments with clear ownership and measurable check-in milestones, establish operational monitoring on bottlenecks identified in the evidence, and review standard processes for high-variance areas."
 
 ### Q3: "What are the limitations of this dataset?"
 - **Defense:** "Our unit of analysis is confirmed at [State Confirmed Granularity]. The analysis is strictly bounded to available columns in the dataset. While we have robust evidence for throughput and queue variance, further case-level complexity scoring and sub-stage timestamps would enrich future root-cause modeling."
