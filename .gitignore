@@ -1,0 +1,43 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Caches and testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# Virtual Environments
+.venv/
+venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Streamlit secrets and local config
+.streamlit/secrets.toml
+
+# IDE and OS files
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Temporary and scratch files
+scratch/
+*.tmp
+*.log
+
+# Generated outputs (preserve directory structure via .gitkeep)
+outputs/presentations/*
+outputs/reports/*
+outputs/audit/*
+outputs/charts/*
+outputs/visualisations/*
+!outputs/**/.gitkeep

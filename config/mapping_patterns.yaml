@@ -1,0 +1,405 @@
+roles:
+  actual:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Observed volume or KPI output achieved
+    keywords:
+    - actual
+    - achieved
+    - output
+    - delivered
+    - result
+    - performance
+    - volume
+    label: Actual Performance
+  branch:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Local branch or office
+    keywords:
+    - branch
+    - office
+    - centre
+    - center
+    - hub
+    - depot
+    label: Branch
+  case_type:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Type or complexity grade of the case/application/work item
+    keywords:
+    - case_type
+    - type
+    - subtype
+    - work_type
+    - item_type
+    - request_type
+    - application_type
+    - complexity
+    label: Case Type
+  category:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Workstream or operational category classification
+    keywords:
+    - category
+    - class
+    - classification
+    - stream
+    - workstream
+    - discipline
+    - domain
+    label: Category
+  closing_backlog:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Queue / work in progress at end of period
+    keywords:
+    - closing_backlog
+    - closing_queue
+    - end_backlog
+    - closing_wip
+    - ending_open
+    - final_backlog
+    - outstanding
+    - backlog
+    - pending
+    label: Closing Backlog
+  completed:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Processed volume / cases closed / decisions made
+    keywords:
+    - completed
+    - closed
+    - resolved
+    - processed
+    - finished
+    - decisions
+    - finalised
+    - outputs
+    - clearances
+    label: Cases Completed
+  cost:
+    category: Other
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Financial cost or spend associated with activity
+    keywords:
+    - cost
+    - spend
+    - expenditure
+    - budget_spent
+    - unit_cost
+    - expense
+    - amount
+    label: Cost
+  customer_measure:
+    category: Other
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: CSAT, NPS, satisfaction score, complaints count
+    keywords:
+    - csat
+    - nps
+    - satisfaction
+    - complaints
+    - feedback_score
+    - rating
+    - customer_score
+    label: Customer Measure
+  date:
+    category: Time
+    data_types:
+    - datetime
+    - date
+    - string
+    description: Primary transaction or observation timestamp/date
+    keywords:
+    - date
+    - timestamp
+    - created_date
+    - received_date
+    - completion_date
+    - submission_date
+    - event_date
+    - start_date
+    - end_date
+    label: Date
+  department:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Higher organizational unit / department / division
+    keywords:
+    - department
+    - dept
+    - division
+    - directorate
+    - branch
+    - service
+    label: Department
+  fte:
+    category: Capacity
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Full-Time Equivalent staff capacity
+    keywords:
+    - fte
+    - full_time_equivalent
+    - staff_fte
+    - capacity_fte
+    - resource_fte
+    - available_fte
+    - active_fte
+    label: Available FTE
+  hours_available:
+    category: Capacity
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Total scheduled / available working hours
+    keywords:
+    - hours_available
+    - available_hours
+    - scheduled_hours
+    - capacity_hours
+    - total_hours
+    - standard_hours
+    - contracted_hours
+    label: Hours Available
+  hours_used:
+    category: Capacity
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Actual productive or recorded working hours
+    keywords:
+    - hours_used
+    - worked_hours
+    - productive_hours
+    - logged_hours
+    - actual_hours
+    - utilised_hours
+    - utilized_hours
+    - hours_spent
+    label: Hours Used
+  location:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Geographical region, site, or location
+    keywords:
+    - location
+    - region
+    - area
+    - site
+    - zone
+    - territory
+    - city
+    - postcode
+    - country
+    label: Location
+  opening_backlog:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Queue / work in progress at start of period
+    keywords:
+    - opening_backlog
+    - opening_queue
+    - start_backlog
+    - opening_wip
+    - starting_open
+    - initial_backlog
+    - beginning_backlog
+    label: Opening Backlog
+  processing_time:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Duration, turnaround days/hours, or cycle time to complete
+    keywords:
+    - processing_time
+    - duration
+    - days
+    - turnaround
+    - cycle_time
+    - elapsed
+    - handling_time
+    - tat
+    - lead_time
+    - age_days
+    label: Processing Time
+  quality_measure:
+    category: Other
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Audit score, accuracy rate, error rate, compliance %
+    keywords:
+    - quality
+    - accuracy
+    - error_rate
+    - audit_score
+    - compliance
+    - pass_rate
+    - defect_rate
+    - first_time_fix
+    label: Quality Measure
+  received:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Incoming demand volume / new cases received
+    keywords:
+    - received
+    - incoming
+    - new_cases
+    - intake
+    - applications
+    - demand
+    - submissions
+    - opened
+    - created
+    - inputs
+    label: Cases Received
+  record_id:
+    category: Identity
+    data_types:
+    - string
+    - integer
+    description: Unique identifier for each transaction, row, or case
+    keywords:
+    - id
+    - record_id
+    - case_id
+    - ref
+    - reference
+    - identifier
+    - ticket_id
+    - urn
+    - application_id
+    - app_id
+    label: Record ID
+  reporting_period:
+    category: Time
+    data_types:
+    - string
+    - integer
+    - datetime
+    description: Reporting cycle e.g. month, quarter, week, year, financial year
+    keywords:
+    - period
+    - month
+    - year
+    - quarter
+    - week
+    - reporting_period
+    - cal_month
+    - fin_year
+    - period_name
+    - period_id
+    label: Reporting Period
+  staff:
+    category: Capacity
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Headcount of operational staff available
+    keywords:
+    - staff
+    - headcount
+    - employees
+    - people
+    - team_size
+    - agents
+    - assessors
+    - officers
+    - inspectors
+    label: Available Staff
+  status:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Current lifecycle state (e.g. Open, Closed, Pending, In Progress)
+    keywords:
+    - status
+    - state
+    - stage
+    - outcome
+    - disposition
+    - resolution
+    - phase
+    - condition
+    label: Status
+  target:
+    category: Performance
+    data_types:
+    - numeric
+    - float
+    - integer
+    description: Expected performance standard, goal, or SLA benchmark
+    keywords:
+    - target
+    - expected
+    - goal
+    - benchmark
+    - standard
+    - sla
+    - budget
+    - plan
+    - threshold
+    label: Target
+  team:
+    category: Dimensions
+    data_types:
+    - string
+    - category
+    description: Operational team or squad executing the work
+    keywords:
+    - team
+    - team_name
+    - unit
+    - squad
+    - group
+    - crew
+    - section
+    - operational_unit
+    - service_area
+    label: Team

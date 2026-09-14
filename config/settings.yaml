@@ -1,0 +1,24 @@
+app:
+  author: DARAMOLA OMOYELE
+  offline_mode: true
+  subtitle: "Operational Performance \u2022 Data Quality \u2022 Analysis \u2022 Insight"
+  title: Performance Insight Explorer
+  version: 1.0.0
+data:
+  max_file_size_mb: 100
+  max_unique_categories_for_grouping: 50
+  sample_preview_rows: 10
+  supported_extensions:
+  - .csv
+  - .xlsx
+  - .xls
+export:
+  audit_filename_prefix: audit_trail_
+  excel_filename_prefix: performance_analysis_summary_
+  presentation_filename_prefix: performance_insight_
+quality:
+  critical_missing_percentage: 30.0
+  high_cardinality_threshold: 0.8
+  outlier_iqr_multiplier: 1.5
+  outlier_zscore_threshold: 3.0
+  warning_missing_percentage: 5.0

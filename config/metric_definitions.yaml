@@ -1,0 +1,147 @@
+kpis:
+  backlog_change:
+    description: Observed change in queue / work-in-progress inventory across period
+    formula: Closing Backlog - Opening Backlog
+    interpretation: Positive values indicate inventory growth; negative indicates
+      queue reduction.
+    is_estimated: false
+    name: Backlog Change (Observed)
+    required_roles:
+    - opening_backlog
+    - closing_backlog
+    unit: Cases
+    zero_denominator_safe: true
+  backlog_reconciliation_gap:
+    description: Discrepancy between reported closing backlog and flow reconciliation
+    formula: Closing Backlog - (Opening Backlog + Cases Received - Cases Completed)
+    interpretation: Non-zero values indicate unrecorded withdrawals, transfers, reclassifications,
+      or reporting errors.
+    is_estimated: false
+    name: Backlog Reconciliation Gap
+    required_roles:
+    - opening_backlog
+    - closing_backlog
+    - received
+    - completed
+    unit: Cases
+    zero_denominator_safe: true
+  completion_rate:
+    description: Ratio of completed volume to incoming volume in the same period
+    formula: Cases Completed / Cases Received * 100
+    interpretation: Throughput versus demand ratio; >100% indicates eating into existing
+      backlog.
+    is_estimated: false
+    name: Completion Rate %
+    required_roles:
+    - completed
+    - received
+    unit: '%'
+    zero_denominator_safe: true
+  estimated_net_flow:
+    description: Estimated net demand pressure on queue (Received minus Completed)
+      when actual backlog fields are missing
+    formula: Cases Received - Cases Completed
+    interpretation: 'ESTIMATED MEASURE: Positive values indicate incoming demand exceeds
+      completion capacity.'
+    is_estimated: true
+    name: Estimated Net Flow Pressure
+    required_roles:
+    - received
+    - completed
+    unit: Cases
+    zero_denominator_safe: true
+  expected_closing_backlog:
+    description: Theoretically balanced closing backlog based on inventory accounting
+    formula: Opening Backlog + Cases Received - Cases Completed
+    interpretation: Reconciliation baseline to compare against reported closing backlog.
+    is_estimated: false
+    name: Expected Closing Backlog
+    required_roles:
+    - opening_backlog
+    - received
+    - completed
+    unit: Cases
+    zero_denominator_safe: true
+  processing_time_median:
+    description: Median turnaround duration; preferred over mean when processing times
+      are skewed
+    formula: Median(Processing Time)
+    interpretation: 50th percentile of case turnaround; robust to extreme outliers.
+    is_estimated: false
+    name: Processing Time (Median)
+    required_roles:
+    - processing_time
+    unit: Days / Hours
+    zero_denominator_safe: true
+  productivity:
+    description: Completed volume per full-time equivalent staff capacity
+    formula: Cases Completed / Available FTE
+    interpretation: Operational throughput efficiency; sensitive to case complexity
+      and experience.
+    is_estimated: false
+    name: Productivity (Completed / FTE)
+    required_roles:
+    - completed
+    - fte
+    unit: Cases per FTE
+    zero_denominator_safe: true
+  productivity_staff:
+    description: Completed volume per available staff headcount
+    formula: Cases Completed / Available Staff
+    interpretation: Throughput per headcount; FTE is preferred when part-time staff
+      exist.
+    is_estimated: false
+    name: Productivity (Completed / Staff)
+    required_roles:
+    - completed
+    - staff
+    unit: Cases per Person
+    zero_denominator_safe: true
+  target_achievement:
+    description: Percentage of benchmark target achieved by actual output
+    formula: Actual / Target * 100
+    interpretation: Values >= 100% meet or exceed target when higher is better; check
+      target directionality.
+    is_estimated: false
+    name: Target Achievement %
+    required_roles:
+    - actual
+    - target
+    unit: '%'
+    zero_denominator_safe: true
+  target_variance:
+    description: Absolute numeric difference between actual performance and target
+      standard
+    formula: Actual - Target
+    interpretation: Positive variance indicates above-target output; negative indicates
+      shortfall.
+    is_estimated: false
+    name: Target Variance
+    required_roles:
+    - actual
+    - target
+    unit: Units
+    zero_denominator_safe: true
+  target_variance_pct:
+    description: Percentage deviation from target benchmark
+    formula: (Actual - Target) / Target * 100
+    interpretation: Relative deviation against benchmark standard.
+    is_estimated: false
+    name: Target Variance %
+    required_roles:
+    - actual
+    - target
+    unit: '%'
+    zero_denominator_safe: true
+  utilisation:
+    description: Percentage of available scheduled hours actively utilized
+    formula: Hours Used / Hours Available * 100
+    interpretation: Capacity utilization; very high utilization (>95%) may indicate
+      burnout or bottleneck risk.
+    is_estimated: false
+    name: Utilisation %
+    required_roles:
+    - hours_used
+    - hours_available
+    unit: '%'
+    zero_denominator_safe: true
