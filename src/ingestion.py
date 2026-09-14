@@ -19,6 +19,19 @@ class IngestionError(Exception):
     pass
 
 
+def _as_file_like(file_source: Union[str, io.BytesIO, bytes, Any]):
+    """Return a pandas-compatible file source.
+
+    Streamlit's UploadedFile.getvalue() returns raw ``bytes``. Pandas readers
+    expect either a path or a file-like object, so raw bytes must be wrapped in
+    ``io.BytesIO`` before parsing. Existing paths and file-like objects are
+    returned unchanged.
+    """
+    if isinstance(file_source, (bytes, bytearray)):
+        return io.BytesIO(file_source)
+    return file_source
+
+
 def get_excel_sheet_names(file_source: Union[str, io.BytesIO, bytes, Any]) -> List[str]:
     """Extract sheet names from an Excel file without loading entire data sheets."""
     try:
@@ -37,9 +50,10 @@ def get_excel_sheet_names(file_source: Union[str, io.BytesIO, bytes, Any]) -> Li
                 sheet_names = wb.sheetnames
                 wb.close()
                 return sheet_names
-        elif isinstance(file_source, (io.BytesIO, bytes)):
+        elif isinstance(file_source, (io.BytesIO, bytes, bytearray)):
             bio = file_source if isinstance(file_source, io.BytesIO) else io.BytesIO(file_source)
             try:
+                bio.seek(0)
                 wb = openpyxl.load_workbook(bio, read_only=True, keep_links=False)
                 sheet_names = wb.sheetnames
                 wb.close()
@@ -49,6 +63,7 @@ def get_excel_sheet_names(file_source: Union[str, io.BytesIO, bytes, Any]) -> Li
                 if HAS_XLRD:
                     wb = xlrd.open_workbook(file_contents=bio.read(), on_demand=True)
                     return wb.sheet_names()
+                bio.seek(0)
                 xl = pd.ExcelFile(bio)
                 return xl.sheet_names
         else:
@@ -71,32 +86,33 @@ def load_file(
     ext = os.path.splitext(filename)[1].lower()
     sheet_names: List[str] = []
     active_sheet: str = ""
+    source = _as_file_like(file_source)
 
     try:
         if ext in [".xlsx", ".xlsm"]:
-            sheet_names = get_excel_sheet_names(file_source)
+            sheet_names = get_excel_sheet_names(source)
             if not sheet_names:
                 raise IngestionError("Excel file contains no readable worksheets.")
 
             active_sheet = sheet_name if sheet_name and sheet_name in sheet_names else sheet_names[0]
 
-            if hasattr(file_source, "seek"):
-                file_source.seek(0)
+            if hasattr(source, "seek"):
+                source.seek(0)
 
-            df = pd.read_excel(file_source, sheet_name=active_sheet, engine="openpyxl")
+            df = pd.read_excel(source, sheet_name=active_sheet, engine="openpyxl")
 
         elif ext == ".xls":
-            sheet_names = get_excel_sheet_names(file_source)
+            sheet_names = get_excel_sheet_names(source)
             if not sheet_names:
                 raise IngestionError("Legacy XLS file contains no readable worksheets.")
 
             active_sheet = sheet_name if sheet_name and sheet_name in sheet_names else sheet_names[0]
 
-            if hasattr(file_source, "seek"):
-                file_source.seek(0)
+            if hasattr(source, "seek"):
+                source.seek(0)
 
             engine_to_use = "xlrd" if HAS_XLRD else None
-            df = pd.read_excel(file_source, sheet_name=active_sheet, engine=engine_to_use)
+            df = pd.read_excel(source, sheet_name=active_sheet, engine=engine_to_use)
 
         elif ext in [".csv", ".txt"]:
             encodings = ["utf-8", "utf-8-sig", "latin1", "iso-8859-1", "cp1252"]
@@ -105,9 +121,9 @@ def load_file(
 
             for enc in encodings:
                 try:
-                    if hasattr(file_source, "seek"):
-                        file_source.seek(0)
-                    df = pd.read_csv(file_source, encoding=enc, sep=None, engine="python")
+                    if hasattr(source, "seek"):
+                        source.seek(0)
+                    df = pd.read_csv(source, encoding=enc, sep=None, engine="python")
                     break
                 except Exception as e:
                     last_err = e
@@ -128,6 +144,8 @@ def load_file(
         file_size_bytes = 0
         if isinstance(file_source, (str, os.PathLike)) and os.path.exists(file_source):
             file_size_bytes = os.path.getsize(file_source)
+        elif isinstance(file_source, (bytes, bytearray)):
+            file_size_bytes = len(file_source)
         elif hasattr(file_source, "getbuffer"):
             file_size_bytes = len(file_source.getbuffer())
         elif hasattr(file_source, "getvalue"):
