@@ -11,7 +11,46 @@
 
 ## 🌟 Overview & Purpose
 
-**Performance Insight Explorer** is a schema-flexible, offline-first operational analytics application built in Python and Streamlit. It is engineered specifically to accept unfamiliar operational datasets (CSV, XLS, XLSX) with arbitrary column names, automatically profile structural properties, execute a rigorous 6-dimension data quality scan, facilitate user-confirmed role mapping, calculate guarded performance KPIs, identify trends and anomalies, and export executive 6-slide PowerPoint presentations and multi-tab Excel workbooks.
+**Performance Insight Explorer** is a schema-flexible, offline-first operational analytics application built in Python and Streamlit. It is engineered specifically to accept unfamiliar operational datasets (CSV, XLS, XLSX) with arbitrary column names, automatically profile structural properties, execute a rigorous 6-dimension data quality scan, facilitate user-confirmed role mapping, calculate guarded performance KPIs, identify trends and anomalies, and export executive PowerPoint presentations, PDF briefings, and multi-tab Excel workbooks.
+
+---
+
+## 📋 Practical Assessment Workflow
+
+The application supports multi-dataset ingestion, assessment brief extraction, relationship joins, and automated benchmark verification:
+
+### 14-Step User Workflow
+
+1. **Upload `Question1.docx` as Assessment Brief** (Page 01: extracted as business requirements, never profiled as tabular data).
+2. **Upload `performance.xlsx` as Primary Analysis Dataset** (Page 01: select sheet `Performance Data`).
+3. **Upload `Users.xlsx` as Reference / Master Dataset** (Page 01: select sheet `Users`).
+4. **Confirm Performance granularity:** `Periodic Snapshot (1 row = 1 User for 1 Reporting Month)`.
+5. **Confirm Users granularity:** `Reference / Master Record (1 row = 1 User)`.
+6. **Create relationship:** `performance.User -> Users.User` (Left Join).
+7. **Confirm 100% relationship QA:** Validate match coverage, unmatched rows, and duplicate keys.
+8. **Review Data Quality** (Page 02: structural & semantic checks).
+9. **Confirm Column Mapping** (Page 03: semantic roles and target directionality).
+10. **Review Performance Overview** (Page 04: scorecard metrics).
+11. **Review Trends and Comparisons** (Pages 05 & 06: longitudinal and cohort variance).
+12. **Review Insights and Recommendations** (Pages 08 & 09: diagnostic findings and action matrix).
+13. **Open Interview View** (Page 10: Q1–Q5 verification, prompt cards, and executive memo).
+14. **Export required outputs** (Page 11: PowerPoint, PDF briefing, Excel pack, and Text memo).
+
+### Verified Assessment Benchmarks (Regression Baseline)
+
+| Metric / Checkpoint | Expected Assessment Value | Verified Model Result |
+| :--- | :--- | :--- |
+| **Performance Dataset Rows** | `2,539` | `2,539` |
+| **Users Reference Dataset Rows** | `309` | `309` |
+| **Relationship Match Coverage** | `100.0%` | `100.0%` (2,539 / 2,539 rows) |
+| **Unmatched / Orphan Users** | `0` | `0` |
+| **Duplicate Master Keys** | `0` | `0` |
+| **Q3 Condition** | `Service == "Service A" & Band == 3` | Evaluated (856 matches / 33.7%) |
+| **Q4 Valid Observations** | `796` (2025, Service B, Band 3 & 5) | `796` |
+| **Q4 Average Availability %** | `≈ 78.91%` | `78.9079%` (`78.91%`) |
+| **Q4 Median Availability %** | `≈ 85.05%` | `85.0513%` (`85.05%`) |
+| **Q5 Jan 2025 Availability %** | `≈ 75.93%` (Service B, Band 3) | `75.9288%` (`75.93%`) |
+| **Q5 Feb 2025 Availability %** | `≈ 84.26%` (Service B, Band 3) | `84.2556%` (`84.26%`) |
 
 ---
 
@@ -69,7 +108,7 @@ performance_insight_explorer/
 ├── run_windows.bat                # Automated Windows launch script
 │
 ├── pages/                         # Streamlit multi-page interface (12 pages)
-│   ├── 01_upload_profile.py       # File ingestion & structural profile
+│   ├── 01_upload_profile.py       # File ingestion, multi-dataset hub & relationships
 │   ├── 02_data_quality.py         # 6-dimension QA scan & issue tracker
 │   ├── 03_column_mapping.py       # AI-assisted role mapping interface
 │   ├── 04_performance_overview.py # Headline KPI dashboard & gauge
@@ -78,12 +117,14 @@ performance_insight_explorer/
 │   ├── 07_root_cause.py           # 5-Pillar workspace & correlation matrix
 │   ├── 08_insights.py             # 6-part structured insight cards
 │   ├── 09_recommendations.py      # Action plan & Governance registers
-│   ├── 10_interview_view.py       # Concise 1-page oral briefing mode
-│   ├── 11_export.py               # PowerPoint & Excel export generators
+│   ├── 10_interview_view.py       # Q1-Q5 verification & oral briefing mode
+│   ├── 11_export.py               # PowerPoint, PDF & Excel export generators
 │   └── 12_audit_trail.py          # Real-time session event logger
 │
 ├── src/                           # Reusable core analytical engine
 │   ├── __init__.py                # Package root
+│   ├── brief_extractor.py         # Assessment brief requirements extractor
+│   ├── relationships.py           # Multi-dataset join & relationship QA engine
 │   ├── ingestion.py               # Safe CSV/XLS/XLSX file loader
 │   ├── profiling.py               # Structural statistics & type inference
 │   ├── quality.py                 # Multi-dimensional Data Quality engine
@@ -96,6 +137,7 @@ performance_insight_explorer/
 │   ├── recommendations.py         # Action matrix, Assumptions & Limitations
 │   ├── visualisations.py          # Publication-ready Plotly chart builders
 │   ├── powerpoint.py              # 6-slide python-pptx presentation deck
+│   ├── pdf_report.py              # ReportLab PDF executive brief generator
 │   ├── reporting.py               # Multi-worksheet openpyxl Excel exporter
 │   ├── audit.py                   # Thread-safe audit event logger
 │   └── state.py                   # Streamlit session state controller
@@ -125,12 +167,14 @@ performance_insight_explorer/
 │   ├── test_reporting.py          # Tests for multi-worksheet Excel workbook
 │   ├── test_edge_cases.py         # Tests for empty, single-row, zero-denom data
 │   ├── test_audit_and_insights.py # Tests for audit logger, root cause, insights
-│   └── test_end_to_end.py         # Full integration workflow pipeline test
+│   ├── test_multi_dataset_relationships.py # Multi-dataset & relationship QA tests
+│   └── test_all_pages_execution.py# Compilation and page execution verification
 │
 ├── docs/                          # Controlling project documentation
 └── outputs/                       # Destination for generated deliverables
     ├── presentations/             # Generated .pptx presentation decks
     ├── reports/                   # Generated .xlsx summary workbooks
+    ├── briefs/                    # Generated .pdf executive briefings
     ├── charts/                    # Exported chart assets
     └── audit/                     # Exported session audit logs
 ```
@@ -144,14 +188,15 @@ Run the full automated test suite using `pytest`:
 python -m pytest -v
 ```
 
-All unit, integration, edge-case, and end-to-end pipeline tests run locally without network dependencies.
+All 110 unit, integration, edge-case, relationship, and end-to-end pipeline tests run locally without network dependencies.
 
 ---
 
 ## 📊 Deliverables & Export Locations
 
-- **PowerPoint Decks:** Saved to `outputs/presentations/performance_insight_YYYYMMDD_HHMMSS.pptx`
-- **Excel Summaries:** Saved to `outputs/reports/performance_analysis_summary_YYYYMMDD_HHMMSS.xlsx`
+- **PowerPoint Decks:** Saved to `outputs/presentations/`
+- **PDF Briefings:** Saved to `outputs/briefs/`
+- **Excel Summaries:** Saved to `outputs/reports/`
 - **Audit Trails:** Saved to `outputs/audit/` or downloaded directly via the UI.
 
 ---
