@@ -172,7 +172,7 @@ def test_assessment_q1_to_q5_exact_mathematical_benchmarks():
     assert (len(joined_df) - len(valid_avail)) == 145
     uncapped = int((valid_avail > 1.0).sum())
     assert uncapped == 376
-    assert valid_avail.max() == pytest.approx(1.48956, 0.001)
+    assert valid_avail.max() == pytest.approx(1.48956456, 1e-6)
     
     # Q2 Lookup
     qa = summary["relationship_qa"]
