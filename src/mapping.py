@@ -9,9 +9,9 @@ import pandas as pd
 ROLE_CATALOGUE = {
     "record_id": {
         "label": "Record ID",
-        "description": "Unique identifier for each transaction, row, or case",
+        "description": "Unique identifier for each transaction, row, case, or user",
         "category": "Identity",
-        "keywords": ["id", "record_id", "case_id", "ref", "reference", "identifier", "ticket_id", "urn", "application_id", "app_id", "row_id", "case_reference", "transaction_id"],
+        "keywords": ["id", "record_id", "case_id", "ref", "reference", "identifier", "ticket_id", "urn", "application_id", "app_id", "row_id", "case_reference", "transaction_id", "user", "user_id", "staff_id", "employee_id", "person_id"],
         "data_types": ["string", "integer"]
     },
     "date": {
@@ -32,14 +32,14 @@ ROLE_CATALOGUE = {
         "label": "Team",
         "description": "Operational team or squad executing the work",
         "category": "Dimensions",
-        "keywords": ["team", "service_team", "operational_team", "team_name", "unit", "squad", "group", "crew", "section", "operational_unit", "service_area", "handling_team", "ops_team"],
+        "keywords": ["team", "service_team", "operational_team", "team_name", "unit", "squad", "group", "crew", "section", "operational_unit", "service_area", "handling_team", "ops_team", "service", "operational_area"],
         "data_types": ["string", "category"]
     },
     "department": {
         "label": "Department",
         "description": "Higher organizational unit / department / division",
         "category": "Dimensions",
-        "keywords": ["department", "dept", "division", "directorate", "branch", "service", "function", "business_unit"],
+        "keywords": ["department", "dept", "division", "directorate", "branch", "service", "function", "business_unit", "operational_area"],
         "data_types": ["string", "category"]
     },
     "branch": {
@@ -60,35 +60,35 @@ ROLE_CATALOGUE = {
         "label": "Category",
         "description": "Workstream or operational category classification",
         "category": "Dimensions",
-        "keywords": ["category", "class", "classification", "stream", "workstream", "discipline", "domain", "case_classification"],
+        "keywords": ["category", "class", "classification", "stream", "workstream", "discipline", "domain", "case_classification", "band", "grade", "pay_band", "staff_grade", "job_band"],
         "data_types": ["string", "category"]
     },
     "case_type": {
         "label": "Case Type",
         "description": "Type or complexity grade of the case/application/work item",
         "category": "Dimensions",
-        "keywords": ["case_type", "type", "subtype", "work_type", "item_type", "request_type", "application_type", "complexity", "priority_level"],
+        "keywords": ["case_type", "type", "subtype", "work_type", "item_type", "request_type", "application_type", "complexity", "priority_level", "band"],
         "data_types": ["string", "category"]
     },
     "status": {
         "label": "Status",
         "description": "Current lifecycle state (e.g. Open, Closed, Pending, In Progress)",
         "category": "Dimensions",
-        "keywords": ["status", "state", "stage", "outcome", "disposition", "resolution", "phase", "condition", "current_status", "case_status"],
+        "keywords": ["status", "state", "stage", "outcome", "disposition", "resolution", "phase", "condition", "current_status", "case_status", "service_a_band_3", "service_a_and_band_3"],
         "data_types": ["string", "category"]
     },
     "actual": {
         "label": "Actual Performance",
         "description": "Observed volume or KPI output achieved",
         "category": "Performance",
-        "keywords": ["actual", "achieved", "output", "delivered", "result", "performance", "volume", "cases_completed", "cases_out", "target_completed", "actual_output"],
+        "keywords": ["actual", "achieved", "output", "delivered", "result", "performance", "volume", "cases_completed", "cases_out", "target_completed", "actual_output", "availability", "availability_pct", "availability_%", "avail_pct", "availability_score", "performance_pct"],
         "data_types": ["numeric", "float", "integer"]
     },
     "target": {
         "label": "Target",
         "description": "Expected performance standard, goal, or SLA benchmark",
         "category": "Performance",
-        "keywords": ["target", "output_target", "target_output", "expected", "goal", "benchmark", "standard", "sla", "budget", "plan", "threshold", "sla_target", "target_volume", "sla_target_days", "target_cases", "vol_target"],
+        "keywords": ["target", "output_target", "target_output", "expected", "goal", "benchmark", "standard", "sla", "budget", "plan", "threshold", "sla_target", "target_volume", "sla_target_days", "target_cases", "vol_target", "contracted_hours", "target_hours"],
         "data_types": ["numeric", "float", "integer"]
     },
     "received": {
@@ -144,7 +144,7 @@ ROLE_CATALOGUE = {
         "label": "Hours Used",
         "description": "Actual productive or recorded working hours",
         "category": "Capacity",
-        "keywords": ["hours_used", "productive_hours", "worked_hours", "logged_hours", "actual_hours", "utilised_hours", "utilized_hours", "hours_spent", "hours_worked", "active_hours"],
+        "keywords": ["hours_used", "productive_hours", "worked_hours", "logged_hours", "actual_hours", "utilised_hours", "utilized_hours", "hours_spent", "hours_worked", "active_hours", "occupied_hours", "occupied"],
         "data_types": ["numeric", "float", "integer"]
     },
     "processing_time": {
@@ -200,7 +200,7 @@ ROLE_CATALOGUE = {
         "label": "Other Metric / KPI",
         "description": "General numerical operational metric or custom indicator",
         "category": "Other",
-        "keywords": ["other_measure", "other", "metric", "measure", "custom_metric", "kpi", "score", "value", "indicator"],
+        "keywords": ["other_measure", "other", "metric", "measure", "custom_metric", "kpi", "score", "value", "indicator", "availability_%", "availability"],
         "data_types": ["numeric", "float", "integer"]
     }
 }
@@ -219,6 +219,7 @@ def _normalize_name(name: str) -> str:
 def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
     """Analyze DataFrame columns and produce PROVISIONAL suggestions only.
     Suggested mappings NEVER activate KPIs until explicitly confirmed by the analyst.
+    Collision / placeholder columns (e.g. *_primary) are automatically suppressed.
     """
     suggestions = {}
     if df is None or len(df.columns) == 0:
@@ -229,6 +230,26 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
         tokens = set(norm_col.split("_"))
         series = df[col]
         is_num = pd.api.types.is_numeric_dtype(series)
+
+        # 1. Suppress collision / placeholder columns (*_primary)
+        if norm_col.endswith("_primary") or col.endswith("_primary"):
+            suggestions[col] = {
+                "suggested_role": None,
+                "confidence": 0.0,
+                "all_scores": [],
+                "status": "Ignored (Placeholder Collision)"
+            }
+            continue
+
+        # 2. Suppress composite boolean flag columns from stealing department/team
+        if "service_a" in norm_col and "band_3" in norm_col:
+            suggestions[col] = {
+                "suggested_role": "status",
+                "confidence": 0.85,
+                "all_scores": [("status", 0.85)],
+                "status": "Suggested"
+            }
+            continue
         
         is_dt = pd.api.types.is_datetime64_any_dtype(series)
         if not is_dt and not is_num and len(series.dropna()) > 0:
@@ -264,6 +285,24 @@ def suggest_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
                     elif any(kt in tokens for kt in kw_tokens if len(kt) > 2):
                         score = max(score, 0.50)
                         
+            # Specific domain prioritization
+            if norm_col == "occupied_hours" and role_key == "hours_used":
+                score = 0.98
+            elif norm_col == "available_hours" and role_key == "hours_available":
+                score = 0.98
+            elif norm_col == "contracted_hours" and role_key in ["target", "hours_available"]:
+                score = 0.96 if role_key == "target" else 0.92
+            elif norm_col in ["availability", "availability_pct", "availability_"] and role_key == "actual":
+                score = 0.98
+            elif norm_col == "reporting_month" and role_key == "reporting_period":
+                score = 0.99
+            elif norm_col == "user" and role_key == "record_id":
+                score = 0.95
+            elif norm_col == "band" and role_key == "category":
+                score = 0.95
+            elif norm_col == "service" and role_key == "team":
+                score = 0.96
+
             # Role domain boosts
             if role_meta["category"] in ["Performance", "Capacity", "Other"]:
                 if is_num:

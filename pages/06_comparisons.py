@@ -20,10 +20,16 @@ if not mappings:
     st.warning("⚠️ **Workflow Gate:** Please confirm column mappings on **03. Column Mapping** before running analytical comparisons.")
     st.stop()
 
-# Group by confirmed dimensions
-mapped_dims = [c for c, r in mappings.items() if r in ["team", "department", "branch", "location", "category"] and c in df.columns]
-mapped_metrics = [c for c, r in mappings.items() if r in ["completed", "actual", "received", "target", "processing_time", "hours_used", "hours_available", "cost", "quality_measure", "customer_measure"] and c in df.columns]
-mapped_denoms = ["<None>"] + [c for c, r in mappings.items() if r in ["fte", "staff", "hours_available"] and c in df.columns]
+# Group by confirmed dimensions (filtering out _primary placeholder collisions)
+mapped_dims = [c for c, r in mappings.items() if r in ["team", "department", "branch", "location", "category"] and c in df.columns and not c.endswith("_primary")]
+mapped_metrics = [c for c, r in mappings.items() if r in ["completed", "actual", "received", "target", "processing_time", "hours_used", "hours_available", "cost", "quality_measure", "customer_measure", "other_measure"] and c in df.columns and not c.endswith("_primary")]
+mapped_denoms = ["<None>"] + [c for c, r in mappings.items() if r in ["fte", "staff", "hours_available"] and c in df.columns and not c.endswith("_primary")]
+
+# Fallbacks if confirmed mappings are minimal
+if not mapped_dims:
+    mapped_dims = [c for c in df.columns if any(k in c.lower() for k in ["service", "band", "team", "dept", "location", "category"]) and not c.endswith("_primary")]
+if not mapped_metrics:
+    mapped_metrics = [c for c in df.columns if any(k in c.lower() for k in ["avail", "hour", "score", "pct", "%", "target", "cost"]) and not c.endswith("_primary")]
 
 if not mapped_dims:
     st.error("No confirmed Dimension column (Team, Dept, Location, Category) found in mappings. Please map a dimension on Page 03.")
@@ -33,11 +39,27 @@ if not mapped_metrics:
     st.error("No confirmed Performance Metric found in mappings. Please map at least one metric on Page 03.")
     st.stop()
 
+# Intelligent default selection
+dim_idx = 0
+for idx, d in enumerate(mapped_dims):
+    if d.lower().strip() == "service":
+        dim_idx = idx
+        break
+
+metric_idx = 0
+for idx, m in enumerate(mapped_metrics):
+    if "availability" in m.lower() or "%" in m:
+        metric_idx = idx
+        break
+
 c1, c2, c3, c4 = st.columns(4)
-selected_group = c1.selectbox("Confirmed Dimension to Compare:", mapped_dims)
-selected_metric = c2.selectbox("Primary Performance Metric:", mapped_metrics)
-selected_denom = c3.selectbox("Capacity Denominator (Optional):", mapped_denoms)
-agg_choice = c4.selectbox("Metric Aggregation:", ["sum", "mean"])
+selected_group = c1.selectbox("Confirmed Dimension to Compare:", mapped_dims, index=dim_idx)
+selected_metric = c2.selectbox("Primary Performance Metric:", mapped_metrics, index=metric_idx)
+selected_denom = c3.selectbox("Capacity Denominator (Optional):", mapped_denoms, index=0)
+
+is_rate_metric = any(k in selected_metric.lower() for k in ["%", "rate", "avail", "pct", "score", "ratio", "time", "tat"])
+default_agg_idx = 1 if is_rate_metric else 0
+agg_choice = c4.selectbox("Metric Aggregation:", ["sum", "mean"], index=default_agg_idx)
 
 denom_param = None if selected_denom == "<None>" else selected_denom
 comp_res = compare_groups(

@@ -22,6 +22,9 @@ def compute_dataset_fingerprint(df: Optional[pd.DataFrame], filename: str = "", 
 
 def init_session_state():
     """Initialize default session state keys if not already present."""
+    if "model_version" not in st.session_state:
+        st.session_state.model_version = 1
+
     if "audit_logger" not in st.session_state:
         st.session_state.audit_logger = AuditLogger()
         
@@ -258,6 +261,9 @@ def set_primary_dataset(dataset_id: str) -> None:
     if not ds:
         return
 
+    from src.mapping import suggest_mappings
+    invalidate_derived_state(ds["clean_df"])
+
     st.session_state.primary_dataset_id = dataset_id
     st.session_state["raw_df"] = ds["raw_df"].copy(deep=True)
     st.session_state["clean_df"] = ds["clean_df"].copy(deep=True)
@@ -268,6 +274,8 @@ def set_primary_dataset(dataset_id: str) -> None:
     if ds.get("granularity"):
         st.session_state["row_granularity"] = ds["granularity"]
         st.session_state["row_granularity_confirmed"] = ds.get("granularity_confirmed", False)
+    
+    st.session_state["suggested_mappings"] = suggest_mappings(ds["clean_df"])
 
 
 def get_primary_dataset() -> Optional[Dict[str, Any]]:
@@ -298,8 +306,27 @@ def get_reference_datasets() -> List[Dict[str, Any]]:
     return refs
 
 
+def invalidate_derived_state(df: Optional[pd.DataFrame] = None, new_fingerprint: str = "") -> None:
+    """Clear all derived analytical caches to eliminate downstream state contamination."""
+    st.session_state.model_version = st.session_state.get("model_version", 1) + 1
+    st.session_state["kpi_results"] = {}
+    st.session_state["active_filters"] = {}
+    st.session_state["trend_summary"] = None
+    st.session_state["comparison_summary"] = None
+    st.session_state["root_cause_summary"] = None
+    st.session_state["insights_list"] = []
+    st.session_state["reviewed_insights"] = []
+    st.session_state["recommendations_list"] = []
+    st.session_state["reviewed_recommendations"] = {}
+    st.session_state["last_export_payload"] = None
+    if new_fingerprint:
+        st.session_state["dataset_fingerprint"] = new_fingerprint
+
+
 def sync_analytical_model() -> None:
-    """Build unified joined analytical model from primary dataset and relationships."""
+    """Build unified joined analytical model from primary dataset and relationships.
+    Invalidates derived state and primes confirmed mappings with canonical assessment fields.
+    """
     from src.relationships import build_joined_analytical_model
     from src.quality import run_structural_qa
     from src.mapping import suggest_mappings
@@ -318,12 +345,37 @@ def sync_analytical_model() -> None:
         compute_derived=True
     )
 
+    # Invalidate all downstream derived caches
+    new_fp = compute_dataset_fingerprint(joined_df, primary_ds.get("name", "Joined Model"))
+    invalidate_derived_state(joined_df, new_fingerprint=new_fp)
+
     st.session_state["raw_df"] = primary_ds["raw_df"].copy(deep=True)
     st.session_state["clean_df"] = joined_df.copy(deep=True)
     st.session_state["dataset_name"] = primary_ds.get("name", "Joined Model")
     st.session_state["structural_qa_report"] = run_structural_qa(joined_df)
     st.session_state["qa_report"] = st.session_state["structural_qa_report"]
-    st.session_state["suggested_mappings"] = suggest_mappings(joined_df)
+    
+    # Generate fresh suggested mappings
+    suggestions = suggest_mappings(joined_df)
+    st.session_state["suggested_mappings"] = suggestions
+
+    # Auto-prime confirmed mappings for high-confidence canonical roles
+    # Filters out collision / placeholder columns (*_primary)
+    st.session_state["confirmed_mappings"] = {
+        col: info["suggested_role"]
+        for col, info in suggestions.items()
+        if info.get("suggested_role") and info.get("confidence", 0) >= 0.70
+    }
+    
+    # Set default target directions
+    target_dirs = {}
+    for col, role in st.session_state["confirmed_mappings"].items():
+        if role in ["target", "actual", "quality_measure", "other_measure"]:
+            target_dirs[col] = "higher_is_better"
+        elif role in ["cost", "processing_time", "wait_time"]:
+            target_dirs[col] = "lower_is_better"
+    st.session_state["target_directions"] = target_dirs
+
     st.session_state["relationship_qa"] = summary.get("relationship_qa", {})
 
 
@@ -331,6 +383,7 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     """Clear active dataset and all derived analytical results to start a clean upload.
     Optionally preserves user-entered assessment question, audience, and notes.
     """
+    invalidate_derived_state()
     st.session_state["raw_df"] = None
     st.session_state["clean_df"] = None
     st.session_state["dataset_name"] = ""
@@ -357,18 +410,6 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     st.session_state["structural_qa_report"] = None
     st.session_state["semantic_qa_report"] = None
     
-    st.session_state["kpi_results"] = {}
-    st.session_state["active_filters"] = {}
-    st.session_state["trend_summary"] = None
-    st.session_state["comparison_summary"] = None
-    st.session_state["root_cause_summary"] = None
-    
-    st.session_state["insights_list"] = []
-    st.session_state["reviewed_insights"] = []
-    st.session_state["recommendations_list"] = []
-    st.session_state["reviewed_recommendations"] = {}
-    st.session_state["last_export_payload"] = None
-    
     current_ver = st.session_state.get("upload_widget_version", 0)
     st.session_state["upload_widget_version"] = current_ver + 1
     
@@ -393,25 +434,15 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
 
 def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
     """Clear all derived analytical state while preserving raw dataset and assessment context."""
+    invalidate_derived_state(new_fingerprint=new_fingerprint)
     st.session_state["suggested_mappings"] = {}
     st.session_state["confirmed_mappings"] = {}
     st.session_state["target_directions"] = {}
     st.session_state["qa_report"] = None
     st.session_state["structural_qa_report"] = None
     st.session_state["semantic_qa_report"] = None
-    st.session_state["kpi_results"] = {}
-    st.session_state["active_filters"] = {}
-    st.session_state["trend_summary"] = None
-    st.session_state["comparison_summary"] = None
-    st.session_state["root_cause_summary"] = None
-    st.session_state["insights_list"] = []
-    st.session_state["reviewed_insights"] = []
-    st.session_state["recommendations_list"] = []
-    st.session_state["reviewed_recommendations"] = {}
-    st.session_state["last_export_payload"] = None
     st.session_state["row_granularity_confirmed"] = False
     st.session_state["row_granularity"] = "Not Confirmed"
-    st.session_state["dataset_fingerprint"] = new_fingerprint
     
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
@@ -423,19 +454,10 @@ def reset_derived_state_for_new_dataset(new_fingerprint: str = "") -> None:
 
 def reset_analysis_only() -> None:
     """Clear derived analysis while preserving raw data and assessment context."""
+    invalidate_derived_state()
     st.session_state["confirmed_mappings"] = {}
     st.session_state["target_directions"] = {}
     st.session_state["semantic_qa_report"] = None
-    st.session_state["kpi_results"] = {}
-    st.session_state["active_filters"] = {}
-    st.session_state["trend_summary"] = None
-    st.session_state["comparison_summary"] = None
-    st.session_state["root_cause_summary"] = None
-    st.session_state["insights_list"] = []
-    st.session_state["reviewed_insights"] = []
-    st.session_state["recommendations_list"] = []
-    st.session_state["reviewed_recommendations"] = {}
-    st.session_state["last_export_payload"] = None
     
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(

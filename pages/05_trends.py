@@ -20,10 +20,16 @@ if not mappings:
     st.warning("⚠️ **Workflow Gate:** Please confirm column mappings on **03. Column Mapping** before running trend analysis.")
     st.stop()
 
-# Identify default mapped date and metric fields
-mapped_dates = [c for c, r in mappings.items() if r in ["date", "reporting_period"] and c in df.columns]
-mapped_metrics = [c for c, r in mappings.items() if r in ["completed", "actual", "received", "target", "processing_time", "hours_used", "hours_available", "cost", "quality_measure", "customer_measure"] and c in df.columns]
-mapped_groups = ["<None>"] + [c for c, r in mappings.items() if r in ["team", "department", "branch", "location", "category"] and c in df.columns]
+# Identify default mapped date and metric fields (filtering out _primary placeholder collisions)
+mapped_dates = [c for c, r in mappings.items() if r in ["date", "reporting_period"] and c in df.columns and not c.endswith("_primary")]
+mapped_metrics = [c for c, r in mappings.items() if r in ["completed", "actual", "received", "target", "processing_time", "hours_used", "hours_available", "cost", "quality_measure", "customer_measure", "other_measure"] and c in df.columns and not c.endswith("_primary")]
+mapped_groups = ["<None>"] + [c for c, r in mappings.items() if r in ["team", "department", "branch", "location", "category"] and c in df.columns and not c.endswith("_primary")]
+
+# Fallbacks if confirmed mappings are minimal
+if not mapped_dates:
+    mapped_dates = [c for c in df.columns if any(k in c.lower() for k in ["month", "date", "period"]) and not c.endswith("_primary")]
+if not mapped_metrics:
+    mapped_metrics = [c for c in df.columns if any(k in c.lower() for k in ["avail", "hour", "score", "pct", "%", "target", "cost"]) and not c.endswith("_primary")]
 
 if not mapped_dates:
     st.error("No confirmed Date or Reporting Period column found in mappings. Please map a Date/Period column on Page 03.")
@@ -33,11 +39,28 @@ if not mapped_metrics:
     st.error("No confirmed numeric performance metric found in mappings. Please map at least one metric on Page 03.")
     st.stop()
 
+# Intelligent default selection
+date_idx = 0
+for idx, d in enumerate(mapped_dates):
+    if "reporting month" in d.lower():
+        date_idx = idx
+        break
+
+metric_idx = 0
+for idx, m in enumerate(mapped_metrics):
+    if "availability" in m.lower() or "%" in m:
+        metric_idx = idx
+        break
+
 c1, c2, c3, c4 = st.columns(4)
-selected_date = c1.selectbox("Confirmed Date / Period Field:", mapped_dates)
-selected_metric = c2.selectbox("Confirmed Performance Metric:", mapped_metrics)
-selected_group = c3.selectbox("Split by Dimension (Optional):", mapped_groups)
-agg_choice = c4.selectbox("Aggregation Method:", ["sum", "mean"])
+selected_date = c1.selectbox("Confirmed Date / Period Field:", mapped_dates, index=date_idx)
+selected_metric = c2.selectbox("Confirmed Performance Metric:", mapped_metrics, index=metric_idx)
+selected_group = c3.selectbox("Split by Dimension (Optional):", mapped_groups, index=0)
+
+# Default to mean for percentages/rates, sum for counts
+is_rate_metric = any(k in selected_metric.lower() for k in ["%", "rate", "avail", "pct", "score", "ratio", "time", "tat"])
+default_agg_idx = 1 if is_rate_metric else 0
+agg_choice = c4.selectbox("Aggregation Method:", ["sum", "mean"], index=default_agg_idx)
 
 group_param = None if selected_group == "<None>" else selected_group
 trend_res = calculate_trends(df, selected_date, selected_metric, group_param, agg_choice)

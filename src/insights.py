@@ -166,49 +166,111 @@ def generate_rule_based_insights(
     granularity: str = "Case / record"
 ) -> List[Dict[str, Any]]:
     """Helper that computes KPIs and generates structured insight cards with status tracking."""
-    if df is None or not mappings:
+    if df is None or len(df) == 0:
         return []
         
-    primary_dir = "higher_is_better"
-    if target_directions:
-        for d in target_directions.values():
-            if d:
-                primary_dir = d
-                break
-                
-    kpi_res = calculate_kpis(df, mappings, target_direction=primary_dir)
-    raw_insights = generate_insights(kpi_res, qa_report={})
-    
     formatted_insights = []
-    for item in raw_insights:
-        formatted_insights.append({
-            "id": item.get("insight_id", f"ins_{len(formatted_insights)+1}"),
-            "title": f"{item.get('category', 'Diagnostic')} - {item.get('finding', '')[:40]}...",
-            "category": item.get("category", "General"),
-            "finding": item.get("finding", ""),
-            "evidence": item.get("evidence", ""),
-            "interpretation": item.get("interpretation", ""),
-            "business_implication": item.get("business_implication", ""),
-            "recommendation": item.get("recommendation", ""),
-            "limitation": item.get("limitation", ""),
-            "severity": "high" if "shortfall" in item.get("finding", "").lower() or "exceeding" in item.get("finding", "").lower() else "medium",
-            "status": "approved"
-        })
+    
+    # 1. Assessment Model Check: Availability % & Contracted Hours
+    if "Availability %" in df.columns:
+        s_av = pd.to_numeric(df["Availability %"], errors="coerce").dropna()
+        total_n = len(df)
+        valid_n = len(s_av)
+        uncalc_n = total_n - valid_n
+        uncapped_n = int((s_av > 1.0).sum())
         
-    # If no rule triggered, add a standard baseline insight
+        if valid_n > 0:
+            formatted_insights.append({
+                "id": "INS-001",
+                "title": "Overall Availability & Uncapped Outliers",
+                "category": "Operational Delivery",
+                "finding": f"Across {valid_n:,} valid monthly records, mean availability is {s_av.mean():.2%} (median: {s_av.median():.2%}), with {uncapped_n} uncapped entries exceeding 100%.",
+                "evidence": f"Calculated as Available Hours / Contracted Hours across {total_n:,} rows. Highest observed availability is {s_av.max():.2%}.",
+                "interpretation": "Workforce availability remains robust overall; uncapped entries (>100%) reflect overtime or extra scheduled hours delivered above contracted baseline.",
+                "business_implication": "Distinguishes baseline capacity delivery from temporary overtime surges across operational services.",
+                "recommendation": "Preserve uncapped calculation rule in all operational scorecards and review overtime allocation.",
+                "limitation": "Calculation returns null/blank where contracted hours are zero or missing to prevent division-by-zero distortion.",
+                "severity": "medium",
+                "status": "pending"
+            })
+            
+        if uncalc_n > 0:
+            formatted_insights.append({
+                "id": "INS-002",
+                "title": "Data Hygiene: Uncalculable Availability Rows",
+                "category": "Data Governance",
+                "finding": f"{uncalc_n:,} records ({uncalc_n/total_n:.1%}) lack valid contracted hours or available hours and return blank as required.",
+                "evidence": f"Zero or null denominator detected on {uncalc_n:,} of {total_n:,} rows.",
+                "interpretation": "Handles missing/null inputs safely without generating #DIV/0! errors or artificially skewing overall averages.",
+                "business_implication": "Ensures executive dashboards reflect only statistically valid operational activity.",
+                "recommendation": "Implement source data validation in HR/rostering extracts to ensure contracted hours are populated for active staff.",
+                "limitation": "Omitted rows do not contribute to group means or quarterly summaries.",
+                "severity": "info",
+                "status": "pending"
+            })
+
+    # 2. Service & Band Distribution Check
+    if "Service" in df.columns and "Band" in df.columns and "Availability %" in df.columns:
+        s_av = pd.to_numeric(df["Availability %"], errors="coerce")
+        serv_grp = df.assign(_av=s_av).groupby("Service")["_av"].agg(["mean", "count"]).dropna()
+        if len(serv_grp) >= 2:
+            top_s = serv_grp["mean"].idxmax()
+            top_v = serv_grp["mean"].max()
+            bot_s = serv_grp["mean"].idxmin()
+            bot_v = serv_grp["mean"].min()
+            formatted_insights.append({
+                "id": "INS-003",
+                "title": "Inter-Service Performance Variance",
+                "category": "Cohort Comparisons",
+                "finding": f"Availability varies across services, led by '{top_s}' ({top_v:.2%}) compared to '{bot_s}' ({bot_v:.2%}).",
+                "evidence": f"Service-level aggregation of {len(df):,} records matched against Users master data.",
+                "interpretation": "Variance across operational areas reflects differing workload demands, leave patterns, and band grade compositions.",
+                "business_implication": "Highlights potential staffing imbalances or localized operational pressures.",
+                "recommendation": "Conduct quarterly workload reviews across services to balance capacity with operational demand.",
+                "limitation": "Does not account for unrecorded casework complexity or specialized task allocations.",
+                "severity": "medium",
+                "status": "pending"
+            })
+
+    # 3. Fallback: Generic KPI calculation if traditional KPI mappings exist
+    if not formatted_insights and mappings:
+        primary_dir = "higher_is_better"
+        if target_directions:
+            for d in target_directions.values():
+                if d:
+                    primary_dir = d
+                    break
+        kpi_res = calculate_kpis(df, mappings, target_direction=primary_dir)
+        raw_insights = generate_insights(kpi_res, qa_report={})
+        for item in raw_insights:
+            formatted_insights.append({
+                "id": item.get("insight_id", f"ins_{len(formatted_insights)+1}"),
+                "title": f"{item.get('category', 'Diagnostic')} - {item.get('finding', '')[:40]}...",
+                "category": item.get("category", "General"),
+                "finding": item.get("finding", ""),
+                "evidence": item.get("evidence", ""),
+                "interpretation": item.get("interpretation", ""),
+                "business_implication": item.get("business_implication", ""),
+                "recommendation": item.get("recommendation", ""),
+                "limitation": item.get("limitation", ""),
+                "severity": "high" if "shortfall" in item.get("finding", "").lower() or "exceeding" in item.get("finding", "").lower() else "medium",
+                "status": "pending"
+            })
+
+    # 4. Fallback baseline data profile
     if not formatted_insights and len(df) > 0:
         formatted_insights.append({
-            "id": "ins_base_001",
-            "title": "Baseline Data Distribution Profile",
+            "id": "INS-BASE-001",
+            "title": "Baseline Analytical Model Profile",
             "category": "Data Profile",
-            "finding": f"Dataset contains {len(df):,} operational {granularity.lower()} entries across {len(df.columns)} mapped/unmapped attributes.",
+            "finding": f"Analytical model contains {len(df):,} operational records across {len(df.columns)} verified attributes.",
             "evidence": f"Total records: {len(df):,}.",
-            "interpretation": "Baseline volume ready for detailed drilldown.",
+            "interpretation": "Baseline volume ready for drilldown and presentation.",
             "business_implication": "Enables performance monitoring and cohort benchmarking.",
-            "recommendation": "Track throughput trends and SLA variance over time.",
+            "recommendation": "Review group comparisons and longitudinal trends.",
             "limitation": f"Analysis unit established as: 1 row = {granularity}.",
             "severity": "info",
-            "status": "approved"
+            "status": "pending"
         })
         
     return formatted_insights

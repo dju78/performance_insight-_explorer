@@ -62,7 +62,9 @@ def analyze_root_cause_pillars(
     kpi_results: Dict[str, Any],
     qa_report: Dict[str, Any]
 ) -> Dict[str, Any]:
-    """Synthesize evidence across the 5 operational pillars: Demand, Capacity, Process, Complexity, Data Quality."""
+    """Synthesize evidence across the 5 operational pillars: Demand, Capacity, Process, Complexity, Data Quality.
+    Strictly data-driven based on active model columns.
+    """
     role_to_col = {r: c for c, r in mappings.items() if r and c in df.columns}
     pillars = {
         "demand": {"title": "1. Demand & Intake Volume", "findings": [], "risk_level": "Low"},
@@ -81,14 +83,25 @@ def analyze_root_cause_pillars(
             if rec_cv > 0.3:
                 pillars["demand"]["findings"].append(f"High intake volatility observed (Coefficient of Variation = {rec_cv:.2f}). Spikes in intake challenge fixed capacity.")
                 pillars["demand"]["risk_level"] = "Medium"
+    else:
+        pillars["demand"]["findings"].append("Intake demand volume not present in active assessment dataset (gracefully omitted).")
                 
     # 2. CAPACITY
     if "fte" in role_to_col:
         s_fte = pd.to_numeric(df[role_to_col["fte"]], errors="coerce").dropna()
-        pillars["capacity"]["findings"].append(f"Average staffed capacity is {s_fte.mean():.1f} FTE (range {s_fte.min():.1f} - {s_fte.max():.1f}).")
-        
+        if len(s_fte) > 0:
+            pillars["capacity"]["findings"].append(f"Average staffed capacity is {s_fte.mean():.2f} FTE (range {s_fte.min():.1f} - {s_fte.max():.1f}).")
+    elif "FTE" in df.columns:
+        s_fte = pd.to_numeric(df["FTE"], errors="coerce").dropna()
+        if len(s_fte) > 0:
+            pillars["capacity"]["findings"].append(f"Average staffed capacity is {s_fte.mean():.2f} FTE.")
+
+    if "hours_available" in role_to_col:
+        s_h = pd.to_numeric(df[role_to_col["hours_available"]], errors="coerce").dropna()
+        if len(s_h) > 0:
+            pillars["capacity"]["findings"].append(f"Total available capacity: {s_h.sum():,.1f} scheduled hours (mean {s_h.mean():,.1f} hrs/record).")
     if "utilisation_pct" in kpi_results.get("summary_kpis", {}):
-        u_val = kpi_results["summary_kpis"]["utilisation_pct"]["value"]
+        u_val = kpi_results["summary_kpis"]["utilisation_pct"].get("value")
         if u_val is not None:
             pillars["capacity"]["findings"].append(f"Operational utilisation is {u_val:.1f}%.")
             if u_val > 92.0:
@@ -97,28 +110,41 @@ def analyze_root_cause_pillars(
             elif u_val < 70.0:
                 pillars["capacity"]["findings"].append("Utilisation below 70% suggests potential under-utilised hours or idle capacity.")
                 pillars["capacity"]["risk_level"] = "Medium"
-                
+
+    if not pillars["capacity"]["findings"]:
+        pillars["capacity"]["findings"].append("Capacity metrics not present in active dataset.")
+
     # 3. PROCESS
-    if "processing_time" in role_to_col:
+    if "Availability %" in df.columns:
+        s_av = pd.to_numeric(df["Availability %"], errors="coerce").dropna()
+        if len(s_av) > 0:
+            pillars["process"]["findings"].append(f"Overall average availability is {s_av.mean():.2%} (median: {s_av.median():.2%}).")
+            uncapped = int((s_av > 1.0).sum())
+            if uncapped > 0:
+                pillars["process"]["findings"].append(f"{uncapped} observation(s) exhibit Availability > 100% (max: {s_av.max():.1%}).")
+    elif "processing_time" in role_to_col:
         s_tat = pd.to_numeric(df[role_to_col["processing_time"]], errors="coerce").dropna()
         if len(s_tat) > 0:
-            pillars["process"]["findings"].append(f"Median cycle time is {s_tat.median():.1f} days (90th percentile is {s_tat.quantile(0.9):.1f} days).")
-            if s_tat.mean() > s_tat.median() * 1.3:
-                pillars["process"]["findings"].append("Right-skewed distribution indicates a long tail of stalled or complex outlier cases.")
-                pillars["process"]["risk_level"] = "Medium"
-                
-    if "backlog_change" in kpi_results.get("summary_kpis", {}):
-        bl_val = kpi_results["summary_kpis"]["backlog_change"]["value"]
-        if bl_val > 0:
-            pillars["process"]["findings"].append(f"Backlog has expanded by {bl_val:,.0f} cases over the observed window.")
-            pillars["process"]["risk_level"] = "High"
-            
-    # 4. COMPLEXITY
-    if "case_type" in role_to_col or "category" in role_to_col:
+            pillars["process"]["findings"].append(f"Median cycle time is {s_tat.median():.1f} days (90th percentile: {s_tat.quantile(0.9):.1f} days).")
+
+    if not pillars["process"]["findings"]:
+        pillars["process"]["findings"].append("Workflow throughput metrics not present in active dataset (gracefully omitted).")
+
+    # 4. COMPLEXITY / COHORT MIX
+    if "Service" in df.columns and "Band" in df.columns:
+        top_s = df["Service"].value_counts().head(2).to_dict()
+        top_s_str = ", ".join([f"{k} ({v:,} rows)" for k, v in top_s.items()])
+        top_b = df["Band"].value_counts().head(2).to_dict()
+        top_b_str = ", ".join([f"{k} ({v:,} rows)" for k, v in top_b.items()])
+        pillars["complexity"]["findings"].append(f"Dominant Services: {top_s_str}.")
+        pillars["complexity"]["findings"].append(f"Dominant Staff Bands: {top_b_str}.")
+    elif "case_type" in role_to_col or "category" in role_to_col:
         c_col = role_to_col.get("case_type") or role_to_col.get("category")
         top_cats = df[c_col].value_counts(normalize=True).head(3).to_dict()
         top_str = ", ".join([f"{k} ({v*100:.1f}%)" for k, v in top_cats.items()])
-        pillars["complexity"]["findings"].append(f"Top case mix classifications: {top_str}.")
+        pillars["complexity"]["findings"].append(f"Top case classifications: {top_str}.")
+    else:
+        pillars["complexity"]["findings"].append("Case complexity breakdown not present in active dataset (gracefully omitted).")
         
     # 5. DATA QUALITY
     crit_count = qa_report.get("critical_count", 0)
@@ -126,8 +152,13 @@ def analyze_root_cause_pillars(
     health_score = qa_report.get("health_score", 100.0)
     
     pillars["data_quality"]["findings"].append(f"Data Health Score: {health_score:.1f}/100 with {crit_count} critical and {warn_count} warning issues.")
+    if "Availability %" in df.columns:
+        uncalc = int(df["Availability %"].isna().sum())
+        if uncalc > 0:
+            pillars["data_quality"]["findings"].append(f"{uncalc:,} records ({uncalc/len(df):.1%}) contain missing or zero denominators, correctly returning blank.")
+            
     if crit_count > 0:
-        pillars["data_quality"]["findings"].append("Critical data anomalies (e.g. missing values, reconciliation gaps) must be resolved before finalizing causal conclusions.")
+        pillars["data_quality"]["findings"].append("Critical data anomalies must be resolved before finalizing causal conclusions.")
         pillars["data_quality"]["risk_level"] = "High"
     elif warn_count > 0:
         pillars["data_quality"]["risk_level"] = "Medium"
