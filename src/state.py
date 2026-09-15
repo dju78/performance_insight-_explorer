@@ -1,6 +1,7 @@
 """Session State Management for Streamlit.
 Maintains pristine raw data, active confirmed mappings, assessment context,
-row granularity confirmation, insight review status, dataset fingerprints, and safe reset controls.
+row granularity confirmation, insight review status, dataset fingerprints,
+multi-dataset registry, relationship joins, and safe reset controls.
 """
 import hashlib
 from typing import Any, Optional, Dict, List
@@ -54,6 +55,25 @@ def init_session_state():
     if "row_granularity_confirmed" not in st.session_state:
         st.session_state.row_granularity_confirmed = False
         
+    # Multi-dataset & Relationships registry
+    if "datasets" not in st.session_state:
+        st.session_state.datasets = {}
+        
+    if "primary_dataset_id" not in st.session_state:
+        st.session_state.primary_dataset_id = ""
+        
+    if "relationships" not in st.session_state:
+        st.session_state.relationships = []
+        
+    if "assessment_brief_data" not in st.session_state:
+        st.session_state.assessment_brief_data = {
+            "filename": "",
+            "raw_text": "",
+            "questions": [],
+            "question_count": 0,
+            "is_loaded": False
+        }
+
     if "assessment_question" not in st.session_state:
         st.session_state.assessment_question = ""
         
@@ -163,6 +183,140 @@ def init_session_state():
         st.session_state.last_export_payload = None
 
 
+def register_dataset(
+    dataset_id: str,
+    name: str,
+    role: str,
+    raw_df: pd.DataFrame,
+    clean_df: Optional[pd.DataFrame] = None,
+    sheets: Optional[List[str]] = None,
+    active_sheet: str = "",
+    file_bytes: Optional[bytes] = None,
+    profile: Optional[Dict[str, Any]] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    key_field: Optional[str] = None,
+    granularity: Optional[str] = None
+) -> None:
+    """Register or update a dataset in the multi-dataset registry."""
+    if clean_df is None:
+        clean_df = raw_df.copy(deep=True)
+    if sheets is None:
+        sheets = ["Default"]
+
+    st.session_state.datasets[dataset_id] = {
+        "id": dataset_id,
+        "name": name,
+        "role": role,
+        "raw_df": raw_df,
+        "clean_df": clean_df,
+        "sheets": sheets,
+        "active_sheet": active_sheet or (sheets[0] if sheets else ""),
+        "file_bytes": file_bytes,
+        "profile": profile or {},
+        "metadata": metadata or {},
+        "key_field": key_field or "",
+        "granularity": granularity or ("Periodic Snapshot" if "Primary" in role else ""),
+        "granularity_confirmed": False
+    }
+
+    # If this is marked as Primary Analysis Dataset, set as active primary
+    if "primary" in role.lower() or not st.session_state.get("primary_dataset_id"):
+        set_primary_dataset(dataset_id)
+
+
+def remove_dataset(dataset_id: str) -> None:
+    """Remove a dataset and clean up associated relationships."""
+    if dataset_id in st.session_state.datasets:
+        del st.session_state.datasets[dataset_id]
+        
+    # Clean relationships involving this dataset
+    st.session_state.relationships = [
+        r for r in st.session_state.get("relationships", [])
+        if r.get("left_dataset_id") != dataset_id and r.get("right_dataset_id") != dataset_id
+    ]
+
+    if st.session_state.get("primary_dataset_id") == dataset_id:
+        remaining = list(st.session_state.datasets.keys())
+        if remaining:
+            set_primary_dataset(remaining[0])
+        else:
+            clear_dataset_for_new_upload(preserve_assessment_context=True)
+
+
+def set_primary_dataset(dataset_id: str) -> None:
+    """Set the primary working dataset and sync state."""
+    ds = st.session_state.datasets.get(dataset_id)
+    if not ds:
+        return
+
+    st.session_state.primary_dataset_id = dataset_id
+    st.session_state["raw_df"] = ds["raw_df"].copy(deep=True)
+    st.session_state["clean_df"] = ds["clean_df"].copy(deep=True)
+    st.session_state["dataset_name"] = ds["name"]
+    st.session_state["active_sheet"] = ds["active_sheet"]
+    st.session_state["data_profile"] = ds.get("profile")
+    st.session_state["metadata"] = ds.get("metadata")
+    if ds.get("granularity"):
+        st.session_state["row_granularity"] = ds["granularity"]
+        st.session_state["row_granularity_confirmed"] = ds.get("granularity_confirmed", False)
+
+
+def get_primary_dataset() -> Optional[Dict[str, Any]]:
+    """Retrieve the primary analysis dataset dict."""
+    p_id = st.session_state.get("primary_dataset_id")
+    if p_id and p_id in st.session_state.get("datasets", {}):
+        return st.session_state.datasets[p_id]
+    
+    # Search for role == "Primary Analysis Dataset"
+    for ds_id, ds in st.session_state.get("datasets", {}).items():
+        if "primary" in ds.get("role", "").lower():
+            return ds
+            
+    # Fallback to first dataset
+    datasets = st.session_state.get("datasets", {})
+    if datasets:
+        return next(iter(datasets.values()))
+    return None
+
+
+def get_reference_datasets() -> List[Dict[str, Any]]:
+    """Retrieve list of reference/secondary datasets."""
+    p_id = st.session_state.get("primary_dataset_id")
+    refs = []
+    for ds_id, ds in st.session_state.get("datasets", {}).items():
+        if ds_id != p_id:
+            refs.append(ds)
+    return refs
+
+
+def sync_analytical_model() -> None:
+    """Build unified joined analytical model from primary dataset and relationships."""
+    from src.relationships import build_joined_analytical_model
+    from src.quality import run_structural_qa
+    from src.mapping import suggest_mappings
+    
+    primary_ds = get_primary_dataset()
+    if not primary_ds or primary_ds.get("raw_df") is None:
+        return
+
+    relationships = st.session_state.get("relationships", [])
+    datasets = st.session_state.get("datasets", {})
+
+    joined_df, summary = build_joined_analytical_model(
+        primary_ds["raw_df"],
+        relationships,
+        datasets,
+        compute_derived=True
+    )
+
+    st.session_state["raw_df"] = primary_ds["raw_df"].copy(deep=True)
+    st.session_state["clean_df"] = joined_df.copy(deep=True)
+    st.session_state["dataset_name"] = primary_ds.get("name", "Joined Model")
+    st.session_state["structural_qa_report"] = run_structural_qa(joined_df)
+    st.session_state["qa_report"] = st.session_state["structural_qa_report"]
+    st.session_state["suggested_mappings"] = suggest_mappings(joined_df)
+
+
 def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> None:
     """Clear active dataset and all derived analytical results to start a clean upload.
     Optionally preserves user-entered assessment question, audience, and notes.
@@ -176,6 +330,10 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     st.session_state["metadata"] = None
     st.session_state["data_profile"] = None
     st.session_state["active_sheet"] = ""
+    
+    st.session_state["datasets"] = {}
+    st.session_state["primary_dataset_id"] = ""
+    st.session_state["relationships"] = []
     
     st.session_state["row_granularity"] = "Not Confirmed"
     st.session_state["row_granularity_confirmed"] = False
@@ -200,16 +358,19 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     st.session_state["reviewed_recommendations"] = {}
     st.session_state["last_export_payload"] = None
     
-    # Increment uploader version to clear file_uploader widget state
     current_ver = st.session_state.get("upload_widget_version", 0)
     st.session_state["upload_widget_version"] = current_ver + 1
     
     if not preserve_assessment_context:
         st.session_state["assessment_question"] = ""
+        st.session_state["questions_must_answer"] = ""
         st.session_state["target_audience"] = "Not specified"
         st.session_state["output_format"] = "Not specified / Await instructions"
         st.session_state["time_available"] = "Not specified"
         st.session_state["analyst_notes"] = ""
+        st.session_state["assessment_brief_data"] = {
+            "filename": "", "raw_text": "", "questions": [], "question_count": 0, "is_loaded": False
+        }
         
     if "audit_logger" in st.session_state and hasattr(st.session_state.audit_logger, "log"):
         st.session_state.audit_logger.log(
@@ -305,4 +466,3 @@ def get_state(key: str, default: Any = None) -> Any:
 
 def set_state(key: str, value: Any) -> None:
     st.session_state[key] = value
-

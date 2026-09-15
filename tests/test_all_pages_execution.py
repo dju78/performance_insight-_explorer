@@ -52,7 +52,9 @@ def test_src_modules_import_cleanly():
         "src.audit",
         "src.export",
         "src.powerpoint",
-        "src.pdf_report"
+        "src.pdf_report",
+        "src.brief_extractor",
+        "src.relationships"
     ]
     for mod_name in src_modules:
         mod = importlib.import_module(mod_name)

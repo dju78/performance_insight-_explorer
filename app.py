@@ -2,6 +2,7 @@ import streamlit as st
 import pandas as pd
 from src.state import init_session_state, get_state, reset_analysis_only, reset_full_state
 from src.export import load_app_config
+from src.brief_extractor import extract_assessment_brief
 
 st.set_page_config(
     page_title="Performance Insight Explorer",
@@ -106,9 +107,29 @@ st.markdown("---")
 # 1. ASSESSMENT PACK / PRACTICAL TASK INTAKE SECTION
 st.header("📋 Stage 0: Assessment Pack Intake")
 st.markdown("""
-Enter the specific questions, targets, and constraints from your assessment brief below. 
+Upload or enter the specific questions, targets, and constraints from your assessment brief below (`Question1.docx`, PDF, or text).
 The application adapts its analysis, talking points, and outputs to address your exact brief without pre-assuming any problem domain.
 """)
+
+# Brief Upload Option
+brief_landing_file = st.file_uploader("Upload Brief Document (.docx, .pdf, .txt)", type=["docx", "doc", "pdf", "txt", "md"], key="landing_brief_uploader")
+if brief_landing_file is not None:
+    try:
+        b_res = extract_assessment_brief(brief_landing_file.getvalue(), brief_landing_file.name)
+        st.session_state.assessment_brief_data = {
+            "filename": brief_landing_file.name,
+            "raw_text": b_res.get("raw_text", ""),
+            "questions": b_res.get("questions", []),
+            "question_count": b_res.get("question_count", 0),
+            "is_loaded": True
+        }
+        if b_res.get("questions"):
+            st.session_state["questions_must_answer"] = "\n".join(b_res["questions"])
+        if not st.session_state.get("assessment_question") and b_res.get("raw_text"):
+            st.session_state["assessment_question"] = b_res["raw_text"][:300] + "..."
+        st.success(f"Extracted {b_res.get('question_count', 0)} questions from `{brief_landing_file.name}`")
+    except Exception as e:
+        st.error(f"Error parsing brief: {e}")
 
 with st.container():
     c_q1, c_q2 = st.columns(2)
