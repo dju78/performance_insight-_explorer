@@ -3,9 +3,11 @@
 **Operational Performance • Data Quality • Analysis • Insight**  
 *Production-Quality, Schema-Flexible Operational Decision-Support Application*
 
-**Author:** DARAMOLA OMOYELE  
-**Version:** 1.0.0  
-**License:** MIT / Internal Performance Assessment
+- **Live Production App:** [https://performance-insight-explorer.streamlit.app](https://performance-insight-explorer.streamlit.app)
+- **GitHub Repository:** [https://github.com/dju78/performance_insight-_explorer](https://github.com/dju78/performance_insight-_explorer)
+- **Author:** DARAMOLA OMOYELE  
+- **Version:** 1.0.0 (`v1.0-performance-assessment`)  
+- **License:** MIT / Internal Performance Assessment
 
 ---
 
