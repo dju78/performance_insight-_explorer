@@ -3,12 +3,16 @@ Records all data lifecycle events, user mappings, quality checks, metrics, and e
 """
 import datetime
 import os
+import json
+import logging
 from typing import List, Dict, Any, Optional
 import pandas as pd
 
+logger = logging.getLogger(__name__)
+
 
 class AuditLogger:
-    """Thread-safe and session-safe audit logger."""
+    """Thread-safe, session-safe, and fail-safe audit logger."""
     
     def __init__(self):
         self.events: List[Dict[str, Any]] = []
@@ -22,21 +26,51 @@ class AuditLogger:
         row_count: Optional[int] = None,
         col_count: Optional[int] = None,
         details: Optional[Dict[str, Any]] = None,
-        user_notes: str = ""
+        user_notes: str = "",
+        *args,
+        **kwargs
     ):
-        now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
-        entry = {
-            "timestamp": now_utc,
-            "event_type": event_type,
-            "description": description,
-            "filename": filename,
-            "sheet_name": sheet_name,
-            "row_count": str(row_count) if row_count is not None else "",
-            "col_count": str(col_count) if col_count is not None else "",
-            "details": str(details) if details else "",
-            "user_notes": user_notes
-        }
-        self.events.append(entry)
+        """Log an event to the audit trail safely without failing callers."""
+        try:
+            now_utc = datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC")
+            
+            # Merge explicit details with extra kwargs
+            extra_details: Dict[str, Any] = {}
+            if details and isinstance(details, dict):
+                extra_details.update(details)
+            elif details:
+                extra_details["details"] = str(details)
+
+            # Handle alias keyword arguments
+            if "rows" in kwargs and row_count is None:
+                row_count = kwargs.pop("rows")
+            if "cols" in kwargs and col_count is None:
+                col_count = kwargs.pop("cols")
+            if "worksheet" in kwargs and not sheet_name:
+                sheet_name = str(kwargs.pop("worksheet"))
+            if "file" in kwargs and not filename:
+                filename = str(kwargs.pop("file"))
+
+            # Capture remaining kwargs (e.g. role, dataset_id, health_score, etc.)
+            for k, v in kwargs.items():
+                extra_details[k] = v
+
+            details_str = json.dumps(extra_details, default=str) if extra_details else ""
+
+            entry = {
+                "timestamp": now_utc,
+                "event_type": str(event_type),
+                "description": str(description),
+                "filename": str(filename),
+                "sheet_name": str(sheet_name),
+                "row_count": str(row_count) if row_count is not None else "",
+                "col_count": str(col_count) if col_count is not None else "",
+                "details": details_str,
+                "user_notes": str(user_notes)
+            }
+            self.events.append(entry)
+        except Exception as e:
+            logger.warning(f"AuditLogger.log non-fatal exception: {e}")
 
     def get_dataframe(self) -> pd.DataFrame:
         if not self.events:

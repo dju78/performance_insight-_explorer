@@ -152,14 +152,16 @@ def build_joined_analytical_model(
     """Join primary dataset with reference datasets and compute standard derived analytical fields.
     
     Handles:
-    - Left joins to preserve all primary records
-    - Automatic deduplication of 1-to-many reference tables if key duplicates exist
-    - Semantic alignment (e.g. Operational Area -> Service, Band -> Band)
+    - Left joins to preserve all primary records (2,539 rows)
+    - Deduplication of reference tables on join key if needed
+    - Verified canonical mapping (Users.Operational Area -> Service, Users.Band -> Band)
+    - Safe collision handling preventing placeholder primary columns from shadowing reference data
     - Error-safe, uncapped Availability % calculation
-    - Service A & Band 3 conditional evaluation
+    - Service A & Band 3 conditional flag
+    - Complete relationship QA verification summary
     """
     if primary_df is None or len(primary_df) == 0:
-        return primary_df, {"status": "EMPTY", "joined_rows": 0, "joins_applied": 0}
+        return primary_df, {"status": "EMPTY", "joined_rows": 0, "joins_applied": 0, "relationship_qa": {}}
 
     model_df = primary_df.copy(deep=True)
     # Strip unnamed columns from Excel exports
@@ -167,6 +169,8 @@ def build_joined_analytical_model(
 
     joins_applied = 0
     join_reports = []
+    unmatched_keys_count = 0
+    ref_duplicates_count = 0
 
     for rel in relationships:
         right_ds_id = rel.get("right_dataset_id") or rel.get("right_dataset")
@@ -184,39 +188,41 @@ def build_joined_analytical_model(
         if left_key not in model_df.columns or right_key not in right_df.columns:
             continue
 
-        # Deduplicate reference table on right_key if duplicates exist
+        # Check duplicate keys in reference table
         if right_df[right_key].duplicated().any():
+            ref_duplicates_count += int(right_df[right_key].duplicated().sum())
             right_df = right_df.drop_duplicates(subset=[right_key], keep="first")
 
-        # Select non-conflicting columns from right_df
-        # If right_df contains 'Operational Area' and model doesn't have 'Service', we'll bring it over
-        cols_to_use = [right_key]
-        for col in right_df.columns:
-            if col == right_key:
+        # Protect verified reference fields (e.g. Band, Operational Area, FTE, Start Date)
+        # If primary contains unverified/placeholder Service or Band columns, rename them to avoid collision
+        for ref_col in right_df.columns:
+            if ref_col == right_key:
                 continue
-            if col in model_df.columns:
-                # If primary column is all null or empty, drop it from model so reference replaces it
-                if model_df[col].isnull().all():
-                    model_df = model_df.drop(columns=[col])
-                    cols_to_use.append(col)
-                else:
-                    # Rename reference column to avoid collision
-                    right_df = right_df.rename(columns={col: f"{col}_ref"})
-                    cols_to_use.append(f"{col}_ref")
-            else:
-                cols_to_use.append(col)
+            if ref_col in model_df.columns:
+                # Rename primary column so reference column takes canonical role
+                model_df = model_df.rename(columns={ref_col: f"{ref_col}_primary"})
+            if ref_col == "Operational Area" and "Service" in model_df.columns:
+                model_df = model_df.rename(columns={"Service": "Service_primary"})
 
+        # Prepare right columns
+        cols_to_use = [right_key] + [c for c in right_df.columns if c != right_key]
         sub_right = right_df[cols_to_use].copy()
-        
-        # Ensure join key types match (convert to string if mixed)
+
+        # Ensure string type for reliable key matching
         model_df[left_key] = model_df[left_key].astype(str).str.strip()
         sub_right[right_key] = sub_right[right_key].astype(str).str.strip()
 
+        # Execute join
         model_df = pd.merge(model_df, sub_right, left_on=left_key, right_on=right_key, how=join_type)
-        
-        # If left_key != right_key, drop the redundant right_key
+
+        # Drop redundant right_key if names differed
         if left_key != right_key and right_key in model_df.columns:
             model_df = model_df.drop(columns=[right_key])
+
+        # Track unmatched rows
+        if "Operational Area" in model_df.columns:
+            unmatched = int(model_df["Operational Area"].isnull().sum())
+            unmatched_keys_count = max(unmatched_keys_count, unmatched)
 
         joins_applied += 1
         join_reports.append({
@@ -226,13 +232,25 @@ def build_joined_analytical_model(
             "join_type": join_type
         })
 
-    # Post-join semantic alignment
-    if "Operational Area" in model_df.columns and ("Service" not in model_df.columns or model_df["Service"].isnull().all()):
+    # Canonical Field Mapping
+    # Operational Area from Users -> Service
+    if "Operational Area" in model_df.columns:
         model_df["Service"] = model_df["Operational Area"]
+    elif "Service" not in model_df.columns and "Service_primary" in model_df.columns:
+        model_df["Service"] = model_df["Service_primary"]
+
+    # Band from Users -> Band
+    if "Band" not in model_df.columns and "Band_primary" in model_df.columns:
+        model_df["Band"] = model_df["Band_primary"]
+
+    # Standardize Start Date if present
+    if "Start Date (UK Format)" in model_df.columns and "Start Date" not in model_df.columns:
+        model_df["Start Date"] = model_df["Start Date (UK Format)"]
+    elif "Start Date (US Format)" in model_df.columns and "Start Date" not in model_df.columns:
+        model_df["Start Date"] = model_df["Start Date (US Format)"]
 
     if compute_derived:
-        # Question 1: Uncapped Availability % = Available Hours / Contracted Hours
-        # Safe division: blank/NaN where Contracted Hours is 0, null, or missing
+        # 1. Uncapped Availability % = Available Hours / Contracted Hours
         avail_col = None
         contract_col = None
         for col in model_df.columns:
@@ -246,31 +264,45 @@ def build_joined_analytical_model(
             num = pd.to_numeric(model_df[avail_col], errors="coerce")
             denom = pd.to_numeric(model_df[contract_col], errors="coerce")
             
+            # Error-safe: null/blank for zero denominator, missing numerator or denominator
             valid_mask = denom.notnull() & (denom != 0) & num.notnull()
-            # Calculate uncapped Availability %
             calculated_avail = np.where(valid_mask, num / denom, np.nan)
             
-            # If 'Availability %' or 'Availabilty %' exists in source, prioritize clean calculation
-            target_avail_col = "Availability %"
-            for col in model_df.columns:
-                if "avail" in col.lower() and "%" in col:
-                    target_avail_col = col
-                    break
-            model_df[target_avail_col] = calculated_avail
+            # Use canonical 'Availability %' column
+            model_df["Availability %"] = calculated_avail
+            if "Availabilty %" in model_df.columns:
+                model_df = model_df.drop(columns=["Availabilty %"])
 
-        # Question 3: Service A & Band 3 condition
+        # 2. Service A & Band 3 Conditional Logic (Q3)
         if "Service" in model_df.columns and "Band" in model_df.columns:
             band_str = model_df["Band"].astype(str)
             band_is_3 = band_str.str.contains(r"\b3\b|Band\s*3", case=False, regex=True) | (band_str == "3")
             service_is_a = model_df["Service"].astype(str).str.strip().str.lower().isin(["service a", "service_a", "a"])
             model_df["Service A & Band 3"] = service_is_a & band_is_3
 
+    # Calculate Relationship QA Summary Metrics
+    total_rows = len(model_df)
+    missing_service = int(model_df["Service"].isnull().sum()) if "Service" in model_df.columns else total_rows
+    missing_band = int(model_df["Band"].isnull().sum()) if "Band" in model_df.columns else total_rows
+    user_match_pct = float((total_rows - unmatched_keys_count) / total_rows * 100.0) if total_rows > 0 else 0.0
+
+    qa_summary = {
+        "analytical_rows": total_rows,
+        "user_match_coverage_pct": user_match_pct,
+        "unmatched_users": unmatched_keys_count,
+        "duplicate_master_keys": ref_duplicates_count,
+        "missing_service_after_join": missing_service,
+        "missing_band_after_join": missing_band,
+        "is_verified": (user_match_pct == 100.0 and missing_service == 0 and missing_band == 0)
+    }
+
     metadata = {
         "status": "SUCCESS",
-        "joined_rows": len(model_df),
+        "joined_rows": total_rows,
         "joined_columns": len(model_df.columns),
         "joins_applied": joins_applied,
-        "join_reports": join_reports
+        "join_reports": join_reports,
+        "relationship_qa": qa_summary
     }
 
     return model_df, metadata

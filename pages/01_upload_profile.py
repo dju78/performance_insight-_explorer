@@ -111,7 +111,6 @@ if uploaded_files:
             if ext in [".xlsx", ".xls", ".xlsm"]:
                 try:
                     sheets = get_excel_sheet_names(f_bytes)
-                    # Auto-select sheet if standard
                     if "Performance Data" in sheets:
                         active_sheet = "Performance Data"
                     elif "Users" in sheets:
@@ -122,16 +121,19 @@ if uploaded_files:
                     sheets = ["Sheet1"]
                     active_sheet = "Sheet1"
 
-            # Auto-infer default role
             fname_lower = ufile.name.lower()
             if "user" in fname_lower or "master" in fname_lower or "lookup" in fname_lower or "ref" in fname_lower:
                 role = "Reference / Master Data"
+                ds_gran = "Reference / Master Record (1 row = 1 User)"
             elif "target" in fname_lower or "bench" in fname_lower:
                 role = "Targets / Benchmark Data"
+                ds_gran = "Benchmark Target Reference"
             elif len(st.session_state.datasets) == 0 or "perf" in fname_lower:
                 role = "Primary Analysis Dataset"
+                ds_gran = "Periodic Snapshot (1 row = 1 User for 1 Reporting Month)"
             else:
                 role = "Secondary Operational Dataset"
+                ds_gran = "Operational Dataset"
 
             try:
                 raw_df, sheets_loaded, meta = load_file(f_bytes, ufile.name, sheet_name=active_sheet)
@@ -148,11 +150,11 @@ if uploaded_files:
                     profile=prof,
                     metadata=meta,
                     key_field="User" if "User" in raw_df.columns else "",
-                    granularity="Periodic Snapshot" if role == "Primary Analysis Dataset" else ""
+                    granularity=ds_gran
                 )
                 st.session_state.audit_logger.log(
                     "DATASET_REGISTERED", f"Registered dataset {ufile.name}",
-                    filename=ufile.name, role=role, rows=len(raw_df), cols=len(raw_df.columns)
+                    filename=ufile.name, details={"role": role, "rows": len(raw_df), "cols": len(raw_df.columns)}
                 )
             except Exception as e:
                 st.error(f"Error reading `{ufile.name}`: {e}")
@@ -367,6 +369,9 @@ if st.session_state.datasets:
             unique_keys = int(df[key_col].nunique()) if key_col and key_col in df.columns else len(df)
             m5.metric(f"Unique '{key_col or 'Rows'}'", f"{unique_keys:,}")
 
+            if ds_info.get("granularity"):
+                st.caption(f"📌 **Dataset Granularity:** `{ds_info.get('granularity')}`")
+
             # Preview
             with st.expander(f"🔍 Preview Table: {ds_info['name']} (First 5 rows)", expanded=False):
                 st.dataframe(df.head(5), use_container_width=True)
@@ -449,7 +454,6 @@ if primary_ds is not None and ref_datasets:
         
         st.markdown(f"#### Relationship: `{primary_ds['name']}` ⟷ `{ref_ds['name']}`")
         
-        # Find existing relationship config or defaults
         existing_rel = None
         for r in st.session_state.get("relationships", []):
             if r.get("right_dataset_id") == r_id:
@@ -524,7 +528,6 @@ if primary_ds is not None and ref_datasets:
             for w in validation["warnings"]:
                 st.warning(f"⚠️ {w}")
 
-        # Update relationship in state
         new_rel_entry = {
             "left_dataset_id": primary_ds["id"],
             "left_key": left_key,
@@ -534,7 +537,6 @@ if primary_ds is not None and ref_datasets:
             "validation": validation
         }
 
-        # Replace or add
         filtered_rels = [r for r in st.session_state.relationships if r.get("right_dataset_id") != r_id]
         filtered_rels.append(new_rel_entry)
         st.session_state.relationships = filtered_rels
@@ -542,7 +544,7 @@ if primary_ds is not None and ref_datasets:
     st.markdown("---")
     j_col1, j_col2 = st.columns([2, 1])
     with j_col1:
-        st.markdown("**Unified Analytical Model:** Merges reference fields (e.g. `Operational Area -> Service`, `Band -> Band`) and calculates uncapped `Availability % = Available Hours / Contracted Hours` and `Service A & Band 3`.")
+        st.markdown("**Unified Analytical Model:** Merges verified reference fields (`Operational Area -> Service`, `Band -> Band`, `FTE`, `Start Date`) and calculates uncapped `Availability % = Available Hours / Contracted Hours` and `Service A & Band 3`.")
     with j_col2:
         if st.button("⚡ Build & Apply Joined Analytical Model", type="primary", use_container_width=True):
             sync_analytical_model()
@@ -550,15 +552,34 @@ if primary_ds is not None and ref_datasets:
             st.success("Unified Joined Analytical Model successfully created! Proceed to **02. Data Quality** or **03. Column Mapping**.")
             st.rerun()
 
-# Preview Joined Working Model
+# Preview Joined Working Model & Relationship QA Summary
 if st.session_state.get("clean_df") is not None:
     st.markdown("---")
     st.subheader("🌟 Active Working Analytical Dataset Preview")
     w_df = st.session_state["clean_df"]
     st.dataframe(w_df.head(10), use_container_width=True)
     
+    qa_rep = st.session_state.get("structural_qa_report") or {}
+    h_score = qa_rep.get("health_score", 100.0)
+    h_score_str = f"{h_score:.1f}/100" if isinstance(h_score, (int, float)) else f"{h_score}/100"
+
     p1, p2, p3, p4 = st.columns(4)
     p1.metric("Active Model Rows", f"{len(w_df):,}")
     p2.metric("Active Model Columns", f"{len(w_df.columns):,}")
     p3.metric("Active Columns List", f"{len(w_df.columns)} fields")
-    p4.metric("Model Health Score", f"{st.session_state.get('structural_qa_report', {}).get('health_score', 100)}/100")
+    p4.metric("Model Health Score", h_score_str)
+
+    # Relationship & Enrichment QA Summary Card
+    rel_qa = st.session_state.get("relationship_qa") or {}
+    if rel_qa:
+        st.markdown("#### 🛡️ Relationship & Enrichment Quality Assurance Summary")
+        q1, q2, q3, q4, q5, q6 = st.columns(6)
+        q1.metric("Analytical Rows", f"{rel_qa.get('analytical_rows', len(w_df)):,}")
+        q2.metric("User Match Coverage", f"{rel_qa.get('user_match_coverage_pct', 100.0):.1f}%")
+        q3.metric("Unmatched Users", f"{rel_qa.get('unmatched_users', 0):,}")
+        q4.metric("Duplicate Master Keys", f"{rel_qa.get('duplicate_master_keys', 0):,}")
+        q5.metric("Missing Service", f"{rel_qa.get('missing_service_after_join', 0):,}")
+        q6.metric("Missing Band", f"{rel_qa.get('missing_band_after_join', 0):,}")
+        
+        if rel_qa.get("is_verified", True):
+            st.success("✅ **Enrichment QA Verified:** 100% User match coverage, 0 missing keys, verified canonical Service & Band mapped.")

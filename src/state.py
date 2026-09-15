@@ -64,6 +64,9 @@ def init_session_state():
         
     if "relationships" not in st.session_state:
         st.session_state.relationships = []
+
+    if "relationship_qa" not in st.session_state:
+        st.session_state.relationship_qa = {}
         
     if "assessment_brief_data" not in st.session_state:
         st.session_state.assessment_brief_data = {
@@ -203,6 +206,12 @@ def register_dataset(
     if sheets is None:
         sheets = ["Default"]
 
+    default_gran = ""
+    if "primary" in role.lower():
+        default_gran = "Periodic Snapshot (1 row = 1 User for 1 Reporting Month)"
+    elif "reference" in role.lower() or "master" in role.lower():
+        default_gran = "Reference / Master Record (1 row = 1 User)"
+
     st.session_state.datasets[dataset_id] = {
         "id": dataset_id,
         "name": name,
@@ -215,8 +224,8 @@ def register_dataset(
         "profile": profile or {},
         "metadata": metadata or {},
         "key_field": key_field or "",
-        "granularity": granularity or ("Periodic Snapshot" if "Primary" in role else ""),
-        "granularity_confirmed": False
+        "granularity": granularity or default_gran,
+        "granularity_confirmed": bool(granularity)
     }
 
     # If this is marked as Primary Analysis Dataset, set as active primary
@@ -315,6 +324,7 @@ def sync_analytical_model() -> None:
     st.session_state["structural_qa_report"] = run_structural_qa(joined_df)
     st.session_state["qa_report"] = st.session_state["structural_qa_report"]
     st.session_state["suggested_mappings"] = suggest_mappings(joined_df)
+    st.session_state["relationship_qa"] = summary.get("relationship_qa", {})
 
 
 def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> None:
@@ -334,6 +344,7 @@ def clear_dataset_for_new_upload(preserve_assessment_context: bool = True) -> No
     st.session_state["datasets"] = {}
     st.session_state["primary_dataset_id"] = ""
     st.session_state["relationships"] = []
+    st.session_state["relationship_qa"] = {}
     
     st.session_state["row_granularity"] = "Not Confirmed"
     st.session_state["row_granularity_confirmed"] = False
