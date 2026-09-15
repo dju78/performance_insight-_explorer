@@ -37,6 +37,7 @@ scratch/
 # Generated outputs (preserve directory structure via .gitkeep)
 outputs/presentations/*
 outputs/reports/*
+outputs/briefs/*
 outputs/audit/*
 outputs/charts/*
 outputs/visualisations/*

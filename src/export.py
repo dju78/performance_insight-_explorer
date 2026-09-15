@@ -10,9 +10,6 @@ import pandas as pd
 import streamlit as st
 
 from src.quality import run_quality_audit
-from src.powerpoint import generate_powerpoint_presentation
-from src.pdf_report import generate_pdf_document
-from src.reporting import generate_excel_summary
 
 def load_app_config() -> Dict[str, Any]:
     """Return application configuration and metadata."""
@@ -232,6 +229,7 @@ def generate_executive_excel_pack(
     trend_df = data.get("trend_summary", {}).get("trend_df") if data.get("trend_summary") else None
     comp_df = data.get("comparison_summary", {}).get("comparison_df") if data.get("comparison_summary") else None
     
+    from src.reporting import generate_excel_summary
     generate_excel_summary(
         output_filepath=filepath,
         raw_df=raw_df_to_use,
@@ -279,6 +277,7 @@ def generate_powerpoint_deck(
     
     kpi_summary = data.get("kpi_results", {})
     
+    from src.powerpoint import generate_powerpoint_presentation
     generate_powerpoint_presentation(
         output_filepath=filepath,
         project_metadata=project_metadata,
@@ -320,6 +319,7 @@ def generate_pdf_report(
     aud_slug = audience.lower().replace(" ", "_").replace("/", "_")
     filepath = output_filepath or os.path.join(out_dir, f"Executive_Briefing_{aud_slug}_{timestamp}.pdf")
     
+    from src.pdf_report import generate_pdf_document
     generate_pdf_document(
         output_filepath=filepath,
         payload=data,
