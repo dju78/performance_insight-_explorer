@@ -4,6 +4,14 @@ Features:
 - Full insight metadata (Finding, Evidence, Confidence, Caveats, Limitations, Next Steps)
 - Analyst curation workflow: Accept, Edit, Reject, Pin, Add Context
 """
+import sys
+from pathlib import Path
+
+# Ensure workspace root is in sys.path for Streamlit Cloud deployment
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import streamlit as st
 import pandas as pd
 from core.constants import WorkflowStage

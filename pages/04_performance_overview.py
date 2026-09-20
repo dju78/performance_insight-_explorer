@@ -4,6 +4,14 @@ Features:
 - 3-Tier View: Executive Summary, Analyst Diagnostics, Technical Details
 - Multi-dimensional slicing and plain-English performance interpretation
 """
+import sys
+from pathlib import Path
+
+# Ensure workspace root is in sys.path for Streamlit Cloud deployment
+_ROOT = Path(__file__).resolve().parent.parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 import streamlit as st
 import pandas as pd
 import numpy as np
