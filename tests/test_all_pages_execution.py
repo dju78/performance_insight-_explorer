@@ -21,7 +21,7 @@ ALL_PAGES = [
     "pages/07_root_cause.py",
     "pages/08_insights.py",
     "pages/09_recommendations.py",
-    "pages/10_interview_view.py",
+    "pages/10_public_presentation.py",
     "pages/11_export.py",
     "pages/12_audit_trail.py"
 ]

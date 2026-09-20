@@ -159,27 +159,29 @@ def init_session_state() -> None:
             "target_sla_days": 10.0
         }
 
-    # Preserved Assessment Mode State
-    if "assessment_brief_data" not in st.session_state:
-        st.session_state.assessment_brief_data = {
+    # Public Presentation & Stakeholder Briefing State
+    if "briefing_data" not in st.session_state:
+        st.session_state.briefing_data = {
             "filename": "", "raw_text": "", "questions": [], "question_count": 0, "is_loaded": False
         }
+    if "assessment_brief_data" not in st.session_state:
+        st.session_state.assessment_brief_data = st.session_state.briefing_data
+    if "briefing_question" not in st.session_state:
+        st.session_state.briefing_question = ""
     if "assessment_question" not in st.session_state:
         st.session_state.assessment_question = ""
     if "questions_must_answer" not in st.session_state:
         st.session_state.questions_must_answer = ""
     if "target_audience" not in st.session_state:
-        st.session_state.target_audience = "Executive Board / Operations Panel"
+        st.session_state.target_audience = "Senior Leadership & Public Stakeholders"
     if "output_format" not in st.session_state:
         st.session_state.output_format = "PowerPoint"
-    if "response_time" not in st.session_state:
-        st.session_state.response_time = "45 Minutes"
-    if "rapid_mode" not in st.session_state:
-        st.session_state.rapid_mode = False
-    if "assessment_rules_confirmed" not in st.session_state:
-        st.session_state.assessment_rules_confirmed = True
+    if "presentation_notes" not in st.session_state:
+        st.session_state.presentation_notes = ""
     if "analyst_notes" not in st.session_state:
         st.session_state.analyst_notes = ""
+    if "assessment_rules_confirmed" not in st.session_state:
+        st.session_state.assessment_rules_confirmed = True
 
     # Audit Trail
     if "audit_log_entries" not in st.session_state:
