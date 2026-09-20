@@ -275,7 +275,7 @@ def evaluate_data_quality_10d(
         if any(k in str(col).lower() for k in ["date", "time", "timestamp", "created", "completed", "period"]):
             series = df[col].dropna()
             if len(series) > 0:
-                parsed_dates = pd.to_datetime(series.astype(str).str.strip(), errors="coerce")
+                parsed_dates = pd.to_datetime(series.astype(str).str.strip(), errors="coerce", format="mixed")
                 invalid_dates = int(parsed_dates.isna().sum())
                 if invalid_dates > 0 and invalid_dates < len(series):
                     inv_pct = (invalid_dates / len(series)) * 100.0
@@ -348,7 +348,7 @@ def evaluate_data_quality_10d(
     # -------------------------------------------------------------
     # 8. PLAUSIBILITY & DISCLOSURE CONTROL (Small cell sizes < 5)
     # -------------------------------------------------------------
-    cat_cols = df.select_dtypes(include=["object", "category"]).columns
+    cat_cols = df.select_dtypes(include=["object", "string", "category"]).columns
     for col in cat_cols:
         counts = df[col].value_counts()
         small_groups = counts[(counts > 0) & (counts < 5)]

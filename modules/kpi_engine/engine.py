@@ -15,7 +15,7 @@ def safe_divide(
     den: Union[float, int, pd.Series, np.ndarray],
     fill_value: float = np.nan
 ) -> Union[float, pd.Series, np.ndarray]:
-    """Perform zero-safe division returning fill_value when denominator is zero or NaN."""
+    """Perform zero-safe division returning fill_value when denominator is zero, NaN, or numerator is NaN."""
     if isinstance(num, pd.Series) or isinstance(den, pd.Series):
         s_num = pd.to_numeric(num, errors="coerce")
         s_den = pd.to_numeric(den, errors="coerce").replace({0: np.nan, 0.0: np.nan})
@@ -25,7 +25,7 @@ def safe_divide(
         try:
             f_num = float(num)
             f_den = float(den)
-            if f_den == 0.0 or np.isnan(f_den):
+            if np.isnan(f_num) or np.isnan(f_den) or f_den == 0.0:
                 return fill_value
             return f_num / f_den
         except Exception:
