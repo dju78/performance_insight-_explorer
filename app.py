@@ -234,12 +234,11 @@ else:
             """)
         with col_nav3:
             st.markdown("""
-            **3️⃣ Action & Governance**
-            - **09 Evidence Insights:** Curated deterministic findings.
-            - **10 Recommendations:** Impact × Effort prioritization & traceability.
-            - **11 Action Tracking:** Realization dashboard with causality warnings.
-            - **12 Scenario Simulator:** Interactive what-if forecasting.
-            - **13 Reporting & Exports:** Sanitized Excel packs, PPTX decks, and PDF briefs.
+            **3️⃣ Stakeholder Briefing & Governance**
+            - **09 Recommendations:** Impact × Effort prioritization & traceability.
+            - **10 Public Presentation:** 12-section evidence briefing, slide view, and executive memo.
+            - **11 Export Hub:** Sanitized Excel packs, PPTX decks, and PDF briefs.
+            - **12 Audit Trail:** Cryptographic integrity log & transformation provenance.
             """)
 
     tab1, tab2, tab3, tab4 = st.tabs([

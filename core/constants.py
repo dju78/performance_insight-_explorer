@@ -6,7 +6,8 @@ from enum import Enum
 
 class AppMode(str, Enum):
     ORGANIZATION = "Organization Mode"
-    ASSESSMENT = "Assessment Mode"
+    PUBLIC_PRESENTATION = "Public Presentation Mode"
+    ASSESSMENT = "Public Presentation Mode"  # Backward compatibility alias
 
 
 class UserRole(str, Enum):

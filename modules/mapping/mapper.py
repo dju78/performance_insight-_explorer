@@ -1,12 +1,12 @@
 """Intelligent Semantic Column Mapping Engine for Performance Insight Explorer.
 Maps heterogeneous column schemas to standardized analytical roles across sectors:
-Government, Healthcare, Sales, Customer Service, HR, Manufacturing, Finance, and Operations.
+Government, Healthcare, Retail & Consumer Pricing, Sales, Customer Service, HR, Manufacturing, Finance, and Operations.
 
 Calculates confidence scores using:
 1. Lexical and semantic token matching
 2. Column data type suitability
 3. Statistical cardinality & value distributions
-4. Value pattern heuristics
+4. Unique value heuristics and repetition penalties
 """
 import re
 from typing import Any, Dict, List, Optional, Tuple
@@ -26,33 +26,78 @@ SEMANTIC_ROLE_CATALOG = {
     },
     "record_id": {
         "label": "Unique Identifier",
-        "description": "Unique key per case, ticket, application, patient, transaction, or customer",
+        "description": "Unique key per item, transaction, case, ticket, application, patient, or customer",
         "category": "Identity",
-        "keywords": ["id", "identifier", "ref", "reference", "urn", "ticket", "case_id", "case_ref", "app_id", "application_id", "patient_id", "account_id", "txn_id", "order_id", "user_id"],
-        "expected_types": ["string", "integer"],
-        "min_cardinality_pct": 0.70
+        "keywords": ["item_id", "record_id", "unique_id", "case_id", "case_ref", "app_id", "application_id", "patient_id", "account_id", "txn_id", "order_id", "user_id", "reference", "urn", "ticket_id"],
+        "expected_types": ["string", "integer", "numeric"],
+        "min_cardinality_pct": 0.50
     },
     "date": {
         "label": "Date / Timestamp",
-        "description": "Primary chronological event, submission, receipt, or transaction timestamp",
+        "description": "Primary chronological event, date, submission, receipt, or transaction timestamp",
         "category": "Time",
-        "keywords": ["date", "timestamp", "datetime", "created_at", "received_date", "completion_date", "submission_date", "event_date", "log_date", "trans_date"],
+        "keywords": ["date", "timestamp", "datetime", "transaction_date", "trans_date", "created_at", "received_date", "completion_date", "submission_date", "event_date", "log_date", "month_date", "day", "week"],
         "expected_types": ["datetime", "date", "string"],
-        "min_cardinality_pct": 0.01
+        "min_cardinality_pct": 0.001
     },
     "reporting_period": {
         "label": "Reporting Period / Cycle",
         "description": "Aggregated calendar interval (e.g., Month, Quarter, Financial Year, Cycle)",
         "category": "Time",
-        "keywords": ["period", "reporting_period", "month", "quarter", "year", "fin_year", "fy", "cycle", "cal_month", "period_name"],
+        "keywords": ["period", "reporting_period", "month", "quarter", "year", "fin_year", "fy", "cycle", "cal_month", "period_name", "reporting_month"],
         "expected_types": ["string", "category", "integer"],
         "min_cardinality_pct": 0.001
     },
-    "entity": {
-        "label": "Entity / Organization",
-        "description": "Organization, hospital trust, council, subsidiary, legal entity, or client",
+    "volume_inflow": {
+        "label": "Volume Inflow / Demand",
+        "description": "Incoming demand volume, cases received, applications, contacts, or tickets opened",
+        "category": "Metric",
+        "keywords": ["cases_received", "received", "inflow", "incoming", "demand", "new_cases", "applications_received", "intake", "contacts", "tickets_opened", "referrals_received"],
+        "expected_types": ["numeric"],
+        "min_cardinality_pct": 0.01
+    },
+    "actual": {
+        "label": "Actual Performance / Completed Output",
+        "description": "Observed volume completed, cases closed, resolved output, or delivered units",
+        "category": "Metric",
+        "keywords": ["cases_completed", "completed", "actual", "achieved", "output", "delivered", "cases_closed", "resolved_cases", "resolved", "volume_out"],
+        "expected_types": ["numeric"],
+        "min_cardinality_pct": 0.01
+    },
+    "kpi_metric": {
+        "label": "Performance Metric / KPI Value",
+        "description": "Primary quantitative performance measure, price, cost, revenue, rate, score, or volume",
+        "category": "Metric",
+        "keywords": [
+            "reported_price", "price", "cost", "revenue", "sales", "amount", "value",
+            "score", "rate", "count", "volume", "duration", "waiting_time", "response_time",
+            "productivity", "performance", "total_sales", "actual_revenue",
+            "metric", "total_cost", "spend", "target_achievement", "efficiency"
+        ],
+        "expected_types": ["numeric"],
+        "min_cardinality_pct": 0.01
+    },
+    "category": {
+        "label": "Category / Group Dimension",
+        "description": "Category, classification, cohort, sector, business domain, or grouping dimension",
         "category": "Dimension",
-        "keywords": ["organization", "entity", "company", "trust", "council", "firm", "client", "institution", "agency", "authority"],
+        "keywords": ["category", "category_name", "group", "grouping", "classification", "sector", "division", "segment", "cluster"],
+        "expected_types": ["string", "category"],
+        "min_cardinality_pct": 0.001
+    },
+    "category_code": {
+        "label": "Category Code / Numeric Group",
+        "description": "Numeric category code, grouping ID, classification index, or category number",
+        "category": "Dimension",
+        "keywords": ["category_num", "cat_num", "category_no", "category_code", "cat_code", "group_code", "group_num", "class_num", "type_code", "cat_id"],
+        "expected_types": ["integer", "numeric", "string"],
+        "min_cardinality_pct": 0.001
+    },
+    "product_service": {
+        "label": "Product / Item Dimension",
+        "description": "Product name, item description, service line, good, article, or offering dimension",
+        "category": "Dimension",
+        "keywords": ["item_name", "item", "product", "product_name", "service", "offering", "specialty", "case_type", "application_type", "commodity", "sku", "good", "article"],
         "expected_types": ["string", "category"],
         "min_cardinality_pct": 0.001
     },
@@ -74,17 +119,9 @@ SEMANTIC_ROLE_CATALOG = {
     },
     "region": {
         "label": "Region / Geography",
-        "description": "Geographical territory, region, district, site, depot, or location",
+        "description": "Geographical territory, region, district, site, depot, ward, or location",
         "category": "Dimension",
-        "keywords": ["region", "location", "territory", "area", "zone", "site", "district", "city", "postcode", "country", "hub"],
-        "expected_types": ["string", "category"],
-        "min_cardinality_pct": 0.001
-    },
-    "product_service": {
-        "label": "Product / Service Line",
-        "description": "Service stream, product family, offering, curriculum, or clinical specialty",
-        "category": "Dimension",
-        "keywords": ["product", "service", "offering", "specialty", "case_type", "application_type", "stream", "workstream", "service_type"],
+        "keywords": ["region", "location", "territory", "area", "zone", "site", "district", "city", "postcode", "country", "ward", "hub"],
         "expected_types": ["string", "category"],
         "min_cardinality_pct": 0.001
     },
@@ -104,43 +141,19 @@ SEMANTIC_ROLE_CATALOG = {
         "expected_types": ["string", "category"],
         "min_cardinality_pct": 0.001
     },
-    "actual": {
-        "label": "Actual Performance / Output",
-        "description": "Observed volume delivered, achieved performance, or completed output",
-        "category": "Metric",
-        "keywords": ["actual", "achieved", "output", "delivered", "result", "cases_completed", "completed", "closed", "resolved", "volume_out"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
     "target": {
         "label": "Target / Goal Benchmark",
-        "description": "Performance standard, SLA threshold, quota, or planned volume",
+        "description": "Performance standard, SLA threshold, quota, budget, or planned volume",
         "category": "Metric",
         "keywords": ["target", "expected", "goal", "benchmark", "sla", "standard", "budget", "quota", "planned", "sla_target"],
         "expected_types": ["numeric"],
         "min_cardinality_pct": 0.001
     },
-    "benchmark": {
-        "label": "External Benchmark / Peer Baseline",
-        "description": "National benchmark, peer group standard, or regulatory ceiling",
-        "category": "Metric",
-        "keywords": ["benchmark", "peer_avg", "national_avg", "industry_standard", "regulatory_limit"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.001
-    },
-    "volume_inflow": {
-        "label": "Volume Inflow / Cases Received",
-        "description": "Incoming demand volume, applications received, contacts made, or arrivals",
-        "category": "Metric",
-        "keywords": ["received", "inflow", "incoming", "demand", "new_cases", "applications", "intake", "contacts", "tickets_opened"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
     "numerator": {
         "label": "KPI Numerator",
         "description": "Numerator measure for custom rate or percentage calculations",
         "category": "Metric",
-        "keywords": ["numerator", "passed_count", "compliant_cases", "errors", "successes", "hits", "positive_outcomes"],
+        "keywords": ["numerator", "passed_count", "compliant_cases", "errors", "successes", "hits", "positive_outcomes", "resolved_cases"],
         "expected_types": ["numeric"],
         "min_cardinality_pct": 0.01
     },
@@ -148,31 +161,7 @@ SEMANTIC_ROLE_CATALOG = {
         "label": "KPI Denominator",
         "description": "Denominator measure or base population for rate calculations",
         "category": "Metric",
-        "keywords": ["denominator", "total_audited", "sample_size", "total_population", "eligible_cases", "opportunities"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
-    "cost": {
-        "label": "Cost / Expenditure",
-        "description": "Direct cost, operational spend, unit cost, or expenditure amount",
-        "category": "Metric",
-        "keywords": ["cost", "spend", "expenditure", "budget_used", "expense", "unit_cost", "direct_cost"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
-    "revenue": {
-        "label": "Revenue / Income",
-        "description": "Sales revenue, billing, income, recovery, or earned fee",
-        "category": "Metric",
-        "keywords": ["revenue", "income", "sales", "turnover", "billing", "fees", "collections"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
-    "quality_measure": {
-        "label": "Quality / Accuracy Score",
-        "description": "Customer satisfaction (CSAT), audit quality score, error rate, or compliance %",
-        "category": "Metric",
-        "keywords": ["quality", "csat", "nps", "satisfaction", "compliance", "accuracy", "error_rate", "defect_rate", "score"],
+        "keywords": ["denominator", "total_audited", "sample_size", "total_population", "eligible_cases", "opportunities", "total_cases"],
         "expected_types": ["numeric"],
         "min_cardinality_pct": 0.01
     },
@@ -180,7 +169,7 @@ SEMANTIC_ROLE_CATALOG = {
         "label": "Duration / Waiting Time",
         "description": "Processing duration, turnaround days, wait time, cycle time, or queue delay",
         "category": "Metric",
-        "keywords": ["duration", "processing_time", "turnaround", "wait_time", "cycle_time", "lead_time", "tat", "latency", "days_to_close"],
+        "keywords": ["duration", "processing_time", "turnaround", "wait_time", "cycle_time", "lead_time", "tat", "latency", "days_to_close", "turnaround_days"],
         "expected_types": ["numeric"],
         "min_cardinality_pct": 0.01
     },
@@ -188,23 +177,7 @@ SEMANTIC_ROLE_CATALOG = {
         "label": "Capacity / FTE Workforce",
         "description": "Full-Time Equivalent staff, headcount, available hours, or machine capacity",
         "category": "Metric",
-        "keywords": ["fte", "headcount", "staff", "workforce", "capacity", "hours_available", "agents", "resources"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
-    "backlog_opening": {
-        "label": "Opening Backlog / WIP",
-        "description": "Queue inventory or work-in-progress cases at start of period",
-        "category": "Metric",
-        "keywords": ["opening_backlog", "start_backlog", "initial_queue", "opening_wip", "open_start"],
-        "expected_types": ["numeric"],
-        "min_cardinality_pct": 0.01
-    },
-    "backlog_closing": {
-        "label": "Closing Backlog / WIP",
-        "description": "Queue inventory or work-in-progress cases at end of period",
-        "category": "Metric",
-        "keywords": ["closing_backlog", "end_backlog", "final_queue", "closing_wip", "open_end", "outstanding"],
+        "keywords": ["fte", "headcount", "staff", "workforce", "capacity", "hours_available", "agents", "resources", "contracted_hours", "staff_fte"],
         "expected_types": ["numeric"],
         "min_cardinality_pct": 0.01
     },
@@ -212,7 +185,7 @@ SEMANTIC_ROLE_CATALOG = {
         "label": "Predictor / Operational Driver",
         "description": "Explanatory variable, complexity score, tenure, or operational condition",
         "category": "Diagnostic",
-        "keywords": ["complexity", "experience", "tenure", "escalation", "seniority", "priority", "difficulty"],
+        "keywords": ["complexity", "experience", "tenure", "escalation", "seniority", "priority", "difficulty", "risk_score"],
         "expected_types": ["numeric", "category", "string"],
         "min_cardinality_pct": 0.001
     }
@@ -221,7 +194,7 @@ SEMANTIC_ROLE_CATALOG = {
 
 def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
     """Infer recommended semantic roles for all columns in dataframe with confidence scores.
-    Returns {column_name: {"suggested_role": str, "confidence": float, "reasoning": str, "category": str}}.
+    Returns {column_name: {"suggested_role": str, "confidence": float, "reasoning": str, "category": str, "label": str}}.
     """
     if df is None or len(df) == 0:
         return {}
@@ -246,6 +219,7 @@ def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
 
         col_clean = re.sub(r"[^a-zA-Z0-9_]", " ", col_str).lower().strip()
         tokens = set(col_clean.split())
+        col_snake = "_".join(col_clean.split())
         non_null_count = series.notna().sum()
         unique_count = series.nunique(dropna=True)
         unique_ratio = (unique_count / max(non_null_count, 1))
@@ -264,15 +238,15 @@ def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
             # 1. Lexical Keyword Matching
             keywords = meta["keywords"]
             for kw in keywords:
-                if kw == col_clean:
-                    conf += 0.65
+                if kw == col_clean or kw == col_snake:
+                    conf += 0.70
                     reasons.append(f"Exact match on keyword '{kw}'")
                     break
                 elif kw in tokens:
-                    conf += 0.50
+                    conf += 0.55
                     reasons.append(f"Contains token keyword '{kw}'")
                     break
-                elif len(kw) >= 4 and kw in col_clean:
+                elif len(kw) >= 5 and kw in col_snake:
                     conf += 0.40
                     reasons.append(f"Contains keyword substring '{kw}'")
                     break
@@ -282,26 +256,35 @@ def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
             if "numeric" in exp_types and is_numeric:
                 conf += 0.25
                 reasons.append("Matches numeric data type")
-            elif "datetime" in exp_types and (is_datetime or "date" in col_clean):
-                conf += 0.30
+            elif "datetime" in exp_types and (is_datetime or "date" in tokens or "timestamp" in tokens):
+                conf += 0.35
                 reasons.append("Matches temporal data type")
-            elif "string" in exp_types and not is_numeric:
+            elif "string" in exp_types and not is_numeric and not is_datetime:
                 conf += 0.15
                 reasons.append("Matches categorical/string data type")
 
             # 3. Cardinality & Distribution Suitability
-            if role_key == "record_id" and unique_ratio >= 0.80:
-                conf += 0.25
-                reasons.append("High cardinality (>80% unique)")
-            elif meta["category"] == "Dimension" and unique_count < 100 and unique_ratio < 0.20:
-                conf += 0.15
+            if role_key == "record_id":
+                if unique_ratio >= 0.70:
+                    conf += 0.25
+                    reasons.append("High uniqueness ratio (>70%)")
+                elif unique_ratio < 0.30 or any(c in col_clean for c in ["category", "cat_num", "group", "class", "tier", "grade", "cases_received", "cases_completed", "turnaround", "count"]):
+                    conf -= 0.60
+                    reasons.append("Low cardinality: repeating values not suitable for unique identifier")
+            elif role_key in ["category", "category_code"] and (unique_count < 100 or unique_ratio < 0.30):
+                conf += 0.20
                 reasons.append("Categorical grouping distribution")
+            elif meta["category"] == "Dimension" and unique_count < 100 and unique_ratio < 0.30:
+                conf += 0.15
+                reasons.append("Categorical distribution")
 
             # Penalties for mismatched types
             if "numeric" in exp_types and not is_numeric:
                 conf -= 0.40
-            if role_key == "record_id" and unique_ratio < 0.20:
-                conf -= 0.30
+            if "datetime" in exp_types and not is_datetime and not any(k in col_clean for k in ["date", "time", "month", "period", "timestamp", "year"]):
+                conf -= 0.40
+            if meta["category"] == "Dimension" and is_datetime:
+                conf -= 0.50
 
             conf = min(1.0, max(0.0, conf))
 
@@ -309,6 +292,29 @@ def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
                 best_confidence = round(conf, 2)
                 best_role = role_key
                 best_reason = "; ".join(reasons) if reasons else "Heuristic match"
+
+        # Explicit heuristic overrides for precision
+        if "category_num" in col_clean or "cat_num" in col_clean:
+            if best_role == "record_id" or best_confidence < 0.40:
+                best_role = "category_code"
+                best_confidence = 0.85
+                best_reason = "Identified as numeric category classification code"
+
+        if "cases_received" in col_snake:
+            best_role = "volume_inflow"
+            best_confidence = 0.95
+            best_reason = "Exact match on demand inflow measure"
+
+        if "cases_completed" in col_snake:
+            best_role = "actual"
+            best_confidence = 0.95
+            best_reason = "Exact match on actual output measure"
+
+        if is_datetime or col_snake == "transaction_date" or (("date" in tokens or "timestamp" in tokens) and not is_numeric):
+            if best_role != "date":
+                best_role = "date"
+                best_confidence = 0.95
+                best_reason = "Identified as chronological date dimension"
 
         results[col_str] = {
             "suggested_role": best_role if best_confidence >= 0.35 else "unmapped",
