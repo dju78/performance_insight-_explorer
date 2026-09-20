@@ -1,0 +1,61 @@
+reporting_month,department,active_headcount,monthly_turnover_pct,target_turnover_ceiling_pct,total_absence_days,avg_training_hours,open_vacancies,recruitment_spend
+2025-01,Engineering,143,1.22,1.5,59,4.2,12,54996
+2025-02,Engineering,141,2.36,1.5,48,2.6,9,44291
+2025-03,Engineering,139,2.27,1.5,59,5.5,12,51522
+2025-04,Engineering,140,1.19,1.5,53,2.9,11,47393
+2025-05,Engineering,145,0.91,1.5,52,3.6,14,64100
+2025-06,Engineering,144,2.31,1.5,48,4.7,11,54188
+2025-07,Engineering,137,1.62,1.5,63,4.7,10,50813
+2025-08,Engineering,146,1.21,1.5,55,2.9,8,33060
+2025-09,Engineering,135,0.87,1.5,49,2.6,10,45936
+2025-10,Engineering,146,1.17,1.5,52,5.8,13,57387
+2025-11,Engineering,139,1.84,1.5,59,3.1,11,51666
+2025-12,Engineering,141,1.19,1.5,71,3.1,10,42778
+2025-01,Product & Design,42,0.9,1.5,23,5.9,6,25630
+2025-02,Product & Design,41,2.19,1.5,19,3.3,3,11681
+2025-03,Product & Design,51,0.96,1.5,31,5.6,2,8689
+2025-04,Product & Design,46,1.91,1.5,20,4.4,3,12542
+2025-05,Product & Design,39,2.03,1.5,11,4.2,2,9179
+2025-06,Product & Design,44,1.62,1.5,24,4.6,2,9835
+2025-07,Product & Design,47,1.25,1.5,29,5.6,4,19773
+2025-08,Product & Design,48,1.99,1.5,22,4.9,6,28556
+2025-09,Product & Design,44,1.37,1.5,18,5.1,4,17370
+2025-10,Product & Design,45,0.81,1.5,25,3.5,3,13555
+2025-11,Product & Design,39,1.88,1.5,20,4.4,2,9175
+2025-12,Product & Design,45,2.44,1.5,27,3.7,4,18298
+2025-01,Customer Experience,43,1.31,1.5,18,5.0,3,12659
+2025-02,Customer Experience,49,0.88,1.5,10,5.6,2,9301
+2025-03,Customer Experience,51,1.96,1.5,20,4.1,1,3620
+2025-04,Customer Experience,46,1.98,1.5,15,3.3,4,17097
+2025-05,Customer Experience,39,2.42,1.5,20,3.0,4,17841
+2025-06,Customer Experience,52,1.48,1.5,14,3.5,4,18389
+2025-07,Customer Experience,44,1.16,1.5,19,2.6,1,5077
+2025-08,Customer Experience,44,2.45,1.5,24,3.1,4,18730
+2025-09,Customer Experience,47,2.09,1.5,21,4.7,4,19134
+2025-10,Customer Experience,44,1.0,1.5,26,2.9,2,10440
+2025-11,Customer Experience,44,0.91,1.5,9,4.5,5,21194
+2025-12,Customer Experience,43,0.82,1.5,5,2.8,2,7060
+2025-01,Sales & Marketing,73,1.98,1.5,33,5.5,3,13442
+2025-02,Sales & Marketing,79,1.85,1.5,24,5.0,5,22553
+2025-03,Sales & Marketing,80,0.95,1.5,19,3.7,4,17550
+2025-04,Sales & Marketing,87,2.16,1.5,38,3.2,9,43828
+2025-05,Sales & Marketing,80,2.01,1.5,28,5.5,8,38032
+2025-06,Sales & Marketing,84,0.94,1.5,30,5.6,9,41211
+2025-07,Sales & Marketing,88,1.69,1.5,31,5.1,5,21532
+2025-08,Sales & Marketing,78,2.46,1.5,33,3.7,7,29893
+2025-09,Sales & Marketing,79,1.74,1.5,44,5.0,6,27288
+2025-10,Sales & Marketing,82,0.92,1.5,26,2.6,6,22995
+2025-11,Sales & Marketing,81,2.06,1.5,36,4.0,4,15657
+2025-12,Sales & Marketing,80,1.55,1.5,38,5.0,8,35876
+2025-01,Corporate & Finance,44,1.27,1.5,22,4.6,6,30312
+2025-02,Corporate & Finance,42,2.02,1.5,19,5.7,2,8462
+2025-03,Corporate & Finance,44,1.22,1.5,24,5.5,5,16802
+2025-04,Corporate & Finance,49,1.08,1.5,9,3.9,1,4964
+2025-05,Corporate & Finance,43,2.45,1.5,19,4.1,3,11960
+2025-06,Corporate & Finance,48,1.53,1.5,16,3.4,6,29040
+2025-07,Corporate & Finance,43,0.86,1.5,15,5.1,2,10661
+2025-08,Corporate & Finance,46,1.8,1.5,20,5.5,3,13264
+2025-09,Corporate & Finance,44,1.7,1.5,17,5.8,4,17870
+2025-10,Corporate & Finance,45,0.87,1.5,6,3.0,5,23192
+2025-11,Corporate & Finance,48,1.63,1.5,1,4.8,6,24504
+2025-12,Corporate & Finance,47,2.45,1.5,12,2.8,2,10531

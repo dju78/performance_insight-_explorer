@@ -177,20 +177,29 @@ def create_scatter_correlation(
     x_label: str = "Independent Variable",
     y_label: str = "Dependent Variable"
 ) -> go.Figure:
-    """Create scatter plot with trendline and prominent correlation disclaimer."""
-    sub_df = df[[x_col, y_col]].dropna()
+    """Create scatter plot with trendline (or fallback scatter) and prominent correlation disclaimer."""
+    sub_df = df[[x_col, y_col]].dropna().copy()
     sub_df[x_col] = pd.to_numeric(sub_df[x_col], errors="coerce")
     sub_df[y_col] = pd.to_numeric(sub_df[y_col], errors="coerce")
     sub_df = sub_df.dropna()
     
-    fig = px.scatter(
-        sub_df,
-        x=x_col,
-        y=y_col,
-        trendline="ols",
-        title=title,
-        template="plotly_white"
-    )
+    try:
+        fig = px.scatter(
+            sub_df,
+            x=x_col,
+            y=y_col,
+            trendline="ols" if len(sub_df) >= 3 else None,
+            title=title,
+            template="plotly_white"
+        )
+    except Exception:
+        fig = px.scatter(
+            sub_df,
+            x=x_col,
+            y=y_col,
+            title=title,
+            template="plotly_white"
+        )
     
     fig.update_traces(marker=dict(size=8, color=COLOR_PRIMARY, opacity=0.7))
     fig.update_layout(

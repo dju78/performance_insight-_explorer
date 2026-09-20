@@ -1,0 +1,49 @@
+reporting_month,hospital_trust,clinical_division,cases_received,cases_completed,target_sla_pct,actual_sla_pct,avg_wait_time_mins,bed_occupancy_pct,clinical_fte,closing_backlog
+2025-01,North General NHS Trust,Urgent & Emergency Care,1239,1080,95.0,83.4,200.3,87.9,26.4,356
+2025-02,North General NHS Trust,Urgent & Emergency Care,1261,1180,95.0,90.4,136.4,88.2,22.1,247
+2025-03,North General NHS Trust,Urgent & Emergency Care,1219,956,95.0,77.5,259.5,87.7,24.6,385
+2025-04,North General NHS Trust,Urgent & Emergency Care,1087,995,95.0,86.9,173.3,86.6,24.7,199
+2025-05,North General NHS Trust,Urgent & Emergency Care,1107,1053,95.0,90.0,206.9,95.7,22.4,185
+2025-06,North General NHS Trust,Urgent & Emergency Care,1176,995,95.0,80.4,184.5,96.9,26.1,299
+2025-07,North General NHS Trust,Urgent & Emergency Care,1265,1061,95.0,81.9,251.1,88.2,23.9,376
+2025-08,North General NHS Trust,Urgent & Emergency Care,1213,965,95.0,75.7,230.5,89.3,22.5,388
+2025-09,North General NHS Trust,Urgent & Emergency Care,1163,1028,95.0,82.3,198.3,95.6,23.7,264
+2025-10,North General NHS Trust,Urgent & Emergency Care,1248,1162,95.0,87.5,189.4,86.9,22.0,263
+2025-11,North General NHS Trust,Urgent & Emergency Care,1132,992,95.0,83.8,223.0,86.8,27.2,256
+2025-12,North General NHS Trust,Urgent & Emergency Care,1104,977,95.0,84.1,195.5,94.6,26.4,307
+2025-01,St. Jude Hospital,Urgent & Emergency Care,978,876,95.0,81.4,248.0,91.1,26.6,254
+2025-02,St. Jude Hospital,Urgent & Emergency Care,926,802,95.0,81.7,233.3,95.1,23.9,284
+2025-03,St. Jude Hospital,Urgent & Emergency Care,885,813,95.0,87.4,177.0,96.5,27.6,206
+2025-04,St. Jude Hospital,Urgent & Emergency Care,991,850,95.0,82.2,209.6,91.1,27.4,281
+2025-05,St. Jude Hospital,Urgent & Emergency Care,973,850,95.0,81.7,234.3,88.7,22.0,262
+2025-06,St. Jude Hospital,Urgent & Emergency Care,885,778,95.0,78.1,227.3,97.7,27.7,262
+2025-07,St. Jude Hospital,Urgent & Emergency Care,796,628,95.0,72.7,259.2,92.0,23.7,312
+2025-08,St. Jude Hospital,Urgent & Emergency Care,974,864,95.0,81.3,210.9,94.7,22.9,282
+2025-09,St. Jude Hospital,Urgent & Emergency Care,1062,894,95.0,82.2,191.7,96.0,25.8,288
+2025-10,St. Jude Hospital,Urgent & Emergency Care,904,771,95.0,83.2,263.9,88.1,22.2,285
+2025-11,St. Jude Hospital,Urgent & Emergency Care,876,734,95.0,74.6,224.3,87.4,27.6,316
+2025-12,St. Jude Hospital,Urgent & Emergency Care,851,719,95.0,82.5,192.1,96.8,26.9,287
+2025-01,Mercy Metropolitan Trust,Urgent & Emergency Care,1120,945,95.0,78.6,274.4,96.8,24.0,332
+2025-02,Mercy Metropolitan Trust,Urgent & Emergency Care,1127,885,95.0,73.6,180.7,87.9,25.9,370
+2025-03,Mercy Metropolitan Trust,Urgent & Emergency Care,1249,1012,95.0,76.3,272.6,88.8,25.9,421
+2025-04,Mercy Metropolitan Trust,Urgent & Emergency Care,1034,977,95.0,88.1,128.4,90.4,25.9,263
+2025-05,Mercy Metropolitan Trust,Urgent & Emergency Care,1028,850,95.0,79.5,296.0,93.6,27.8,328
+2025-06,Mercy Metropolitan Trust,Urgent & Emergency Care,1216,1052,95.0,81.4,216.5,86.3,25.5,288
+2025-07,Mercy Metropolitan Trust,Urgent & Emergency Care,1014,973,95.0,90.1,202.3,90.4,27.6,205
+2025-08,Mercy Metropolitan Trust,Urgent & Emergency Care,1094,997,95.0,88.2,196.6,89.8,27.8,201
+2025-09,Mercy Metropolitan Trust,Urgent & Emergency Care,1117,976,95.0,85.2,171.3,87.2,27.6,292
+2025-10,Mercy Metropolitan Trust,Urgent & Emergency Care,1008,939,95.0,86.1,152.4,89.5,27.3,250
+2025-11,Mercy Metropolitan Trust,Urgent & Emergency Care,1141,1080,95.0,89.4,166.0,92.0,27.2,228
+2025-12,Mercy Metropolitan Trust,Urgent & Emergency Care,1190,1080,95.0,87.1,153.8,87.1,26.2,282
+2025-01,East Valley Hospital,Urgent & Emergency Care,1061,1030,95.0,92.3,145.8,93.1,24.8,166
+2025-02,East Valley Hospital,Urgent & Emergency Care,1187,1130,95.0,92.2,176.1,87.0,22.8,227
+2025-03,East Valley Hospital,Urgent & Emergency Care,1103,1063,95.0,93.1,185.3,97.7,25.2,129
+2025-04,East Valley Hospital,Urgent & Emergency Care,1114,1038,95.0,90.2,122.3,97.6,26.8,222
+2025-05,East Valley Hospital,Urgent & Emergency Care,1140,1086,95.0,89.4,134.1,89.0,24.5,256
+2025-06,East Valley Hospital,Urgent & Emergency Care,1132,1113,95.0,90.2,157.8,89.0,26.0,199
+2025-07,East Valley Hospital,Urgent & Emergency Care,1201,1103,95.0,88.9,124.1,86.5,22.1,261
+2025-08,East Valley Hospital,Urgent & Emergency Care,1161,1016,95.0,88.8,135.6,91.2,24.8,264
+2025-09,East Valley Hospital,Urgent & Emergency Care,1230,1108,95.0,88.4,153.7,93.5,25.8,306
+2025-10,East Valley Hospital,Urgent & Emergency Care,1100,1036,95.0,89.3,122.4,93.0,26.0,195
+2025-11,East Valley Hospital,Urgent & Emergency Care,1109,1095,95.0,93.1,161.2,92.5,24.3,159
+2025-12,East Valley Hospital,Urgent & Emergency Care,1147,1147,95.0,95.2,126.4,89.8,27.8,131

@@ -79,7 +79,13 @@ def calculate_trends(
     if df is None or date_col not in df.columns or metric_col not in df.columns:
         return {"error": f"Columns '{date_col}' or '{metric_col}' not found in dataset."}
         
-    work_df = df[[date_col, metric_col] + ([group_col] if group_col and group_col in df.columns else [])].copy()
+    if str(date_col).strip() == str(metric_col).strip():
+        return {"error": "Select different columns for the chronological period and performance metric."}
+
+    cols_to_extract = [date_col] if date_col == metric_col else [date_col, metric_col]
+    if group_col and group_col in df.columns and group_col not in cols_to_extract:
+        cols_to_extract.append(group_col)
+    work_df = df[cols_to_extract].copy()
     work_df[metric_col] = pd.to_numeric(work_df[metric_col], errors="coerce")
     
     try:
