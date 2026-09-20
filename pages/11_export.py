@@ -1,9 +1,9 @@
 """Page 11: Enterprise Reporting, Multi-Format Exports & Scenario Simulator.
-Generates publication-grade deliverables:
+Generates publication-grade, validated deliverables:
 - Executive Summary Markdown Memo
 - Multi-Tab Sanitized Excel Evidence Pack (Formula-Injection Protected)
-- PowerPoint Presentation Deck
-- ReportLab PDF Briefing
+- PowerPoint Presentation Deck (16:9 Widescreen)
+- ReportLab PDF Executive Briefing
 - Interactive Operational What-If Scenario Simulator
 """
 import streamlit as st
@@ -13,11 +13,16 @@ from datetime import datetime
 from core.constants import WorkflowStage
 from core.state import init_session_state, get_working_df, advance_workflow_stage, log_audit_event
 from modules.reporting.export_builder import (
-    build_markdown_executive_report, generate_excel_evidence_pack
+    build_canonical_reporting_payload,
+    build_markdown_executive_report,
+    generate_excel_evidence_pack,
+    build_powerpoint_presentation,
+    build_executive_pdf,
+    validate_excel_bytes,
+    validate_pptx_bytes,
+    validate_pdf_bytes
 )
 from modules.forecasting.simulator import run_scenario_simulation
-from src.powerpoint import generate_assessment_presentation
-from src.pdf_report import generate_pdf_report
 
 init_session_state()
 
@@ -31,6 +36,17 @@ insights = st.session_state.get("insights_list", [])
 recommendations = st.session_state.get("recommendations_list", [])
 actions = st.session_state.get("action_registry", [])
 qa_report = st.session_state.get("qa_report")
+
+# Build unified canonical payload from active analysis state
+canonical_payload = build_canonical_reporting_payload(
+    state_or_df=df,
+    project_state=proj_state,
+    kpi_results=kpi_results,
+    insights_list=insights,
+    recommendations_list=recommendations,
+    action_registry=actions,
+    qa_report=qa_report
+)
 
 # -------------------------------------------------------------
 # 1. WHAT-IF SCENARIO & CAPACITY SIMULATOR
@@ -77,65 +93,67 @@ st.markdown("---")
 # -------------------------------------------------------------
 st.subheader("📥 Export Performance Evidence Deliverables")
 
-col_e1, col_e2, col_e3 = st.columns(3)
+if df is None or len(df) == 0:
+    st.info("ℹ️ No active dataset is currently loaded. Please upload or load data in Stages 1 & 2 to generate verified evidence deliverables.")
+else:
+    col_e1, col_e2, col_e3 = st.columns(3)
 
-# 1. Excel Evidence Pack (Sanitized)
-with col_e1:
-    st.markdown("##### 📗 Excel Evidence Pack")
-    st.caption("Multi-tab workbook with KPI scorecards, insights, action registry, and sanitized data extract.")
-    try:
-        excel_bytes = generate_excel_evidence_pack(
-            proj_state, df, kpi_results, insights, recommendations, actions, qa_report
-        )
-        st.download_button(
-            "⬇️ Download Excel Evidence Pack (.xlsx)",
-            data=excel_bytes,
-            file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"Excel export error: {e}")
+    # 1. Excel Evidence Pack (Sanitized)
+    with col_e1:
+        st.markdown("##### 📗 Excel Evidence Pack")
+        st.caption("Multi-tab workbook with KPI scorecards, insights, action registry, and sanitized data extract.")
+        try:
+            excel_bytes = generate_excel_evidence_pack(payload=canonical_payload)
+            if validate_excel_bytes(excel_bytes):
+                st.download_button(
+                    "⬇️ Download Excel Evidence Pack (.xlsx)",
+                    data=excel_bytes,
+                    file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ Excel generation did not produce a verified OpenXML workbook.")
+        except Exception as e:
+            st.error(f"Excel export error: {e}")
 
-# 2. PowerPoint Presentation Deck
-with col_e2:
-    st.markdown("##### 📙 PowerPoint Deck (16:9)")
-    st.caption("Executive slide presentation with scorecard, diagnostic findings, and prioritized actions.")
-    try:
-        pptx_bytes = generate_assessment_presentation(
-            df=df,
-            findings_data={"insights": insights, "kpis": kpi_results, "recs": recommendations},
-            brief_context=st.session_state.get("assessment_brief_data", {})
-        )
-        st.download_button(
-            "⬇️ Download PowerPoint Deck (.pptx)",
-            data=pptx_bytes,
-            file_name=f"Executive_Performance_Briefing_{datetime.now().strftime('%Y%m%d')}.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"PowerPoint export error: {e}")
+    # 2. PowerPoint Presentation Deck
+    with col_e2:
+        st.markdown("##### 📙 PowerPoint Deck (16:9)")
+        st.caption("Executive slide presentation with scorecard, diagnostic findings, and prioritized actions.")
+        try:
+            pptx_bytes = build_powerpoint_presentation(payload=canonical_payload)
+            if validate_pptx_bytes(pptx_bytes):
+                st.download_button(
+                    "⬇️ Download PowerPoint Deck (.pptx)",
+                    data=pptx_bytes,
+                    file_name=f"Performance_Presentation_{datetime.now().strftime('%Y%m%d')}.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ PowerPoint generation did not produce a verified presentation deck.")
+        except Exception as e:
+            st.error(f"PowerPoint export error: {e}")
 
-# 3. PDF Briefing Report
-with col_e3:
-    st.markdown("##### 📕 PDF Briefing Report")
-    st.caption("Publication-ready executive PDF memo formatted for board governance.")
-    try:
-        pdf_bytes = generate_pdf_report(
-            df=df,
-            findings_data={"insights": insights, "kpis": kpi_results, "recs": recommendations},
-            brief_context=st.session_state.get("assessment_brief_data", {})
-        )
-        st.download_button(
-            "⬇️ Download PDF Briefing (.pdf)",
-            data=pdf_bytes,
-            file_name=f"Executive_Performance_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
-    except Exception as e:
-        st.error(f"PDF export error: {e}")
+    # 3. PDF Briefing Report
+    with col_e3:
+        st.markdown("##### 📕 PDF Briefing Report")
+        st.caption("Publication-ready executive PDF memo formatted for board governance.")
+        try:
+            pdf_bytes = build_executive_pdf(payload=canonical_payload)
+            if validate_pdf_bytes(pdf_bytes):
+                st.download_button(
+                    "⬇️ Download PDF Briefing (.pdf)",
+                    data=pdf_bytes,
+                    file_name=f"Performance_Executive_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ PDF generation did not produce a verified document.")
+        except Exception as e:
+            st.error(f"PDF export error: {e}")
 
 st.markdown("---")
 
@@ -143,9 +161,7 @@ st.markdown("---")
 # 3. EXECUTIVE SUMMARY MEMORANDUM PREVIEW
 # -------------------------------------------------------------
 st.subheader("📑 Executive Summary Memo Preview")
-exec_report_md = build_markdown_executive_report(
-    proj_state, kpi_results, insights, recommendations, actions, qa_report
-)
+exec_report_md = build_markdown_executive_report(payload=canonical_payload)
 
 with st.expander("📄 View Full Markdown Report", expanded=True):
     st.markdown(exec_report_md)

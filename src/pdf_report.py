@@ -60,12 +60,13 @@ class NumberedCanvas(canvas.Canvas):
 
 
 def generate_pdf_document(
-    output_filepath: str,
+    output_filepath: Any,
     payload: Dict[str, Any],
     audience: str = "Senior Leadership"
-) -> str:
-    """Build audience-adapted A4 PDF document."""
-    os.makedirs(os.path.dirname(output_filepath), exist_ok=True) if os.path.dirname(output_filepath) else None
+) -> Any:
+    """Build audience-adapted A4 PDF document (supports file path or BytesIO buffer)."""
+    if isinstance(output_filepath, str) and os.path.dirname(output_filepath):
+        os.makedirs(os.path.dirname(output_filepath), exist_ok=True)
     
     doc = SimpleDocTemplate(
         output_filepath,
@@ -144,9 +145,9 @@ def generate_pdf_document(
 
     story = []
     
-    ctx = payload.get("assessment_context", {})
-    q_text = ctx.get("question") or "Operational Performance & Capacity Analysis"
-    aud_text = audience or ctx.get("audience", "Senior Leadership")
+    ctx = payload.get("assessment_context") or payload.get("context") or {}
+    q_text = ctx.get("question") or payload.get("user_objective") or "Operational Performance & Capacity Analysis"
+    aud_text = audience or ctx.get("audience") or payload.get("target_audience") or "Senior Leadership"
     notes_text = ctx.get("analyst_notes", "")
     
     # 1. Header Title & Metadata Banner
@@ -157,7 +158,7 @@ def generate_pdf_document(
     # Context Box Table
     meta_table_data = [
         [
-            Paragraph("<b>Assessment Objective:</b>", table_header),
+            Paragraph("<b>Performance Objective:</b>", table_header),
             Paragraph(q_text, ParagraphStyle('H1w', parent=table_cell, textColor=colors.white))
         ],
         [
@@ -388,25 +389,60 @@ def generate_pdf_document(
     return output_filepath
 
 def generate_pdf_report(
-    payload_or_filepath: Any,
+    payload_or_filepath: Any = None,
     payload: Optional[Dict[str, Any]] = None,
     audience: str = "Senior Leadership",
-    output_filepath: Optional[str] = None
+    output_filepath: Optional[str] = None,
+    df: Optional[pd.DataFrame] = None,
+    findings_data: Optional[Dict[str, Any]] = None,
+    brief_context: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
 ) -> bytes:
     """
-    Flexible wrapper for PDF generation. Accepts (payload) or (filepath, payload).
+    Flexible wrapper for PDF generation. Accepts:
+    - (payload)
+    - (filepath, payload)
+    - keyword arguments: df, findings_data, brief_context, output_filepath
+    - no arguments (extracts from active session state)
     Returns raw PDF bytes for downloads and test validation.
     """
+    import io
+    from modules.reporting.export_builder import build_canonical_reporting_payload
+    
     if isinstance(payload_or_filepath, dict):
         p = payload_or_filepath
-        out_path = output_filepath or "exports/assessment_executive_report.pdf"
-    else:
+        out_path = output_filepath
+    elif isinstance(payload_or_filepath, str):
         out_path = payload_or_filepath
-        p = payload or {}
+        p = payload or build_canonical_reporting_payload(**kwargs)
+    elif payload is not None:
+        p = payload
+        out_path = output_filepath
+    elif df is not None or findings_data or brief_context:
+        insights_list = findings_data.get("insights", []) if findings_data else []
+        kpis = findings_data.get("kpis", {}) if findings_data else {}
+        recs = findings_data.get("recs", []) if findings_data else []
+        p = build_canonical_reporting_payload(
+            state_or_df=df,
+            insights_list=insights_list,
+            kpi_results=kpis,
+            recommendations_list=recs,
+            **kwargs
+        )
+        out_path = output_filepath
+    else:
+        p = build_canonical_reporting_payload(**kwargs)
+        out_path = output_filepath
         
-    generate_pdf_document(out_path, p, audience=audience)
-    if os.path.exists(out_path):
-        with open(out_path, "rb") as f:
-            return f.read()
-    return b""
+    if out_path is not None and isinstance(out_path, str):
+        generate_pdf_document(out_path, p, audience=audience)
+        if os.path.exists(out_path):
+            with open(out_path, "rb") as f:
+                return f.read()
+        return b""
+    else:
+        buffer = io.BytesIO()
+        generate_pdf_document(buffer, p, audience=audience)
+        return buffer.getvalue()
+
 

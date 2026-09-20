@@ -28,10 +28,14 @@ from modules.diagnostics.root_cause_engine import (
     calculate_driver_importance_regression
 )
 from modules.reporting.export_builder import (
+    build_canonical_reporting_payload,
     build_excel_evidence_pack,
     build_powerpoint_presentation,
     build_executive_pdf,
-    build_markdown_executive_report
+    build_markdown_executive_report,
+    validate_excel_bytes,
+    validate_pptx_bytes,
+    validate_pdf_bytes
 )
 
 init_session_state()
@@ -582,58 +586,70 @@ st.markdown("---")
 st.subheader("📥 Export Public Presentation Deliverables")
 st.markdown("Download presentation-ready artifacts formatted for board decks, public releases, and technical archives.")
 
-c_ex1, c_ex2, c_ex3 = st.columns(3)
-with c_ex1:
-    if df is not None:
-        excel_bytes = build_excel_evidence_pack(
-            clean_df=df,
-            kpi_definitions=[],
-            quality_issues=qa_rep.get("issues", []),
-            evidence_insights=active_findings,
-            recommendation_items=active_recommendations,
-            action_items=[],
-            audit_log_entries=st.session_state.get("audit_log_entries", []),
-            project_state={"project_name": f"Performance Review — {dataset_name}"}
-        )
-        st.download_button(
-            "📊 Download Excel Evidence Pack (.xlsx)",
-            data=excel_bytes,
-            file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
-            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-            use_container_width=True
-        )
+if df is None:
+    st.info("ℹ️ Upload and configure a performance dataset to enable presentation file downloads.")
+else:
+    pres_payload = build_canonical_reporting_payload(
+        state_or_df=df,
+        dataset_name=dataset_name,
+        user_objective=obj_text,
+        specific_questions=spec_questions,
+        metric_column=metric_col,
+        date_column=date_col,
+        group_column=group_col,
+        insights_list=active_findings,
+        recommendations_list=active_recommendations,
+        qa_report=qa_rep,
+        trend_summary=spc_df,
+        comparison_summary=comp_results
+    )
 
-with c_ex2:
-    if df is not None:
-        pptx_bytes = build_powerpoint_presentation(
-            project_state={"project_name": f"Performance Presentation — {dataset_name}"},
-            kpi_summary={metric_col or "KPI": metric_mean},
-            trend_summary=spc_df,
-            comparison_summary=comp_results,
-            evidence_insights=active_findings,
-            recommendations=active_recommendations
-        )
-        st.download_button(
-            "📽️ Download PowerPoint Briefing (.pptx)",
-            data=pptx_bytes,
-            file_name=f"Performance_Presentation_{datetime.now().strftime('%Y%m%d')}.pptx",
-            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-            use_container_width=True
-        )
+    c_ex1, c_ex2, c_ex3 = st.columns(3)
+    with c_ex1:
+        try:
+            excel_bytes = build_excel_evidence_pack(payload=pres_payload)
+            if validate_excel_bytes(excel_bytes):
+                st.download_button(
+                    "📊 Download Excel Evidence Pack (.xlsx)",
+                    data=excel_bytes,
+                    file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ Excel pack validation failed.")
+        except Exception as e:
+            st.error(f"Excel export error: {e}")
 
-with c_ex3:
-    if df is not None:
-        pdf_bytes = build_executive_pdf(
-            project_state={"project_name": f"Executive Summary — {dataset_name}"},
-            kpi_summary={metric_col or "KPI": metric_mean},
-            quality_score=qa_rep.get("health_score", 100.0),
-            insights=active_findings,
-            recommendations=active_recommendations
-        )
-        st.download_button(
-            "📄 Download Executive PDF Brief (.pdf)",
-            data=pdf_bytes,
-            file_name=f"Executive_Brief_{datetime.now().strftime('%Y%m%d')}.pdf",
-            mime="application/pdf",
-            use_container_width=True
-        )
+    with c_ex2:
+        try:
+            pptx_bytes = build_powerpoint_presentation(payload=pres_payload)
+            if validate_pptx_bytes(pptx_bytes):
+                st.download_button(
+                    "📽️ Download PowerPoint Briefing (.pptx)",
+                    data=pptx_bytes,
+                    file_name=f"Performance_Presentation_{datetime.now().strftime('%Y%m%d')}.pptx",
+                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ PowerPoint deck validation failed.")
+        except Exception as e:
+            st.error(f"PowerPoint export error: {e}")
+
+    with c_ex3:
+        try:
+            pdf_bytes = build_executive_pdf(payload=pres_payload)
+            if validate_pdf_bytes(pdf_bytes):
+                st.download_button(
+                    "📄 Download Executive PDF Brief (.pdf)",
+                    data=pdf_bytes,
+                    file_name=f"Executive_Brief_{datetime.now().strftime('%Y%m%d')}.pdf",
+                    mime="application/pdf",
+                    use_container_width=True
+                )
+            else:
+                st.warning("⚠️ PDF brief validation failed.")
+        except Exception as e:
+            st.error(f"PDF export error: {e}")
+
