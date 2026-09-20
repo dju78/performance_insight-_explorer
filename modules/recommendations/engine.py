@@ -135,3 +135,6 @@ def build_traceability_matrix(
         })
 
     return pd.DataFrame(rows)
+
+
+generate_traceable_recommendations = generate_prioritized_recommendations

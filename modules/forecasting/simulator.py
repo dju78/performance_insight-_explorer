@@ -77,3 +77,21 @@ def run_scenario_simulation(
         },
         "scenarios": scenarios
     }
+
+
+def simulate_what_if_scenario(
+    baseline_metric: float,
+    pct_change: float,
+    metric_name: str = "Metric"
+) -> Dict[str, Any]:
+    """Simulate single-parameter what-if change on a primary performance metric."""
+    delta = baseline_metric * (pct_change / 100.0)
+    simulated = baseline_metric + delta
+    return {
+        "metric_name": metric_name,
+        "baseline_metric": round(baseline_metric, 2),
+        "delta_percentage": round(pct_change, 1),
+        "delta_absolute": round(delta, 2),
+        "simulated_metric": round(simulated, 2)
+    }
+

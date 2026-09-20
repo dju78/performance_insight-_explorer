@@ -8,9 +8,19 @@ import pandas as pd
 from scipy import stats
 
 
-def calculate_descriptive_stats(series: pd.Series) -> Dict[str, Any]:
-    """Calculate comprehensive robust summary statistics for a numeric series."""
-    clean_s = pd.to_numeric(series, errors="coerce").dropna()
+def calculate_descriptive_stats(
+    series_or_df: Union[pd.Series, pd.DataFrame],
+    col: Optional[str] = None
+) -> Dict[str, Any]:
+    """Calculate comprehensive robust summary statistics for a numeric series or dataframe column."""
+    if isinstance(series_or_df, pd.DataFrame):
+        if col and col in series_or_df.columns:
+            clean_s = pd.to_numeric(series_or_df[col], errors="coerce").dropna()
+        else:
+            return {"n": 0}
+    else:
+        clean_s = pd.to_numeric(series_or_df, errors="coerce").dropna()
+        
     n = len(clean_s)
     if n == 0:
         return {"n": 0}

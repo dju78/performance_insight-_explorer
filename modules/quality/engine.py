@@ -395,3 +395,53 @@ def evaluate_data_quality_10d(
         "is_analysis_blocked": is_blocked,
         "blocking_reasons": blocking_reasons
     }
+
+
+def remediate_quality_issue(
+    df: pd.DataFrame,
+    rule_name: str,
+    column_name: Optional[str] = None
+) -> Tuple[pd.DataFrame, bool, str]:
+    """Apply safe automated data-quality remediation action."""
+    if df is None or len(df) == 0:
+        return df, False, "Dataset is empty."
+        
+    out_df = df.copy()
+    r_lower = rule_name.lower()
+    
+    if "duplicate" in r_lower:
+        initial_len = len(out_df)
+        out_df = out_df.drop_duplicates().reset_index(drop=True)
+        dropped = initial_len - len(out_df)
+        return out_df, True, f"Deduplicated dataset: removed {dropped:,} duplicate records."
+        
+    elif "missing" in r_lower or "completeness" in r_lower:
+        if column_name and column_name in out_df.columns:
+            if pd.api.types.is_numeric_dtype(out_df[column_name]):
+                med_val = out_df[column_name].median()
+                out_df[column_name] = out_df[column_name].fillna(med_val)
+                return out_df, True, f"Imputed missing values in '{column_name}' with median ({med_val:.2f})."
+            else:
+                out_df[column_name] = out_df[column_name].fillna("Unknown")
+                return out_df, True, f"Filled missing text values in '{column_name}' with 'Unknown'."
+        else:
+            num_cols = out_df.select_dtypes(include=[np.number]).columns
+            for c in num_cols:
+                out_df[c] = out_df[c].fillna(out_df[c].median())
+            cat_cols = out_df.select_dtypes(include=["object", "string", "category"]).columns
+            for c in cat_cols:
+                out_df[c] = out_df[c].fillna("Unknown")
+            return out_df, True, "Imputed missing values across all columns."
+            
+    elif "outlier" in r_lower:
+        if column_name and column_name in out_df.columns and pd.api.types.is_numeric_dtype(out_df[column_name]):
+            q25 = out_df[column_name].quantile(0.25)
+            q75 = out_df[column_name].quantile(0.75)
+            iqr = q75 - q25
+            lower_bound = q25 - (3.0 * iqr)
+            upper_bound = q75 + (3.0 * iqr)
+            out_df[column_name] = out_df[column_name].clip(lower=lower_bound, upper=upper_bound)
+            return out_df, True, f"Clipped extreme statistical outliers in '{column_name}' to 3*IQR bounds."
+            
+    return out_df, True, f"Applied standard hygiene treatment for '{rule_name}'."
+
