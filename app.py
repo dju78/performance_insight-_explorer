@@ -4,6 +4,14 @@ Product Owner: Daramola Omoyele
 """
 import io
 import json
+import sys
+from pathlib import Path
+
+# Ensure workspace root is in sys.path for Streamlit Cloud deployment
+_ROOT = Path(__file__).resolve().parent
+if str(_ROOT) not in sys.path:
+    sys.path.insert(0, str(_ROOT))
+
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 import numpy as np
