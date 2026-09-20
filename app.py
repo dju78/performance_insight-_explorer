@@ -23,6 +23,7 @@ from modules.profiling.profiler import profile_dataset
 from modules.mapping.mapper import suggest_semantic_mappings
 from modules.quality.engine import evaluate_data_quality_10d, remediate_quality_issue
 from modules.analysis.orchestrator import run_full_performance_analysis
+from modules.insights.engine import normalize_finding, normalize_recommendation
 from modules.forecasting.simulator import simulate_what_if_scenario
 from modules.reporting.export_builder import (
     build_excel_evidence_pack, build_powerpoint_presentation, build_executive_pdf
@@ -303,22 +304,28 @@ else:
             
             if st.button("🚀 Analyse Performance", type="primary", use_container_width=True):
                 with st.spinner("Executing comprehensive performance diagnostics, quality scoring, trends, and recommendations..."):
-                    analysis_output = run_full_performance_analysis(
-                        df=df,
-                        objective_text=objective_val,
-                        specific_questions=specific_questions_val,
-                        date_col=selected_date_col,
-                        metric_col=selected_metric_col,
-                        group_col=selected_group_col,
-                        target_val=target_num
-                    )
-                    st.session_state.analysis_results = analysis_output
-                    st.session_state.selected_metric_col = selected_metric_col
-                    st.session_state.selected_date_col = selected_date_col
-                    st.session_state.selected_group_col = selected_group_col
-                    st.session_state.selected_target_val = target_num
-                    log_audit_event("ANALYSIS_EXECUTED", f"Executed analysis for {selected_metric_col}")
-                    st.success("✅ Analysis Complete! Switch to **📊 Dashboard & Analysis** or **💡 Findings, Recommendations & Export** to explore results.")
+                    try:
+                        analysis_output = run_full_performance_analysis(
+                            df=df,
+                            objective_text=objective_val,
+                            specific_questions=specific_questions_val,
+                            date_col=selected_date_col,
+                            metric_col=selected_metric_col,
+                            group_col=selected_group_col,
+                            target_val=target_num
+                        )
+                        if analysis_output and isinstance(analysis_output, dict) and "metric_mean" in analysis_output:
+                            st.session_state.analysis_results = analysis_output
+                            st.session_state.selected_metric_col = selected_metric_col
+                            st.session_state.selected_date_col = selected_date_col
+                            st.session_state.selected_group_col = selected_group_col
+                            st.session_state.selected_target_val = target_num
+                            log_audit_event("ANALYSIS_EXECUTED", f"Executed analysis for {selected_metric_col}")
+                            st.success("✅ Analysis Complete! Switch to **📊 Dashboard & Analysis** or **💡 Findings, Recommendations & Export** to explore results.")
+                        else:
+                            st.error("Analysis completed but output validation failed. Please verify your selected columns.")
+                    except Exception as ex:
+                        st.error(f"Analysis failed to complete: {ex}")
         else:
             st.info("💡 Upload a data file above or select an **Instant Demo Dataset** from the sidebar to get started.")
 
@@ -379,303 +386,342 @@ else:
     # TAB 3: DASHBOARD & ANALYSIS
     # =========================================================
     with tab3:
-        analysis_res = st.session_state.get("analysis_results")
-        if not analysis_res:
-            st.info("ℹ️ Please click **🚀 Analyse Performance** on **Tab 1: Objective & Data** to generate the dashboard.")
-        else:
-            summary = analysis_res.get("summary", {})
-            st.markdown("### 📊 Executive Performance Summary")
-            
-            # Summary KPI Ribbon
-            c_sum1, c_sum2, c_sum3, c_sum4 = st.columns(4)
-            with c_sum1:
-                st.metric("🏆 Strongest Cohort", summary.get("strongest_area", "N/A"))
-            with c_sum2:
-                st.metric("⚠️ Weakest Cohort", summary.get("weakest_area", "N/A"))
-            with c_sum3:
-                st.metric("📈 Largest Improvement", summary.get("largest_improvement", "N/A"))
-            with c_sum4:
-                st.metric("🎯 Target Status", summary.get("target_achievement", "N/A"))
+        try:
+            analysis_res = st.session_state.get("analysis_results")
+            if not analysis_res:
+                st.info("ℹ️ Please click **🚀 Analyse Performance** on **Tab 1: Objective & Data** to generate the dashboard.")
+            else:
+                summary = analysis_res.get("summary", {})
+                st.markdown("### 📊 Executive Performance Summary")
+                
+                # Summary KPI Ribbon
+                c_sum1, c_sum2, c_sum3, c_sum4 = st.columns(4)
+                with c_sum1:
+                    st.metric("🏆 Strongest Cohort", summary.get("strongest_area", "N/A"))
+                with c_sum2:
+                    st.metric("⚠️ Weakest Cohort", summary.get("weakest_area", "N/A"))
+                with c_sum3:
+                    st.metric("📈 Largest Improvement", summary.get("largest_improvement", "N/A"))
+                with c_sum4:
+                    st.metric("🎯 Target Status", summary.get("target_achievement", "N/A"))
 
-            st.info(f"💡 **Key Finding:** {summary.get('main_result', '')}")
-            if "Quality Index" in summary.get("quality_warning", ""):
-                st.caption(f"🛡️ {summary.get('quality_warning')}")
+                st.info(f"💡 **Key Finding:** {summary.get('main_result', '')}")
+                if "Quality Index" in summary.get("quality_warning", ""):
+                    st.caption(f"🛡️ {summary.get('quality_warning')}")
 
-            st.markdown("---")
-            st.markdown("### 📈 Essential Performance Visualizations")
+                st.markdown("---")
+                st.markdown("### 📈 Essential Performance Visualizations")
 
-            metric_col = analysis_res.get("metric_col")
-            date_col = analysis_res.get("date_col")
-            group_col = analysis_res.get("group_col")
-            spc_df = analysis_res.get("spc_df", pd.DataFrame())
-            comp_res = analysis_res.get("comparison_results", {})
-            groups_tbl = comp_res.get("groups_table", pd.DataFrame())
-            pareto_df = analysis_res.get("pareto_df", pd.DataFrame())
+                metric_col = analysis_res.get("metric_col")
+                date_col = analysis_res.get("date_col")
+                group_col = analysis_res.get("group_col")
+                spc_df = analysis_res.get("spc_df", pd.DataFrame())
+                comp_res = analysis_res.get("comparison_results", {})
+                groups_tbl = comp_res.get("groups_table", pd.DataFrame())
+                pareto_df = analysis_res.get("pareto_df", pd.DataFrame())
 
-            # 1. Time-Series Trend Chart (if date exists)
-            if not spc_df.empty and date_col and metric_col:
-                st.subheader(f"1️⃣ Longitudinal Trend & Stability: {metric_col}")
-                fig_trend = go.Figure()
-                fig_trend.add_trace(go.Scatter(
-                    x=spc_df[date_col], y=spc_df[metric_col],
-                    mode="lines+markers", name="Observed",
-                    line=dict(color="#0d6efd", width=2.5)
-                ))
-                fig_trend.add_trace(go.Scatter(
-                    x=spc_df[date_col], y=spc_df["center_line"],
-                    mode="lines", name="Process Mean",
-                    line=dict(color="#198754", dash="dash", width=2)
-                ))
-                if len(spc_df) >= 5:
+                # 1. Time-Series Trend Chart (if date exists)
+                if not spc_df.empty and date_col and metric_col:
+                    st.subheader(f"1️⃣ Longitudinal Trend & Stability: {metric_col}")
+                    fig_trend = go.Figure()
                     fig_trend.add_trace(go.Scatter(
-                        x=spc_df[date_col], y=spc_df["ucl_3sigma"],
-                        mode="lines", name="UCL (+3σ)",
-                        line=dict(color="#dc3545", dash="dot", width=1.5)
+                        x=spc_df[date_col], y=spc_df[metric_col],
+                        mode="lines+markers", name="Observed",
+                        line=dict(color="#0d6efd", width=2.5)
                     ))
                     fig_trend.add_trace(go.Scatter(
-                        x=spc_df[date_col], y=spc_df["lcl_3sigma"],
-                        mode="lines", name="LCL (-3σ)",
-                        line=dict(color="#dc3545", dash="dot", width=1.5)
+                        x=spc_df[date_col], y=spc_df["center_line"],
+                        mode="lines", name="Process Mean",
+                        line=dict(color="#198754", dash="dash", width=2)
                     ))
-                fig_trend.update_layout(
-                    title=f"Chronological Trajectory of {metric_col} over {date_col}",
-                    xaxis_title=date_col, yaxis_title=f"{metric_col} (Mean)",
-                    hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                )
-                st.plotly_chart(fig_trend, use_container_width=True)
-                
-                # Plain English interpretation
-                first_p = spc_df[metric_col].iloc[0]
-                last_p = spc_df[metric_col].iloc[-1]
-                net_chg = ((last_p - first_p) / max(first_p, 0.001)) * 100.0 if first_p != 0 else 0.0
-                st.caption(f"📝 **Trend Interpretation:** '{metric_col}' changed by {net_chg:+.1f}% from the first period ({spc_df[date_col].iloc[0]}) to the latest period ({spc_df[date_col].iloc[-1]}).")
-
-            # 2. Group Comparison Bar Chart
-            if not groups_tbl.empty and group_col and metric_col:
-                st.subheader(f"2️⃣ Cohort Comparison: {metric_col} by {group_col}")
-                fig_bar = px.bar(
-                    groups_tbl, x=group_col, y="mean", color="mean",
-                    color_continuous_scale="Blues", text="mean",
-                    title=f"Mean {metric_col} across {group_col} Cohorts"
-                )
-                fig_bar.update_traces(texttemplate='%{text:.2f}', textposition='outside')
-                fig_bar.update_layout(xaxis_title=group_col, yaxis_title=f"Mean {metric_col}")
-                st.plotly_chart(fig_bar, use_container_width=True)
-                
-                top_name = groups_tbl.iloc[0][group_col]
-                bot_name = groups_tbl.iloc[-1][group_col]
-                gap_val = groups_tbl.iloc[0]["mean"] - groups_tbl.iloc[-1]["mean"]
-                st.caption(f"📝 **Comparison Interpretation:** Top-performing cohort is '{top_name}' ({groups_tbl.iloc[0]['mean']:,.2f}) vs lowest '{bot_name}' ({groups_tbl.iloc[-1]['mean']:,.2f}), representing a spread of {abs(gap_val):,.2f} units.")
-
-            # 3. Distribution & Outlier Spread (Box Plot & Histogram)
-            if metric_col and metric_col in df.columns:
-                c_d1, c_d2 = st.columns(2)
-                with c_d1:
-                    st.subheader(f"3️⃣ Distribution: {metric_col}")
-                    fig_hist = px.histogram(
-                        df, x=metric_col, nbins=25, marginal="rug",
-                        title=f"Frequency Distribution of {metric_col}",
-                        color_discrete_sequence=["#0d6efd"]
+                    if len(spc_df) >= 5:
+                        fig_trend.add_trace(go.Scatter(
+                            x=spc_df[date_col], y=spc_df["ucl_3sigma"],
+                            mode="lines", name="UCL (+3σ)",
+                            line=dict(color="#dc3545", dash="dot", width=1.5)
+                        ))
+                        fig_trend.add_trace(go.Scatter(
+                            x=spc_df[date_col], y=spc_df["lcl_3sigma"],
+                            mode="lines", name="LCL (-3σ)",
+                            line=dict(color="#dc3545", dash="dot", width=1.5)
+                        ))
+                    fig_trend.update_layout(
+                        title=f"Chronological Trajectory of {metric_col} over {date_col}",
+                        xaxis_title=date_col, yaxis_title=f"{metric_col} (Mean)",
+                        hovermode="x unified", legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
                     )
-                    fig_hist.update_layout(xaxis_title=metric_col, yaxis_title="Record Count")
-                    st.plotly_chart(fig_hist, use_container_width=True)
-                with c_d2:
-                    st.subheader("4️⃣ Outliers & Interquartile Spread")
-                    fig_box = px.box(
-                        df, x=group_col if group_col and group_col in df.columns else None,
-                        y=metric_col, points="outliers",
-                        title=f"Variation Spread & Outliers for {metric_col}",
-                        color_discrete_sequence=["#198754"]
+                    st.plotly_chart(fig_trend, use_container_width=True)
+                    
+                    # Plain English interpretation
+                    first_p = spc_df[metric_col].iloc[0]
+                    last_p = spc_df[metric_col].iloc[-1]
+                    net_chg = ((last_p - first_p) / max(first_p, 0.001)) * 100.0 if first_p != 0 else 0.0
+                    st.caption(f"📝 **Trend Interpretation:** '{metric_col}' changed by {net_chg:+.1f}% from the first period ({spc_df[date_col].iloc[0]}) to the latest period ({spc_df[date_col].iloc[-1]}).")
+
+                # 2. Group Comparison Bar Chart
+                if not groups_tbl.empty and group_col and metric_col:
+                    st.subheader(f"2️⃣ Cohort Comparison: {metric_col} by {group_col}")
+                    fig_bar = px.bar(
+                        groups_tbl, x=group_col, y="mean", color="mean",
+                        color_continuous_scale="Blues", text="mean",
+                        title=f"Mean {metric_col} across {group_col} Cohorts"
                     )
-                    st.plotly_chart(fig_box, use_container_width=True)
+                    fig_bar.update_traces(texttemplate='%{text:.2f}', textposition='outside')
+                    fig_bar.update_layout(xaxis_title=group_col, yaxis_title=f"Mean {metric_col}")
+                    st.plotly_chart(fig_bar, use_container_width=True)
+                    
+                    top_name = groups_tbl.iloc[0][group_col]
+                    bot_name = groups_tbl.iloc[-1][group_col]
+                    gap_val = groups_tbl.iloc[0]["mean"] - groups_tbl.iloc[-1]["mean"]
+                    st.caption(f"📝 **Comparison Interpretation:** Top-performing cohort is '{top_name}' ({groups_tbl.iloc[0]['mean']:,.2f}) vs lowest '{bot_name}' ({groups_tbl.iloc[-1]['mean']:,.2f}), representing a spread of {abs(gap_val):,.2f} units.")
 
-            # 4. Pareto 80/20 Concentration (if groups exist)
-            if not pareto_df.empty and group_col and metric_col and len(pareto_df) >= 3:
-                st.subheader(f"5️⃣ Pareto 80/20 Concentration Curve: {group_col}")
-                fig_pareto = go.Figure()
-                fig_pareto.add_trace(go.Bar(
-                    x=pareto_df[group_col], y=pareto_df[metric_col],
-                    name="Volume / Sum", marker_color="#0d6efd"
-                ))
-                fig_pareto.add_trace(go.Scatter(
-                    x=pareto_df[group_col], y=pareto_df["cumulative_share_pct"],
-                    name="Cumulative Share %", yaxis="y2",
-                    line=dict(color="#dc3545", width=2.5)
-                ))
-                fig_pareto.update_layout(
-                    title=f"Pareto 80/20 Rule: Cumulative Contribution of {group_col}",
-                    yaxis=dict(title=f"Total {metric_col}"),
-                    yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 105]),
-                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-                )
-                st.plotly_chart(fig_pareto, use_container_width=True)
-                
-                top_80 = pareto_df[pareto_df["is_top_80pct"] == True]
-                st.caption(f"📝 **Pareto Interpretation:** {len(top_80)} of {len(pareto_df)} cohorts account for 80% of cumulative volume in '{metric_col}'.")
+                # 3. Distribution & Outlier Spread (Box Plot & Histogram)
+                if metric_col and metric_col in df.columns:
+                    c_d1, c_d2 = st.columns(2)
+                    with c_d1:
+                        st.subheader(f"3️⃣ Distribution: {metric_col}")
+                        fig_hist = px.histogram(
+                            df, x=metric_col, nbins=25, marginal="rug",
+                            title=f"Frequency Distribution of {metric_col}",
+                            color_discrete_sequence=["#0d6efd"]
+                        )
+                        fig_hist.update_layout(xaxis_title=metric_col, yaxis_title="Record Count")
+                        st.plotly_chart(fig_hist, use_container_width=True)
+                    with c_d2:
+                        st.subheader("4️⃣ Outliers & Interquartile Spread")
+                        fig_box = px.box(
+                            df, x=group_col if group_col and group_col in df.columns else None,
+                            y=metric_col, points="outliers",
+                            title=f"Variation Spread & Outliers for {metric_col}",
+                            color_discrete_sequence=["#198754"]
+                        )
+                        st.plotly_chart(fig_box, use_container_width=True)
 
-            # -------------------------------------------------
-            # COLLAPSIBLE ADVANCED ANALYSIS SECTION
-            # -------------------------------------------------
-            st.markdown("---")
-            with st.expander("🔬 Advanced Statistical Analysis & Diagnostics", expanded=False):
-                st.markdown("#### Statistical Significance & Driver Models")
-                
-                # ANOVA Significance
-                p_val = comp_res.get("anova_p_value")
-                cohen = comp_res.get("cohens_d")
-                if p_val is not None:
-                    c_st1, c_st2 = st.columns(2)
-                    with c_st1:
-                        st.metric("ANOVA F-Test p-value", f"{p_val:.4f}", delta="Statistically Significant" if p_val < 0.05 else "Not Significant")
-                    with c_st2:
-                        st.metric("Cohen's d Effect Size (Top vs Bottom)", f"{cohen:.2f}" if cohen is not None else "N/A")
-                    st.caption("ℹ️ *Statistical Note:* $p < 0.05$ indicates differences between cohorts are unlikely to be caused by random chance alone.")
+                # 4. Pareto 80/20 Concentration (if groups exist)
+                if not pareto_df.empty and group_col and metric_col and len(pareto_df) >= 3:
+                    st.subheader(f"5️⃣ Pareto 80/20 Concentration Curve: {group_col}")
+                    fig_pareto = go.Figure()
+                    fig_pareto.add_trace(go.Bar(
+                        x=pareto_df[group_col], y=pareto_df[metric_col],
+                        name="Volume / Sum", marker_color="#0d6efd"
+                    ))
+                    fig_pareto.add_trace(go.Scatter(
+                        x=pareto_df[group_col], y=pareto_df["cumulative_share_pct"],
+                        name="Cumulative Share %", yaxis="y2",
+                        line=dict(color="#dc3545", width=2.5)
+                    ))
+                    fig_pareto.update_layout(
+                        title=f"Pareto 80/20 Rule: Cumulative Contribution of {group_col}",
+                        yaxis=dict(title=f"Total {metric_col}"),
+                        yaxis2=dict(title="Cumulative %", overlaying="y", side="right", range=[0, 105]),
+                        legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                    )
+                    st.plotly_chart(fig_pareto, use_container_width=True)
+                    
+                    top_80 = pareto_df[pareto_df["is_top_80pct"] == True]
+                    st.caption(f"📝 **Pareto Interpretation:** {len(top_80)} of {len(pareto_df)} cohorts account for 80% of cumulative volume in '{metric_col}'.")
 
-                # Regression Drivers & Scatter Plot
-                reg_sum = analysis_res.get("regression_summary", {})
-                driver_results = analysis_res.get("driver_results", [])
-                if reg_sum.get("r_squared") is not None:
-                    st.markdown(f"**Multivariate OLS Regression ($R^2 = {reg_sum['r_squared']:.1%}$):** Explains variance in `{metric_col}`.")
-                    driver_weights = reg_sum.get("driver_weights", {})
-                    if driver_weights:
-                        st.dataframe(pd.DataFrame(list(driver_weights.items()), columns=["Operational Driver", "Relative Weight (%)"]), use_container_width=True)
+                # -------------------------------------------------
+                # COLLAPSIBLE ADVANCED ANALYSIS SECTION
+                # -------------------------------------------------
+                st.markdown("---")
+                with st.expander("🔬 Advanced Statistical Analysis & Diagnostics", expanded=False):
+                    st.markdown("#### Statistical Significance & Driver Models")
+                    
+                    # ANOVA Significance
+                    p_val = comp_res.get("anova_p_value")
+                    cohen = comp_res.get("cohens_d")
+                    if p_val is not None:
+                        c_st1, c_st2 = st.columns(2)
+                        with c_st1:
+                            st.metric("ANOVA F-Test p-value", f"{p_val:.4f}", delta="Statistically Significant" if p_val < 0.05 else "Not Significant")
+                        with c_st2:
+                            st.metric("Cohen's d Effect Size (Top vs Bottom)", f"{cohen:.2f}" if cohen is not None else "N/A")
+                        st.caption("ℹ️ *Statistical Note:* $p < 0.05$ indicates differences between cohorts are unlikely to be caused by random chance alone.")
 
-                if driver_results and metric_col:
-                    st.markdown("#### 🎯 Driver Scatter Relationship & Trendline")
-                    top_driver = driver_results[0]["driver_field"]
-                    sub_clean = df[[top_driver, metric_col]].dropna().copy()
-                    sub_clean[top_driver] = pd.to_numeric(sub_clean[top_driver], errors="coerce")
-                    sub_clean[metric_col] = pd.to_numeric(sub_clean[metric_col], errors="coerce")
-                    sub_clean = sub_clean.dropna()
-                    if len(sub_clean) >= 3:
-                        try:
-                            fig_sc = px.scatter(
-                                sub_clean, x=top_driver, y=metric_col,
-                                trendline="ols" if len(sub_clean) >= 5 else None,
-                                title=f"Driver Relationship: {top_driver} vs {metric_col}"
-                            )
-                        except Exception:
-                            fig_sc = px.scatter(
-                                sub_clean, x=top_driver, y=metric_col,
-                                title=f"Driver Relationship: {top_driver} vs {metric_col}"
-                            )
-                        st.plotly_chart(fig_sc, use_container_width=True)
+                    # Regression Drivers & Scatter Plot
+                    reg_sum = analysis_res.get("regression_summary", {})
+                    driver_results = analysis_res.get("driver_results", [])
+                    if reg_sum.get("r_squared") is not None:
+                        st.markdown(f"**Multivariate OLS Regression ($R^2 = {reg_sum['r_squared']:.1%}$):** Explains variance in `{metric_col}`.")
+                        driver_weights = reg_sum.get("driver_weights", {})
+                        if driver_weights:
+                            st.dataframe(pd.DataFrame(list(driver_weights.items()), columns=["Operational Driver", "Relative Weight (%)"]), use_container_width=True)
 
-                # Interactive What-If Simulator
-                st.markdown("#### 🔮 What-If Scenario Sensitivity Simulator")
-                sim_pct = st.slider("Simulate Metric Improvement / Reduction (%)", min_value=-50, max_value=50, value=10, step=5)
-                desc_st = analysis_res.get("descriptive_stats", {})
-                cur_mean = desc_st.get("mean", 0.0)
-                sim_res = simulate_what_if_scenario(cur_mean, float(sim_pct), "Mean Performance Score")
-                c_w1, c_w2, c_w3 = st.columns(3)
-                with c_w1:
-                    st.metric("Baseline Mean", f"{sim_res['baseline_metric']:,.2f}")
-                with c_w2:
-                    st.metric("Simulated Outcome", f"{sim_res['simulated_metric']:,.2f}")
-                with c_w3:
-                    st.metric("Projected Delta", f"{sim_res['delta_absolute']:+,.2f} ({sim_res['delta_percentage']:+.1f}%)")
+                    if driver_results and metric_col:
+                        st.markdown("#### 🎯 Driver Scatter Relationship & Trendline")
+                        top_driver = driver_results[0]["driver_field"]
+                        sub_clean = df[[top_driver, metric_col]].dropna().copy()
+                        sub_clean[top_driver] = pd.to_numeric(sub_clean[top_driver], errors="coerce")
+                        sub_clean[metric_col] = pd.to_numeric(sub_clean[metric_col], errors="coerce")
+                        sub_clean = sub_clean.dropna()
+                        if len(sub_clean) >= 3:
+                            try:
+                                fig_sc = px.scatter(
+                                    sub_clean, x=top_driver, y=metric_col,
+                                    trendline="ols" if len(sub_clean) >= 5 else None,
+                                    title=f"Driver Relationship: {top_driver} vs {metric_col}"
+                                )
+                            except Exception:
+                                fig_sc = px.scatter(
+                                    sub_clean, x=top_driver, y=metric_col,
+                                    title=f"Driver Relationship: {top_driver} vs {metric_col}"
+                                )
+                            st.plotly_chart(fig_sc, use_container_width=True)
+
+                    # Interactive What-If Simulator
+                    st.markdown("#### 🔮 What-If Scenario Sensitivity Simulator")
+                    sim_pct = st.slider("Simulate Metric Improvement / Reduction (%)", min_value=-50, max_value=50, value=10, step=5)
+                    desc_st = analysis_res.get("descriptive_stats", {})
+                    cur_mean = desc_st.get("mean", 0.0)
+                    sim_res = simulate_what_if_scenario(cur_mean, float(sim_pct), "Mean Performance Score")
+                    c_w1, c_w2, c_w3 = st.columns(3)
+                    with c_w1:
+                        st.metric("Baseline Mean", f"{sim_res['baseline_metric']:,.2f}")
+                    with c_w2:
+                        st.metric("Simulated Outcome", f"{sim_res['simulated_metric']:,.2f}")
+                    with c_w3:
+                        st.metric("Projected Delta", f"{sim_res['delta_absolute']:+,.2f} ({sim_res['delta_percentage']:+.1f}%)")
+        except Exception as e:
+            st.error(f"An error occurred while displaying the dashboard: {e}")
 
     # =========================================================
     # TAB 4: FINDINGS, RECOMMENDATIONS & EXPORT
     # =========================================================
     with tab4:
-        analysis_res = st.session_state.get("analysis_results")
-        if not analysis_res:
-            st.info("ℹ️ Please run the analysis on Tab 1 to view findings and download reports.")
-        else:
-            objective_title = analysis_res.get("objective", "Performance Evaluation")
-            st.markdown(f"### 💡 Evidence Findings & Action Plan")
-            st.caption(f"Tied to Objective: **{objective_title}**")
-
-            findings = analysis_res.get("findings", [])
-            recs = analysis_res.get("recommendations", [])
-
-            # Findings Grid
-            if findings:
-                st.subheader("🔍 What Happened & Why (Deterministic Evidence)")
-                for f_item in findings:
-                    with st.expander(f"📌 {f_item.title} — Evidence Level: {f_item.evidence_level}", expanded=True):
-                        st.markdown(f"**What happened:** {f_item.observation}")
-                        st.markdown(f"**Where it occurred:** Cohort dimension `{analysis_res.get('group_col', 'System-wide')}`")
-                        st.markdown(f"**When it occurred:** Time period `{analysis_res.get('date_col', 'Entire Period')}`")
-                        st.markdown(f"**Impact / Gap:** {f_item.business_impact}")
-                        st.markdown(f"**Limitations & Caveats:** {f_item.limitations_disclosure}")
+        try:
+            analysis_res = st.session_state.get("analysis_results")
+            if not analysis_res:
+                st.info("ℹ️ Please run the analysis on Tab 1 to view findings and download reports.")
             else:
-                st.info("No anomalous deviations detected in the uploaded dataset.")
+                objective_title = analysis_res.get("objective", "Performance Evaluation")
+                st.markdown(f"### 💡 Evidence Findings & Action Plan")
+                st.caption(f"Tied to Objective: **{objective_title}**")
 
-            # Recommendations Matrix
-            if recs:
+                findings_raw = analysis_res.get("findings", [])
+                recs_raw = analysis_res.get("recommendations", [])
+
+                # Safely normalize findings
+                normalized_findings = []
+                if isinstance(findings_raw, (list, tuple)):
+                    for f in findings_raw:
+                        norm_f = normalize_finding(f)
+                        if norm_f:
+                            normalized_findings.append(norm_f)
+                elif findings_raw:
+                    norm_f = normalize_finding(findings_raw)
+                    if norm_f:
+                        normalized_findings.append(norm_f)
+
+                # Findings Grid
+                if normalized_findings:
+                    st.subheader("🔍 What Happened & Why (Deterministic Evidence)")
+                    for f_item in normalized_findings:
+                        try:
+                            f_title = f_item.get("title", "Performance Finding")
+                            f_level = f_item.get("evidence_level", "Not assessed")
+                            with st.expander(f"📌 {f_title} — Evidence Level: {f_level}", expanded=True):
+                                if f_item.get("description"):
+                                    st.markdown(f"**What happened:** {f_item['description']}")
+                                st.markdown(f"**Where it occurred:** Cohort dimension `{f_item.get('where', analysis_res.get('group_col', 'System-wide'))}`")
+                                st.markdown(f"**When it occurred:** Time period `{f_item.get('when', analysis_res.get('date_col', 'Entire Period'))}`")
+                                if f_item.get("impact"):
+                                    st.markdown(f"**Impact / Gap:** {f_item['impact']}")
+                                if f_item.get("limitation"):
+                                    st.markdown(f"**Limitations & Caveats:** {f_item['limitation']}")
+                        except Exception as err:
+                            st.warning(f"Could not render finding: {err}")
+                else:
+                    st.info("No anomalous deviations detected in the uploaded dataset.")
+
+                # Safely normalize recommendations
+                normalized_recs = []
+                if isinstance(recs_raw, (list, tuple)):
+                    for r in recs_raw:
+                        norm_r = normalize_recommendation(r)
+                        if norm_r:
+                            normalized_recs.append(norm_r)
+                elif recs_raw:
+                    norm_r = normalize_recommendation(recs_raw)
+                    if norm_r:
+                        normalized_recs.append(norm_r)
+
+                # Recommendations Matrix
+                if normalized_recs:
+                    st.markdown("---")
+                    st.subheader("🎯 Prioritized Action Recommendations (Impact × Effort)")
+                    rec_rows = []
+                    for r in normalized_recs:
+                        rec_rows.append({
+                            "Action Title": r.get("title", "Recommended Action"),
+                            "Strategic Rationale": r.get("problem", "Operational improvement"),
+                            "Proposed Intervention": r.get("proposed_action", ""),
+                            "Impact": r.get("impact", "Medium"),
+                            "Effort": r.get("effort", "Medium"),
+                            "Owner": r.get("owner", "Operations Lead"),
+                            "Target Milestone": r.get("timescale", "30-60 days")
+                        })
+                    st.dataframe(pd.DataFrame(rec_rows), use_container_width=True)
+
+                # Export Hub
                 st.markdown("---")
-                st.subheader("🎯 Prioritized Action Recommendations (Impact × Effort)")
-                rec_rows = []
-                for r in recs:
-                    rec_rows.append({
-                        "Action Title": r.title,
-                        "Strategic Rationale": r.rationale,
-                        "Impact": r.impact_level,
-                        "Effort": r.effort_level,
-                        "Owner": r.owner_role,
-                        "Target Milestone": r.timeframe
-                    })
-                st.dataframe(pd.DataFrame(rec_rows), use_container_width=True)
+                st.subheader("📥 Executive Export & Reporting Hub")
+                st.markdown("Generate presentation-ready deliverables containing evidence tables, methodology disclaimers, and audit provenance.")
 
-            # Export Hub
-            st.markdown("---")
-            st.subheader("📥 Executive Export & Reporting Hub")
-            st.markdown("Generate presentation-ready deliverables containing evidence tables, methodology disclaimers, and audit provenance.")
+                c_ex1, c_ex2, c_ex3 = st.columns(3)
+                with c_ex1:
+                    # Excel Evidence Pack
+                    excel_bytes = build_excel_evidence_pack(
+                        clean_df=df,
+                        kpi_definitions=[],
+                        quality_issues=analysis_res.get("qa_report", {}).get("issues", []),
+                        evidence_insights=findings_raw if isinstance(findings_raw, list) else [],
+                        recommendation_items=recs_raw if isinstance(recs_raw, list) else [],
+                        action_items=[],
+                        audit_log_entries=st.session_state.get("audit_trail", []),
+                        project_state=st.session_state.get("project_state", {})
+                    )
+                    st.download_button(
+                        label="📊 Download Excel Evidence Pack (.xlsx)",
+                        data=excel_bytes,
+                        file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx",
+                        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                        use_container_width=True
+                    )
 
-            c_ex1, c_ex2, c_ex3 = st.columns(3)
-            with c_ex1:
-                # Excel Evidence Pack
-                excel_bytes = build_excel_evidence_pack(
-                    clean_df=df,
-                    kpi_definitions=[],
-                    quality_issues=analysis_res.get("qa_report", {}).get("issues", []),
-                    evidence_insights=findings,
-                    recommendation_items=recs,
-                    action_items=[],
-                    audit_log_entries=st.session_state.get("audit_trail", []),
-                    project_state=st.session_state.get("project_state", {})
-                )
-                st.download_button(
-                    "📊 Download Excel Evidence Pack (.xlsx)",
-                    data=excel_bytes,
-                    file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
+                with c_ex2:
+                    # PowerPoint Presentation
+                    pptx_bytes = build_powerpoint_presentation(
+                        project_state=st.session_state.get("project_state", {}),
+                        kpi_summary={"Metric": analysis_res.get("metric_col", "")},
+                        trend_summary=analysis_res.get("spc_df", pd.DataFrame()),
+                        comparison_summary=analysis_res.get("comparison_results", {}),
+                        evidence_insights=findings_raw if isinstance(findings_raw, list) else [],
+                        recommendations=recs_raw if isinstance(recs_raw, list) else []
+                    )
+                    st.download_button(
+                        label="📽️ Download Executive Deck (.pptx)",
+                        data=pptx_bytes,
+                        file_name=f"Performance_Executive_Brief_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pptx",
+                        mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+                        use_container_width=True
+                    )
 
-            with c_ex2:
-                # PowerPoint Presentation
-                pptx_bytes = build_powerpoint_presentation(
-                    project_state=st.session_state.get("project_state", {}),
-                    kpi_summary={"Metric": analysis_res.get("metric_col", "")},
-                    trend_summary=analysis_res.get("spc_df", pd.DataFrame()),
-                    comparison_summary=analysis_res.get("comparison_results", {}),
-                    evidence_insights=findings,
-                    recommendations=recs
-                )
-                st.download_button(
-                    "📽️ Download Executive Deck (.pptx)",
-                    data=pptx_bytes,
-                    file_name=f"Performance_Executive_Brief_{datetime.now().strftime('%Y%m%d')}.pptx",
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                    use_container_width=True
-                )
-
-            with c_ex3:
-                # Executive PDF Summary
-                pdf_bytes = build_executive_pdf(
-                    project_state=st.session_state.get("project_state", {}),
-                    kpi_summary={"Metric": analysis_res.get("metric_col", "")},
-                    quality_score=analysis_res.get("health_score", 100.0),
-                    insights=findings,
-                    recommendations=recs
-                )
-                st.download_button(
-                    "📄 Download Executive PDF Brief (.pdf)",
-                    data=pdf_bytes,
-                    file_name=f"Performance_Executive_Brief_{datetime.now().strftime('%Y%m%d')}.pdf",
-                    mime="application/pdf",
-                    use_container_width=True
-                )
+                with c_ex3:
+                    # Executive PDF Summary
+                    pdf_bytes = build_executive_pdf(
+                        project_state=st.session_state.get("project_state", {}),
+                        kpi_summary={"Metric": analysis_res.get("metric_col", "")},
+                        quality_score=analysis_res.get("health_score", 100.0),
+                        insights=findings_raw if isinstance(findings_raw, list) else [],
+                        recommendations=recs_raw if isinstance(recs_raw, list) else []
+                    )
+                    st.download_button(
+                        label="📄 Download Executive PDF Brief (.pdf)",
+                        data=pdf_bytes,
+                        file_name=f"Performance_Executive_Brief_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf",
+                        mime="application/pdf",
+                        use_container_width=True
+                    )
+        except Exception as e:
+            st.error(f"An error occurred while displaying findings or export options: {e}")
