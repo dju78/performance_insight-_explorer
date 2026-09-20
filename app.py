@@ -1,7 +1,21 @@
+"""Performance Insight Explorer.
+Enterprise Performance Analysis, Diagnostic and Decision-Support Platform.
+Product Owner: Daramola Omoyele
+"""
 import streamlit as st
 import pandas as pd
-from src.state import init_session_state, get_state, reset_analysis_only, reset_full_state
-from src.export import load_app_config
+import json
+from datetime import datetime
+
+from core.constants import AppMode, UserRole, WorkflowStage, WORKFLOW_STAGES_ORDER
+from core.state import (
+    init_session_state, get_working_df, log_audit_event, advance_workflow_stage,
+    save_project_bundle, load_project_bundle, clear_dataset_for_new_upload, invalidate_derived_state
+)
+from modules.ingestion.parser import read_file_contents
+from modules.profiling.profiler import profile_dataset
+from modules.mapping.mapper import suggest_semantic_mappings
+from modules.quality.engine import evaluate_data_quality_10d
 from src.brief_extractor import extract_assessment_brief
 
 st.set_page_config(
@@ -12,226 +26,289 @@ st.set_page_config(
 )
 
 init_session_state()
-config = load_app_config()
 
-OUTPUT_FORMAT_OPTIONS = [
-    "Not specified / Await instructions",
-    "Verbal discussion / Q&A",
-    "Live analytical briefing",
-    "PowerPoint",
-    "PDF briefing",
-    "Excel analytical pack",
-    "Written analytical summary",
-    "Other"
-]
-
-# Sidebar: Assessment Pack Context & Global Controls
+# -------------------------------------------------------------
+# SIDEBAR: Mode Switcher, Role, Workflow Stepper & Project Persistence
+# -------------------------------------------------------------
 with st.sidebar:
-    st.title("🎯 Assessment Hub")
-    st.caption("Author: DARAMOLA OMOYELE | Performance Insight Explorer")
+    st.markdown("### 📊 Performance Insight Explorer")
+    st.caption("Enterprise Performance Analysis & Decision-Support")
     
-    st.markdown("---")
-    st.subheader("📋 Assessment Pack Quick-Edit")
-    with st.expander("Quick Context Fields", expanded=False):
-        st.session_state["assessment_question"] = st.text_area(
-            "Problem Statement / Core Question",
-            value=st.session_state.get("assessment_question", ""),
-            height=80,
-            placeholder="As defined in assessment brief (leave blank if unstated)..."
-        )
-        st.session_state["target_audience"] = st.text_input(
-            "Target Audience",
-            value=st.session_state.get("target_audience", ""),
-            placeholder="e.g. As specified in assessment pack or 'Not specified'"
-        )
-        st.session_state["response_time"] = st.text_input(
-            "Time Available",
-            value=st.session_state.get("response_time", ""),
-            placeholder="e.g. As specified in assessment pack or 'Not specified'"
-        )
-        current_fmt = st.session_state.get("output_format", "Not specified / Await instructions")
-        fmt_idx = OUTPUT_FORMAT_OPTIONS.index(current_fmt) if current_fmt in OUTPUT_FORMAT_OPTIONS else 0
-        st.session_state["output_format"] = st.selectbox(
-            "Output Format",
-            OUTPUT_FORMAT_OPTIONS,
-            index=fmt_idx
-        )
-        st.session_state["rapid_mode"] = st.checkbox(
-            "⚡ Rapid Assessment Mode",
-            value=st.session_state.get("rapid_mode", False),
-            help="Highlights mandatory steps and streamlines workflow for tight time limits."
-        )
+    # 1. Dual Mode Switcher
+    mode_options = [AppMode.ORGANIZATION.value, AppMode.ASSESSMENT.value]
+    current_mode = st.session_state.get("app_mode", AppMode.ORGANIZATION.value)
+    mode_idx = mode_options.index(current_mode) if current_mode in mode_options else 0
+    selected_mode = st.selectbox("🌐 Platform Mode", mode_options, index=mode_idx)
+    if selected_mode != current_mode:
+        st.session_state.app_mode = selected_mode
+        log_audit_event("MODE_SWITCHED", f"Switched mode to {selected_mode}")
+        st.rerun()
+
+    # 2. User Role
+    role_options = [UserRole.ADMIN.value, UserRole.ANALYST.value, UserRole.VIEWER.value]
+    cur_role = st.session_state.get("user_role", UserRole.ANALYST.value)
+    role_idx = role_options.index(cur_role) if cur_role in role_options else 1
+    st.session_state.user_role = st.selectbox("👤 Active Role", role_options, index=role_idx)
 
     st.markdown("---")
-    st.subheader("🔄 Safety & Reset Controls")
-    if st.button("🧹 Reset Analysis Only", help="Clears mappings, metrics, and insights while keeping raw uploaded file intact.", use_container_width=True):
-        reset_analysis_only()
-        st.success("Analysis, mappings, and metrics reset safely. Raw dataset preserved.")
+
+    # 3. Project Save / Resume
+    with st.expander("💾 Project Save & Resume", expanded=False):
+        project_bundle_str = save_project_bundle()
+        st.download_button(
+            "⬇️ Export Project State (.json)",
+            data=project_bundle_str,
+            file_name=f"project_state_{st.session_state.get('project_state', {}).get('project_id', 'proj')}.json",
+            mime="application/json",
+            use_container_width=True
+        )
+        uploaded_proj = st.file_uploader("Restore Project State", type=["json"], key="restore_proj_file")
+        if uploaded_proj is not None:
+            if st.button("📂 Load Project Bundle", use_container_width=True, type="primary"):
+                success, msg = load_project_bundle(uploaded_proj.getvalue().decode("utf-8"))
+                if success:
+                    st.success(msg)
+                    st.rerun()
+                else:
+                    st.error(msg)
+
+    # 4. Quick Demo Dataset Loader
+    with st.expander("🚀 Instant Demo Datasets", expanded=False):
+        demo_choice = st.selectbox(
+            "Select Industry Dataset",
+            [
+                "None / Custom Upload",
+                "Healthcare Service Performance (NHS ED Flow)",
+                "Sales & Commercial Revenue",
+                "Customer Service Operations (Omnichannel)",
+                "Workforce HR & Turnover",
+                "Local Government Planning & Enforcement"
+            ]
+        )
+        if st.button("⚡ Load Selected Demo", use_container_width=True) and demo_choice != "None / Custom Upload":
+            file_map = {
+                "Healthcare Service Performance (NHS ED Flow)": "sample_data/healthcare_service_performance.csv",
+                "Sales & Commercial Revenue": "sample_data/sales_revenue_performance.csv",
+                "Customer Service Operations (Omnichannel)": "sample_data/customer_service_operations.csv",
+                "Workforce HR & Turnover": "sample_data/workforce_hr_performance.csv",
+                "Local Government Planning & Enforcement": "sample_data/local_government_service_delivery.csv"
+            }
+            path = file_map.get(demo_choice)
+            if path:
+                with open(path, "rb") as f:
+                    content = f.read()
+                df, sheets, meta = read_file_contents(content, path.split("/")[-1])
+                st.session_state.raw_df = df
+                st.session_state.clean_df = df.copy()
+                st.session_state.dataset_name = demo_choice
+                st.session_state.data_profile = profile_dataset(df, demo_choice)
+                st.session_state.suggested_mappings = suggest_semantic_mappings(df)
+                st.session_state.confirmed_mappings = {c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items() if info.get("confidence", 0) >= 0.50}
+                st.session_state.qa_report = evaluate_data_quality_10d(df)
+                st.session_state.row_granularity = st.session_state.data_profile.get("inferred_granularity", "Periodic Snapshot")
+                st.session_state.row_granularity_confirmed = True
+                advance_workflow_stage(WorkflowStage.STAGE_02_INGEST)
+                advance_workflow_stage(WorkflowStage.STAGE_03_GRANULARITY)
+                advance_workflow_stage(WorkflowStage.STAGE_04_QUALITY)
+                advance_workflow_stage(WorkflowStage.STAGE_05_MAPPING)
+                st.success(f"Loaded {demo_choice} ({len(df):,} records)")
+                st.rerun()
+
+    st.markdown("---")
+    st.subheader("🔄 Safety & State Reset")
+    if st.button("🧹 Clear Active Analysis", use_container_width=True):
+        invalidate_derived_state()
+        st.success("Cleared derived metric calculations.")
         st.rerun()
+
+# -------------------------------------------------------------
+# MAIN VIEW ROUTING: Organization Mode vs Assessment Mode
+# -------------------------------------------------------------
+if st.session_state.app_mode == AppMode.ORGANIZATION.value:
+    # ---------------------------------------------------------
+    # ENTERPRISE ORGANIZATION MODE
+    # ---------------------------------------------------------
+    st.title("📊 Performance Insight Explorer")
+    st.markdown("#### Enterprise Performance Analysis, Diagnostic and Decision-Support Platform")
+    st.caption(f"Active Organization: **{st.session_state.project_state.get('organization_name', 'Enterprise')}** | Lead Analyst: **{st.session_state.project_state.get('created_by', 'Daramola Omoyele')}**")
+
+    # Workflow Stepper Banner
+    st.markdown("---")
+    st.subheader("🧭 Guided Analysis Lifecycle Progress")
+    
+    stages = [
+        ("1. Question", WorkflowStage.STAGE_01_QUESTION),
+        ("2. Ingest", WorkflowStage.STAGE_02_INGEST),
+        ("3. Granularity", WorkflowStage.STAGE_03_GRANULARITY),
+        ("4. Quality", WorkflowStage.STAGE_04_QUALITY),
+        ("5. Mapping", WorkflowStage.STAGE_05_MAPPING),
+        ("6. KPIs", WorkflowStage.STAGE_06_KPIS),
+        ("7. Methods", WorkflowStage.STAGE_07_METHODS),
+        ("8. Overview", WorkflowStage.STAGE_08_OVERVIEW),
+        ("9. Trends", WorkflowStage.STAGE_09_TRENDS),
+        ("10. Root Cause", WorkflowStage.STAGE_10_ROOT_CAUSE),
+        ("11. Uncertainty", WorkflowStage.STAGE_11_UNCERTAINTY),
+        ("12. Insights", WorkflowStage.STAGE_12_INSIGHTS),
+        ("13. Actions", WorkflowStage.STAGE_13_RECOMMENDATIONS),
+        ("14. Governance", WorkflowStage.STAGE_15_EXPORT)
+    ]
+    
+    cols = st.columns(len(stages))
+    completed = st.session_state.get("completed_stages", [])
+    
+    for i, (label, stage_enum) in enumerate(stages):
+        is_done = stage_enum.value in completed
+        with cols[i]:
+            if is_done:
+                st.markdown(f"**🟢 {label}**")
+            else:
+                st.markdown(f"⚪ {label}")
+
+    st.markdown("---")
+
+    # Active Dataset Status Alert
+    if st.session_state.get("clean_df") is not None:
+        df_active = st.session_state["clean_df"]
+        qa_rep = st.session_state.get("qa_report", {})
+        health_score = qa_rep.get("health_score", 100.0) if qa_rep else 100.0
         
-    if st.button("⚠️ Full State Reset", help="Clears everything including uploaded files and assessment brief.", use_container_width=True):
-        reset_full_state()
-        st.warning("Full session reset complete.")
-        st.rerun()
-
-# Main Landing Page
-st.title("📊 Performance Insight Explorer")
-st.markdown("### Operational Performance & Diagnostic Toolkit for Practical Assessments")
-st.caption("Candidate / Analyst: **DARAMOLA OMOYELE** | BSR Performance Analyst Assessment Ready")
-
-# Assessment-Rules Gate
-st.info("""
-⚠️ **Check assessment rules before using this tool.**  
-If the assessment instructions prohibit pre-built tools, external assistance, AI, cloud upload, or particular software, the analyst must follow the assessment instructions.
-""")
-st.session_state["assessment_rules_confirmed"] = st.checkbox(
-    "✅ **I have reviewed the assessment rules and confirmed this workflow is permitted.**",
-    value=st.session_state.get("assessment_rules_confirmed", False)
-)
-
-# Active Dataset Status Banner
-if st.session_state.get("raw_df") is not None:
-    st.info(f"📁 **Active Dataset:** {st.session_state.get('dataset_name', 'Uploaded File')} | **Rows:** {len(st.session_state['raw_df']):,} | **Columns:** {len(st.session_state['raw_df'].columns)}")
-    
-    granularity_status = st.session_state.get("row_granularity", "Not Confirmed")
-    if granularity_status == "Not Confirmed" or not st.session_state.get("row_granularity_confirmed", False):
-        st.warning(
-            "⚠️ **ROW GRANULARITY REQUIRED:** Confirm what one row represents before interpreting rates, totals, or lifecycle metrics. "
-            "Go to **01_Upload & Profile** to confirm row granularity."
-        )
+        c_stat1, c_stat2, c_stat3, c_stat4 = st.columns(4)
+        with c_stat1:
+            st.metric("📁 Active Dataset", st.session_state.get("dataset_name", "Uploaded File"))
+        with c_stat2:
+            st.metric("📏 Total Records", f"{len(df_active):,}")
+        with c_stat3:
+            st.metric("📐 Active Columns", f"{len(df_active.columns):,}")
+        with c_stat4:
+            st.metric("🛡️ Data Quality Index", f"{health_score:.1f}/100")
+            
+        if qa_rep and qa_rep.get("is_analysis_blocked", False):
+            st.error("🚨 **CRITICAL DATA QUALITY ISSUES DETECTED:** Downstream analysis is blocked until critical issues are accepted or remediated in Stage 4.")
     else:
-        st.success(f"✅ **Row Granularity Confirmed:** 1 Row = `{st.session_state['row_granularity']}`")
+        st.info("ℹ️ **No active dataset loaded.** Start by defining the business question below or loading an industry demo from the sidebar.")
 
-st.markdown("---")
+    # Stage 1: Business Question & Project Definition Form
+    st.header("📋 Stage 1: Define Project Scope & Business Question")
+    with st.container():
+        c_p1, c_p2 = st.columns(2)
+        with c_p1:
+            st.session_state.project_state["project_name"] = st.text_input(
+                "Project Title",
+                value=st.session_state.project_state.get("project_name", "Executive Operational Review")
+            )
+            st.session_state.project_state["organization_name"] = st.text_input(
+                "Organization / Department",
+                value=st.session_state.project_state.get("organization_name", "Enterprise Operations")
+            )
+            st.session_state.project_state["business_question"] = st.text_area(
+                "Core Business Question / Performance Objective",
+                value=st.session_state.project_state.get("business_question", "What are the primary operational bottlenecks, quality variances, and efficiency opportunities?"),
+                height=100
+            )
+        with c_p2:
+            st.session_state.project_state["target_audience"] = st.text_input(
+                "Target Audience / Stakeholders",
+                value=st.session_state.project_state.get("target_audience", "Executive Leadership & Board")
+            )
+            st.session_state.project_state["time_horizon"] = st.text_input(
+                "Analysis Time Horizon",
+                value=st.session_state.project_state.get("time_horizon", "Last 12 Months")
+            )
+            st.session_state.project_state["notes"] = st.text_area(
+                "Strategic Context & Working Assumptions",
+                value=st.session_state.project_state.get("notes", ""),
+                height=100,
+                placeholder="Operational context, regulatory constraints, or policy changes..."
+            )
 
-# 1. ASSESSMENT PACK / PRACTICAL TASK INTAKE SECTION
-st.header("📋 Stage 0: Assessment Pack Intake")
-st.markdown("""
-Upload or enter the specific questions, targets, and constraints from your assessment brief below (`Question1.docx`, PDF, or text).
-The application adapts its analysis, talking points, and outputs to address your exact brief without pre-assuming any problem domain.
-""")
+        if st.button("💾 Save Project Definition", type="primary"):
+            advance_workflow_stage(WorkflowStage.STAGE_01_QUESTION)
+            st.success("Project definition saved! Proceed to **01_Data_Ingestion**.")
 
-# Brief Upload Option
-brief_landing_file = st.file_uploader("Upload Brief Document (.docx, .pdf, .txt)", type=["docx", "doc", "pdf", "txt", "md"], key="landing_brief_uploader")
-if brief_landing_file is not None:
-    try:
-        b_res = extract_assessment_brief(brief_landing_file.getvalue(), brief_landing_file.name)
-        st.session_state.assessment_brief_data = {
-            "filename": brief_landing_file.name,
-            "raw_text": b_res.get("raw_text", ""),
-            "questions": b_res.get("questions", []),
-            "question_count": b_res.get("question_count", 0),
-            "is_loaded": True
-        }
-        if b_res.get("questions"):
-            st.session_state["questions_must_answer"] = "\n".join(b_res["questions"])
-        if not st.session_state.get("assessment_question") and b_res.get("raw_text"):
-            st.session_state["assessment_question"] = b_res["raw_text"][:300] + "..."
-        st.success(f"Extracted {b_res.get('question_count', 0)} questions from `{brief_landing_file.name}`")
-    except Exception as e:
-        st.error(f"Error parsing brief: {e}")
+    st.markdown("---")
+    st.subheader("🚀 Platform Capabilities & Lifecycle Navigation")
+    
+    col_nav1, col_nav2, col_nav3 = st.columns(3)
+    with col_nav1:
+        st.markdown("""
+        #### 1️⃣ Data Foundation
+        - **01 Upload & Profile:** Ingest CSV, Excel, Parquet, JSON with chunking.
+        - **02 Data Quality:** 10-dimension QA engine with interactive remediation.
+        - **03 Column Mapping:** 25+ standard semantic roles with confidence scoring.
+        - **04 KPI Configuration:** No-code formula builder with RAG directionality.
+        """)
+    with col_nav2:
+        st.markdown("""
+        #### 2️⃣ Diagnostics & Modeling
+        - **05 Performance Overview:** Executive 3-tier dashboard & scorecard.
+        - **06 Trends & Forecasts:** Statistical process control (SPC) & time-series.
+        - **07 Comparisons & Cohorts:** ANOVA, Cohen's d effect sizes, and quartiles.
+        - **08 Root Cause:** 10-step RCA workflow, driver trees, and 5-Whys.
+        """)
+    with col_nav3:
+        st.markdown("""
+        #### 3️⃣ Action & Governance
+        - **09 Evidence Insights:** Curated deterministic findings.
+        - **10 Recommendations:** Impact × Effort prioritization & traceability.
+        - **11 Action Tracking:** Realization dashboard with causality warnings.
+        - **12 Scenario Simulator:** Interactive what-if forecasting.
+        - **13 Reporting & Exports:** Sanitized Excel packs, PPTX decks, and PDF briefs.
+        """)
 
-with st.container():
-    c_q1, c_q2 = st.columns(2)
-    with c_q1:
-        st.session_state["assessment_question"] = st.text_area(
+else:
+    # ---------------------------------------------------------
+    # PRESERVED ASSESSMENT MODE (Candidate / Timed Workflow)
+    # ---------------------------------------------------------
+    st.title("🎯 Assessment Hub (Practical Assessment Mode)")
+    st.markdown("### Operational Performance & Diagnostic Toolkit for Practical Assessments")
+    st.caption("Candidate / Analyst: **DARAMOLA OMOYELE** | Performance Analyst Assessment Ready")
+
+    st.info("""
+    ⚠️ **Assessment Rules Check:** Ensure using this tool aligns with assessment instructions.
+    All prompt cards, time-limited intake fields, and interview summaries are preserved in this mode.
+    """)
+
+    st.header("📋 Stage 0: Assessment Pack Intake")
+    brief_file = st.file_uploader("Upload Assessment Brief (.docx, .pdf, .txt)", type=["docx", "doc", "pdf", "txt", "md"])
+    if brief_file is not None:
+        try:
+            b_res = extract_assessment_brief(brief_file.getvalue(), brief_file.name)
+            st.session_state.assessment_brief_data = {
+                "filename": brief_file.name,
+                "raw_text": b_res.get("raw_text", ""),
+                "questions": b_res.get("questions", []),
+                "question_count": b_res.get("question_count", 0),
+                "is_loaded": True
+            }
+            if b_res.get("questions"):
+                st.session_state.questions_must_answer = "\n".join(b_res["questions"])
+            st.success(f"Extracted {b_res.get('question_count', 0)} questions from `{brief_file.name}`")
+        except Exception as e:
+            st.error(f"Error reading brief: {e}")
+
+    c_a1, c_a2 = st.columns(2)
+    with c_a1:
+        st.session_state.assessment_question = st.text_area(
             "1. Core Problem Statement / Main Question",
             value=st.session_state.get("assessment_question", ""),
-            height=90,
-            placeholder="Enter the exact problem or scenario defined in your assessment brief..."
+            height=80
         )
-        st.session_state["questions_must_answer"] = st.text_area(
-            "2. Specific Questions That Must Be Answered (one per line)",
+        st.session_state.questions_must_answer = st.text_area(
+            "2. Specific Questions to Answer (one per line)",
             value=st.session_state.get("questions_must_answer", ""),
-            height=90,
-            placeholder="List specific questions required by the assessment brief (one per line)..."
+            height=80
         )
-        st.session_state["mandatory_measures"] = st.text_input(
-            "3. Mandatory Measures / Targets / Benchmarks (if specified)",
-            value=st.session_state.get("mandatory_measures", ""),
-            placeholder="e.g. As stated in assessment brief (leave blank if none provided)"
+    with c_a2:
+        st.session_state.target_audience = st.text_input(
+            "3. Target Audience",
+            value=st.session_state.get("target_audience", "Assessment Panel / Leadership")
         )
-        st.session_state["required_comparisons"] = st.text_input(
-            "4. Required Comparisons / Cohorts (if specified)",
-            value=st.session_state.get("required_comparisons", ""),
-            placeholder="e.g. Cohorts or groupings requested in brief (leave blank if unguided)"
-        )
-        
-    with c_q2:
-        st.session_state["target_audience"] = st.text_input(
-            "5. Target Audience",
-            value=st.session_state.get("target_audience", ""),
-            placeholder="e.g. As specified in assessment pack or 'Not specified'"
-        )
-        st.session_state["response_time"] = st.text_input(
-            "6. Response / Presentation Time Available",
-            value=st.session_state.get("response_time", ""),
-            placeholder="e.g. As specified in assessment pack or 'Not specified'"
-        )
-        current_fmt_main = st.session_state.get("output_format", "Not specified / Await instructions")
-        fmt_idx_main = OUTPUT_FORMAT_OPTIONS.index(current_fmt_main) if current_fmt_main in OUTPUT_FORMAT_OPTIONS else 0
-        st.session_state["output_format"] = st.selectbox(
-            "7. Required Output Format",
-            OUTPUT_FORMAT_OPTIONS,
-            index=fmt_idx_main
-        )
-        st.session_state["restrictions_rules"] = st.text_input(
-            "8. Key Restrictions / Assessment Rules",
-            value=st.session_state.get("restrictions_rules", ""),
-            placeholder="e.g. Word limits, slide limits, forbidden assumptions (leave blank if none)"
-        )
-        st.session_state["other_instructions"] = st.text_area(
-            "9. Other Instructions / Working Assumptions / Analyst Notes",
-            value=st.session_state.get("other_instructions", ""),
-            height=70,
-            placeholder="Any specific constraints or analyst working notes..."
+        st.session_state.response_time = st.text_input(
+            "4. Time Available",
+            value=st.session_state.get("response_time", "45 Minutes")
         )
 
-    col_btn1, col_btn2 = st.columns([2, 1])
-    with col_btn1:
-        st.session_state["rapid_mode"] = st.checkbox(
-            "⚡ **Enable Rapid Assessment Mode** (Streamlined navigation & quick-pass checks)",
-            value=st.session_state.get("rapid_mode", False)
-        )
-    with col_btn2:
-        if st.button("💾 Save Intake Context", use_container_width=True, type="primary"):
-            st.success("Assessment context saved! Proceed to 01_Upload & Profile.")
+    st.session_state.rapid_mode = st.checkbox("⚡ Enable Rapid Assessment Mode", value=st.session_state.get("rapid_mode", False))
 
-st.markdown("---")
-
-# Quick Workflow Navigation Guide
-st.subheader("🧭 Practical Assessment Workflow Sequence")
-st.markdown("""
-`READ BRIEF` → `CONFIRM REQUIREMENT` → `UPLOAD` → `GRANULARITY` → `QA` → `MAP` → `SELECT ANALYSIS` → `ANALYSE` → `FINDINGS` → `LIMITATIONS` → `RECOMMENDATIONS` → `DEFEND`
-""")
-
-w_col1, w_col2, w_col3 = st.columns(3)
-
-with w_col1:
-    st.markdown("""
-    #### 1️⃣ Ingestion & Quality
-    - **01 Upload & Profile:** Ingest dataset (`.csv`, `.xlsx`, `.xls`) & confirm **Row Granularity**.
-    - **02 Data Quality:** Run structural & semantic checks, inspect nulls, zero denominators, and anomalies.
-    - **03 Column Mapping:** Detect and confirm roles (`volume`, `target`, `fte`, `wait_time`, `dates`).
-    """)
-
-with w_col2:
-    st.markdown("""
-    #### 2️⃣ Diagnostics & Drivers
-    - **04 Performance Overview:** Review KPI scorecard against configured target directionality.
-    - **05 Trends:** Evaluate time series, run charts, and stability if longitudinal dates exist.
-    - **06 Comparisons:** Group variance analysis across operational cohorts.
-    - **07 Driver Trees:** Root cause exploration and driver breakdown.
-    """)
-
-with w_col3:
-    st.markdown("""
-    #### 3️⃣ Governance & Defense
-    - **08 Insights:** Accept, edit, or reject data-backed findings.
-    - **09 Recommendations:** Formulate actionable operational interventions.
-    - **10 Interview View:** Assessment Summary, Prompt Card Mode & Assessor Q&A Defense.
-    - **11 Export:** Download requested output format (PowerPoint, PDF, Excel, Memo).
-    """)
-
-st.markdown("---")
-st.caption("🔒 **Analyst Integrity Principle:** The assessment brief determines the question. The dataset supplies the evidence. The analyst exercises professional judgement. All outputs are strictly derived from verified session state.")
+    if st.button("💾 Save Assessment Context", type="primary"):
+        st.success("Assessment context saved! Use **15_Assessment_Hub** for prompt cards and Q&A defense.")

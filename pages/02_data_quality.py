@@ -1,100 +1,149 @@
+"""Page 02: 10-Dimension Enterprise Data Quality Engine.
+Assesses Completeness, Validity, Accuracy, Consistency, Uniqueness, Timeliness, Integrity,
+Conformity, Coverage, and Plausibility with remediation tracking and analysis gating.
+"""
 import streamlit as st
 import pandas as pd
-from src.state import init_session_state
-from src.quality import run_structural_qa, run_semantic_qa, run_quality_audit, Severity, QualityStatus
+from core.constants import QualityDimension, QualitySeverity, RemediationAction, WorkflowStage
+from core.state import init_session_state, advance_workflow_stage, log_audit_event, invalidate_derived_state
+from modules.quality.engine import evaluate_data_quality_10d
 
 init_session_state()
 
-st.title("🛡️ 02. Two-Stage Data Quality Engine")
-st.caption("Automatic Stage A (Structural QA) and Stage B (Semantic QA with confirmed mappings).")
+st.title("🛡️ Stage 4: 10-Dimension Data Quality Engine")
+st.markdown("Automated multi-dimensional structural & semantic quality audit with remediation tracking.")
 
 df = st.session_state.get("clean_df")
-mappings = st.session_state.get("confirmed_mappings", {})
-
 if df is None:
-    st.warning("⚠️ No dataset loaded. Please upload a file on Page 01 first.")
+    st.warning("⚠️ No active dataset loaded. Please go to **01_Data_Ingestion** first.")
     st.stop()
 
-# Ensure Stage A Structural QA is populated
-if not st.session_state.get("structural_qa_report"):
-    st.session_state["structural_qa_report"] = run_structural_qa(df)
+# Evaluate Quality
+remed = st.session_state.get("remediated_issues", {})
+qa_report = evaluate_data_quality_10d(df, st.session_state.get("confirmed_mappings"), remed)
+st.session_state.qa_report = qa_report
 
-# If mappings exist, ensure Stage B Semantic QA is populated
-if mappings and not st.session_state.get("semantic_qa_report"):
-    st.session_state["semantic_qa_report"] = run_semantic_qa(df, mappings)
+# High-Level Health Scorecard
+health_score = qa_report.get("health_score", 100.0)
+crit_count = qa_report.get("critical_count", 0)
+high_count = qa_report.get("high_count", 0)
+med_count = qa_report.get("medium_count", 0)
+low_count = qa_report.get("low_count", 0)
+is_blocked = qa_report.get("is_analysis_blocked", False)
 
-if st.button("🔄 Refresh & Re-run Full Quality Scan"):
-    st.session_state["structural_qa_report"] = run_structural_qa(df)
-    if mappings:
-        st.session_state["semantic_qa_report"] = run_semantic_qa(df, mappings)
-    st.session_state["qa_report"] = run_quality_audit(df, mappings)
-    st.session_state.audit_logger.log(
-        "QA_AUDIT_RERUN",
-        f"Re-executed quality scan. Overall Health: {st.session_state['qa_report']['health_score']}/100",
-        row_count=len(df)
-    )
-    st.success("Quality audit re-executed successfully.")
-    st.rerun()
+c_q1, c_q2, c_q3, c_q4, c_q5 = st.columns(5)
+with c_q1:
+    st.metric("Overall Data Health", f"{health_score:.1f}/100")
+with c_q2:
+    st.metric("🚨 Critical Issues", f"{crit_count}", delta=None)
+with c_q3:
+    st.metric("⚠️ High Issues", f"{high_count}")
+with c_q4:
+    st.metric("🟡 Medium Issues", f"{med_count}")
+with c_q5:
+    st.metric("ℹ️ Low / Info", f"{low_count}")
 
-struct_qa = st.session_state.get("structural_qa_report", {})
-sem_qa = st.session_state.get("semantic_qa_report", {})
+# Blocking Status Alert
+if is_blocked:
+    st.error(f"🚨 **ANALYSIS BLOCKED:** {crit_count} Critical issue(s) require review and remediation before downstream analysis can proceed.")
+    for reason in qa_report.get("blocking_reasons", []):
+        st.caption(f"- ⛔ {reason}")
+else:
+    st.success("✅ **Quality Clearance Approved:** No unreviewed critical blockers. Dataset is fit for performance analysis.")
 
 st.markdown("---")
-tab_a, tab_b = st.tabs(["🏗️ Stage A: Structural QA (Immediate)", "🎯 Stage B: Semantic QA (Business Logic)"])
 
-with tab_a:
-    st.subheader("Stage A: Automatic Structural Quality Audit")
-    st.caption("Scans completeness, duplicate rows, invalid dates, negative numbers, zeros, text inconsistencies, and constant columns without needing column mappings.")
-    
-    ca1, ca2, ca3, ca4 = st.columns(4)
-    ca1.metric("Structural Health Score", f"{struct_qa.get('health_score', 100):.1f} / 100")
-    ca2.metric("Critical Issues", f"{struct_qa.get('critical_count', 0)}")
-    ca3.metric("Warning Issues", f"{struct_qa.get('warning_count', 0)}")
-    ca4.metric("Info Items", f"{struct_qa.get('info_count', 0)}")
-    
-    s_issues = struct_qa.get("issues", [])
-    if not s_issues:
-        st.success("🎉 No structural quality issues detected! Dataset passed all Stage A checks.")
-    else:
-        for iss in s_issues:
-            sev = iss["severity"]
-            badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
-            with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL or sev == Severity.WARNING)):
-                st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
-                st.markdown(f"**Description:** {iss['description']}")
-                if "method_used" in iss:
-                    st.markdown(f"**Method Used:** `{iss['method_used']}` | **Threshold:** `{iss.get('threshold', 'N/A')}`")
-                if iss.get("sample_values"):
-                    st.markdown(f"**Sample Values / Context:** `{', '.join(str(x) for x in iss['sample_values'][:5])}`")
-                if iss.get("sample_indices"):
-                    st.markdown(f"**Affected Row Indices:** `{iss['sample_indices'][:10]}`")
-                st.markdown(f"**Recommended Action:** {iss['recommended_action']}")
+# 10-Dimension Score Breakdown
+st.subheader("📊 Quality Scores by Dimension")
+dim_scores = qa_report.get("dimension_scores", {})
+cols_dim = st.columns(5)
+dim_list = list(dim_scores.items())
 
-with tab_b:
-    st.subheader("Stage B: Semantic Business Rule QA")
-    st.caption("Validates business relationships, duplicate record IDs, mapped denominator zero-risks, and backlog reconciliation gaps once column mappings are confirmed.")
-    
-    if not mappings:
-        st.info("ℹ️ **Semantic QA Pending:** Please go to **03. Column Mapping** and confirm column mappings to activate Stage B business logic checks.")
-    else:
-        cb1, cb2, cb3, cb4 = st.columns(4)
-        cb1.metric("Semantic Health Score", f"{sem_qa.get('health_score', 100):.1f} / 100")
-        cb2.metric("Critical Semantic Issues", f"{sem_qa.get('critical_count', 0)}")
-        cb3.metric("Warning Issues", f"{sem_qa.get('warning_count', 0)}")
-        cb4.metric("Info Items", f"{sem_qa.get('info_count', 0)}")
-        
-        b_issues = sem_qa.get("issues", [])
-        if not b_issues:
-            st.success("✅ All semantic and business logic checks passed cleanly!")
-        else:
-            for iss in b_issues:
-                sev = iss["severity"]
-                badge = "🔴 **CRITICAL**" if sev == Severity.CRITICAL else ("🟡 **WARNING**" if sev == Severity.WARNING else "🔵 **INFO**")
-                with st.expander(f"{badge} | [{iss['issue_id']}] {iss['title']} (Field: {iss['field']})", expanded=(sev == Severity.CRITICAL or sev == Severity.WARNING)):
-                    st.markdown(f"**Dimension:** `{iss['dimension']}` | **Affected Records:** {iss['affected_count']:,} ({iss['affected_pct']}%)")
-                    st.markdown(f"**Description:** {iss['description']}")
-                    if iss.get("sample_values"):
-                        st.markdown(f"**Sample Values / Context:** `{', '.join(str(x) for x in iss['sample_values'][:5])}`")
-                    if iss.get("sample_indices"):
-                        st.markdown(f"**Affected Row Indices:** `{iss['sample_indices'][:10]}`")
-                    st.markdown(f"**Recommended Action:** {iss['recommended_action']}")
+for idx, (dim_name, score) in enumerate(dim_list):
+    col_idx = idx % 5
+    with cols_dim[col_idx]:
+        st.metric(dim_name, f"{score:.0f}%")
+
+st.markdown("---")
+
+# Issues Audit & Remediation Workspace
+st.subheader("🔍 Quality Issue Registry & Remediation Manager")
+issues = qa_report.get("issues", [])
+
+if not issues:
+    st.info("🎉 Excellent! No data quality issues detected across all 10 dimensions.")
+else:
+    # Filter controls
+    f_c1, f_c2 = st.columns(2)
+    with f_c1:
+        sev_filter = st.multiselect("Filter by Severity", ["Critical", "High", "Medium", "Low"], default=["Critical", "High", "Medium", "Low"])
+    with f_c2:
+        dim_filter = st.multiselect("Filter by Dimension", [d.value for d in QualityDimension], default=[d.value for d in QualityDimension])
+
+    filtered_issues = [
+        i for i in issues 
+        if i.get("severity") in sev_filter and i.get("dimension") in dim_filter
+    ]
+
+    st.caption(f"Displaying {len(filtered_issues)} of {len(issues)} issues:")
+
+    for iss in filtered_issues:
+        iid = iss["issue_id"]
+        sev = iss["severity"]
+        dim = iss["dimension"]
+        title = iss["title"]
+        desc = iss["description"]
+        field = iss["field"]
+        impact = iss.get("business_impact", "")
+        treatment = iss.get("recommended_treatment", "")
+        status = remed.get(iid, {}).get("status", iss.get("status", "Unresolved"))
+        just = remed.get(iid, {}).get("justification", "")
+
+        sev_icon = "🔴" if sev == "Critical" else ("🟠" if sev == "High" else ("🟡" if sev == "Medium" else "ℹ️"))
+
+        with st.expander(f"{sev_icon} [{iid}] **{title}** | Field: `{field}` | Severity: **{sev}** | Status: `{status}`", expanded=(sev == "Critical")):
+            st.markdown(f"**Description:** {desc}")
+            st.markdown(f"**Business Impact:** {impact}")
+            st.markdown(f"**Recommended Treatment:** {treatment}")
+
+            if iss.get("sample_values"):
+                st.caption(f"Sample Observations: {iss['sample_values']}")
+
+            st.markdown("##### 🛠️ Analyst Remediation Action")
+            c_r1, c_r2, c_r3 = st.columns([2, 3, 1])
+            with c_r1:
+                action_choice = st.selectbox(
+                    "Remediation Treatment",
+                    [
+                        "Accept as Known Limitation",
+                        "Exclude Affected Records",
+                        "Flag in Governance Caveats",
+                        "Add Justification"
+                    ],
+                    key=f"action_{iid}"
+                )
+            with c_r2:
+                just_text = st.text_input("Analyst Justification / Working Note", value=just, key=f"just_{iid}", placeholder="Explain rationale for treatment...")
+            with c_r3:
+                if st.button("Apply Decision", key=f"btn_{iid}", type="primary"):
+                    st.session_state.remediated_issues[iid] = {
+                        "status": "Remediated",
+                        "action": action_choice,
+                        "justification": just_text
+                    }
+                    log_audit_event("QUALITY_ISSUE_REMEDIATED", f"Issue {iid} ({title}) remediated via '{action_choice}'. Justification: {just_text}")
+                    invalidate_derived_state()
+                    st.success(f"Updated {iid}")
+                    st.rerun()
+
+st.markdown("---")
+col_b1, col_b2 = st.columns([3, 1])
+with col_b1:
+    st.session_state.data_quality_approved = st.checkbox(
+        "✅ **I confirm that I have reviewed the Data Quality Audit and approve the dataset for analysis.**",
+        value=st.session_state.get("data_quality_approved", False)
+    )
+with col_b2:
+    if st.button("Proceed to Stage 5 (Column Mapping) ➡️", use_container_width=True, type="primary"):
+        advance_workflow_stage(WorkflowStage.STAGE_04_QUALITY)
+        st.success("Quality stage completed! Proceeding to Column Mapping.")
