@@ -657,9 +657,9 @@ def generate_comparison_chart_image(
 # 5. INDIVIDUAL SLIDE BUILDERS (16:9 Widescreen Layouts)
 # ==============================================================================
 def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total_slides: int, clean_df: Optional[pd.DataFrame] = None):
-    """Slide 1: Executive Context & Assessment Scope."""
+    """Slide 1: Executive Context & Performance Briefing Scope."""
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    _add_slide_header(slide, "Executive Performance Assessment Briefing", "Operational diagnostic, queue health, and evidence-led delivery recommendations", "STRATEGIC OVERVIEW")
+    _add_slide_header(slide, "Executive Performance Analysis Briefing", "Operational diagnostic, queue health, and evidence-led delivery recommendations", "STRATEGIC OVERVIEW")
 
     # Hero Objective Banner Box
     _add_card_box(slide, 0.8, 1.55, 11.733, 1.7, bg_color=COLOR_LIGHT_GRAY)
@@ -667,13 +667,13 @@ def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total
     tf = obj_box.text_frame
     tf.word_wrap = True
     p1 = tf.paragraphs[0]
-    p1.text = "ASSESSMENT OBJECTIVE & BUSINESS QUESTION"
+    p1.text = "PERFORMANCE OBJECTIVE & KEY QUESTIONS"
     p1.font.size = Pt(10)
     p1.font.bold = True
     p1.font.color.rgb = COLOR_TEAL
 
     p2 = tf.add_paragraph()
-    q_text = ctx.get("assessment_question") or ctx.get("question") or "Evaluate multi-team operational throughput, diagnose queue constraints, and recommend capacity interventions."
+    q_text = ctx.get("assessment_question") or ctx.get("question") or ctx.get("user_objective") or "Evaluate multi-team operational throughput, diagnose queue constraints, and recommend capacity interventions."
     p2.text = f'"{q_text}"'
     p2.font.size = Pt(14)
     p2.font.bold = True
@@ -682,7 +682,7 @@ def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total
 
     p3 = tf.add_paragraph()
     author_name = meta.get("author", "DARAMOLA OMOYELE")
-    p3.text = f"Lead Performance Analyst: {author_name}   |   Prepared for: {ctx.get('target_audience', 'Chief Operating Officer & Senior Leadership')}   |   Assessment Lens: {ctx.get('assessment_lens', 'Throughput efficiency, backlog stability, and capacity balance')}"
+    p3.text = f"Lead Performance Analyst: {author_name}   |   Prepared for: {ctx.get('target_audience', 'Senior Leadership & Stakeholders')}   |   Analysis Focus: {ctx.get('analysis_focus', ctx.get('assessment_lens', 'Throughput efficiency, backlog stability, and capacity balance'))}"
     p3.font.size = Pt(10)
     p3.font.color.rgb = COLOR_MUTED_TEXT
     p3.space_before = Pt(4)
@@ -695,7 +695,7 @@ def _build_slide_1_opening(prs, ctx: Dict[str, Any], meta: Dict[str, Any], total
         ("SOURCE DATASET", meta.get("filename", "Operational Dataset.csv"), "Active ingestion payload verified", COLOR_NAVY),
         ("DATASET DIMENSIONS", f"{row_cnt:,} Rows  |  {col_cnt} Columns", "Complete verified tabular scope", COLOR_NAVY),
         ("ROW GRANULARITY", meta.get("row_granularity", "Periodic operational snapshot"), "Analyst-confirmed record unit", COLOR_TEAL),
-        ("ASSESSMENT SCOPE", meta.get("analysis_scope", "Multi-Team Operations & Queue Health"), "Standardized 16:9 widescreen briefing", COLOR_SECONDARY),
+        ("ANALYSIS SCOPE", meta.get("analysis_scope", "Multi-Team Operations & Queue Health"), "Standardized 16:9 widescreen briefing", COLOR_SECONDARY),
     ]
 
     card_w = 2.76
@@ -1658,50 +1658,113 @@ def generate_interview_powerpoint(
     )
     return filepath
 
-def generate_assessment_presentation(
-    payload_or_filepath: Any,
+def generate_public_performance_presentation(
+    payload_or_filepath: Any = None,
     output_filepath: Optional[str] = None,
-    **kwargs
+    include_appendix: bool = False,
+    as_bytes: bool = False,
+    df: Optional[pd.DataFrame] = None,
+    findings_data: Optional[Dict[str, Any]] = None,
+    brief_context: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
 ) -> Any:
     """
-    Unified entry point for PowerPoint generation.
-    Accepts either a structured payload dict (from build_export_payload_from_state)
-    or standard positional arguments.
+    Unified entry point for PowerPoint presentation generation.
+    Accepts:
+    - payload dict
+    - output_filepath string
+    - df, findings_data, brief_context keyword arguments
+    - no arguments (extracts active session state)
+    Returns: Presentation object, file path string, or raw bytes (if as_bytes=True or output_filepath is BytesIO).
     """
+    import io
+    from modules.reporting.export_builder import build_canonical_reporting_payload
+
     if isinstance(payload_or_filepath, dict):
         payload = payload_or_filepath
-        meta = payload.get("metadata", {})
-        ds = payload.get("dataset", {})
-        qa = payload.get("data_quality", {})
-        kpis = payload.get("kpis", {})
-        trends = payload.get("trends")
-        comps = payload.get("comparisons")
-        findings = payload.get("findings", [])
-        recs = payload.get("recommendations", [])
-        if isinstance(recs, list):
-            recs_dict = {"operational": recs}
+    elif payload_or_filepath is None or isinstance(payload_or_filepath, pd.DataFrame):
+        target_df = payload_or_filepath if isinstance(payload_or_filepath, pd.DataFrame) else df
+        if findings_data or brief_context or target_df is not None:
+            insights_list = findings_data.get("insights", []) if findings_data else []
+            kpis = findings_data.get("kpis", {}) if findings_data else {}
+            recs = findings_data.get("recs", []) if findings_data else []
+            payload = build_canonical_reporting_payload(
+                state_or_df=target_df,
+                insights_list=insights_list,
+                kpi_results=kpis,
+                recommendations_list=recs,
+                **kwargs
+            )
         else:
-            recs_dict = recs
-            
-        out_path = output_filepath or "exports/assessment_presentation_16x9.pptx"
-        os.makedirs(os.path.dirname(out_path), exist_ok=True) if os.path.dirname(out_path) else None
-        
-        prs = Presentation()
-        prs.slide_width = Inches(SLIDE_WIDTH_IN)
-        prs.slide_height = Inches(SLIDE_HEIGHT_IN)
-        total_slides = 6
-        
-        # Build standard 6-slide deck
-        _build_slide_1_opening(prs, meta, {"filename": ds.get("name", "Active Dataset"), "row_count": ds.get("row_count", 0), "col_count": ds.get("col_count", 0), "row_granularity": ds.get("granularity", "Records")}, total_slides)
-        _build_slide_2_qa(prs, {"health_score": qa.get("health_score", 100.0), "critical_count": 0, "warning_count": len(qa.get("caveats", [])), "issues": []}, {"row_granularity": ds.get("granularity", "Records")}, total_slides)
-        _build_slide_3_performance(prs, kpis, total_slides)
-        _build_slide_4_trends(prs, trends, comps, None, {}, total_slides)
-        _build_slide_5_insights(prs, findings, total_slides)
-        _build_slide_6_actions(prs, recs_dict, qa.get("caveats", []), total_slides)
-        
-        prs.save(out_path)
-        prs.output_path = out_path
-        return prs
+            payload = build_canonical_reporting_payload(**kwargs)
+    elif isinstance(payload_or_filepath, str):
+        # Filepath passed as first positional arg
+        return generate_powerpoint_presentation(payload_or_filepath, include_appendix=include_appendix, **kwargs)
     else:
-        return generate_powerpoint_presentation(payload_or_filepath, **kwargs)
+        payload = build_canonical_reporting_payload(**kwargs)
+
+    meta = payload.get("metadata", {})
+    ds = payload.get("dataset", {})
+    qa = payload.get("data_quality", {})
+    kpis = payload.get("kpis", {})
+    trends = payload.get("trends")
+    comps = payload.get("comparisons")
+    findings = payload.get("findings", [])
+    recs = payload.get("recommendations", [])
+    if isinstance(recs, list):
+        recs_dict = {"operational": recs}
+    else:
+        recs_dict = recs
+
+    prs = Presentation()
+    prs.slide_width = Inches(SLIDE_WIDTH_IN)
+    prs.slide_height = Inches(SLIDE_HEIGHT_IN)
+    total_slides = 10 if include_appendix else 6
+
+    ctx = payload.get("assessment_context") or payload.get("context") or {}
+    meta_dict = {
+        "filename": ds.get("name", "Active Dataset"),
+        "row_count": ds.get("row_count", 0),
+        "column_count": ds.get("column_count", ds.get("col_count", 0)),
+        "row_granularity": ds.get("granularity", "Records"),
+        "author": meta.get("author", "DARAMOLA OMOYELE")
+    }
+    qa_dict = {
+        "health_score": qa.get("health_score", 100.0),
+        "critical_count": qa.get("critical_count", 0),
+        "warning_count": len(qa.get("caveats", [])),
+        "issues": qa.get("issues", [])
+    }
+
+    # Build 6 core slides
+    _build_slide_1_opening(prs, ctx, meta_dict, total_slides, clean_df=payload.get("clean_df"))
+    _build_slide_2_qa(prs, qa_dict, meta_dict, total_slides, clean_df=payload.get("clean_df"))
+    _build_slide_3_performance(prs, kpis, total_slides)
+    _build_slide_4_trends(prs, trends, comps, clean_df=payload.get("clean_df"), confirmed_mappings=payload.get("confirmed_mappings", {}), total_slides=total_slides)
+    _build_slide_5_insights(prs, findings, total_slides)
+    _build_slide_6_actions(prs, recs_dict, payload.get("limitations", []), total_slides)
+
+    if include_appendix:
+        _build_slide_7_appendix_methods(prs, total_slides)
+        _build_slide_8_appendix_qa(prs, qa_dict, total_slides)
+        _build_slide_9_appendix_governance(prs, payload.get("assumptions", []), payload.get("limitations", []), total_slides)
+        _build_slide_10_appendix_comparison_table(prs, comps, total_slides)
+
+    if as_bytes or isinstance(output_filepath, io.BytesIO):
+        bio = output_filepath if isinstance(output_filepath, io.BytesIO) else io.BytesIO()
+        prs.save(bio)
+        return bio.getvalue()
+
+    out_path = output_filepath or "exports/performance_presentation_16x9.pptx"
+    if os.path.dirname(out_path):
+        os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    prs.save(out_path)
+    prs.output_path = out_path
+    return prs
+
+
+# Backward-compatible aliases
+generate_assessment_presentation = generate_public_performance_presentation
+generate_public_powerpoint = generate_interview_powerpoint
+
 
