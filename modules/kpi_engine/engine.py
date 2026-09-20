@@ -55,7 +55,7 @@ def evaluate_kpi_rag_status(
     if isinstance(direction, str):
         direction = TargetDirection(direction)
 
-    if direction == TargetDirection.INFORMATIONAL or target is None:
+    if direction == TargetDirection.INFORMATIONAL:
         return {
             "status": "Informational",
             "color": "#0d6efd",  # Informational blue
@@ -66,9 +66,20 @@ def evaluate_kpi_rag_status(
             "interpretation": f"Current value: {actual:,.2f} {kpi_def.unit} (Informational benchmark only)."
         }
 
-    var_num = actual - target
-    var_pct = (var_num / target * 100.0) if (target != 0.0 and not np.isnan(target)) else 0.0
-    attainment = (actual / target * 100.0) if (target != 0.0 and not np.isnan(target)) else None
+    if target is None and direction != TargetDirection.TARGET_RANGE:
+        return {
+            "status": "Informational",
+            "color": "#0d6efd",
+            "icon": "ℹ️",
+            "variance": None,
+            "variance_pct": None,
+            "attainment_pct": None,
+            "interpretation": f"Current value: {actual:,.2f} {kpi_def.unit} (No target benchmark configured)."
+        }
+
+    var_num = (actual - target) if target is not None else 0.0
+    var_pct = (var_num / target * 100.0) if (target is not None and target != 0.0 and not np.isnan(target)) else 0.0
+    attainment = (actual / target * 100.0) if (target is not None and target != 0.0 and not np.isnan(target)) else None
 
     # 1. Higher Is Better
     if direction == TargetDirection.HIGHER_IS_BETTER:
@@ -114,8 +125,8 @@ def evaluate_kpi_rag_status(
 
     # 3. Target Range (e.g., Bed occupancy 85-90%)
     elif direction == TargetDirection.TARGET_RANGE:
-        t_min = kpi_def.target_min if kpi_def.target_min is not None else (target * 0.90)
-        t_max = kpi_def.target_max if kpi_def.target_max is not None else (target * 1.10)
+        t_min = kpi_def.target_min if kpi_def.target_min is not None else ((target * 0.90) if target is not None else 0.0)
+        t_max = kpi_def.target_max if kpi_def.target_max is not None else ((target * 1.10) if target is not None else 100.0)
 
         if t_min <= actual <= t_max:
             status = "Green (In Target Range)"
@@ -130,7 +141,7 @@ def evaluate_kpi_rag_status(
 
     # 4. Exact Target
     else:
-        if round(actual, 2) == round(target, 2):
+        if target is not None and round(actual, 2) == round(target, 2):
             status = "Green (Exact Target)"
             color = "#198754"
             icon = "🟢"
@@ -139,7 +150,7 @@ def evaluate_kpi_rag_status(
             status = "Amber (Variance Observed)"
             color = "#ffc107"
             icon = "🟡"
-            interp = f"Variance of {var_num:+,.2f} {kpi_def.unit} from target {target:,.2f}."
+            interp = f"Variance of {var_num:+,.2f} {kpi_def.unit} from target {target:,.2f}." if target is not None else "Variance observed."
 
     return {
         "status": status,
