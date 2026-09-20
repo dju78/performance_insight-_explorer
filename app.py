@@ -10,7 +10,7 @@ from datetime import datetime
 from core.constants import AppMode, UserRole, WorkflowStage, WORKFLOW_STAGES_ORDER
 from core.state import (
     init_session_state, get_working_df, log_audit_event, advance_workflow_stage,
-    save_project_bundle, load_project_bundle, clear_dataset_for_new_upload, invalidate_derived_state
+    save_project_bundle, load_project_bundle, invalidate_derived_state
 )
 from modules.ingestion.parser import read_file_contents
 from modules.profiling.profiler import profile_dataset
