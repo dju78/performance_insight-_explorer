@@ -115,3 +115,110 @@ def generate_deterministic_insights(
             insight_idx += 1
 
     return insights
+
+
+def normalize_finding(item: Any) -> Optional[Dict[str, Any]]:
+    """Safely normalise finding from dataclass, dict, or string into a standardized dict."""
+    if item is None:
+        return None
+
+    if isinstance(item, str):
+        text = item.strip()
+        if not text:
+            return None
+        return {
+            "title": text[:60] + ("..." if len(text) > 60 else ""),
+            "evidence_level": "Not assessed",
+            "description": text,
+            "metric": "Operational Performance",
+            "where": "Enterprise-Wide",
+            "when": "Overall Period",
+            "impact": "General performance insight",
+            "limitation": "Derived from summary text record"
+        }
+
+    def _extract(key_list: List[str], default: str = "") -> str:
+        for k in key_list:
+            if isinstance(item, dict) and k in item and item[k] is not None:
+                return str(item[k]).strip()
+            elif hasattr(item, k) and getattr(item, k) is not None:
+                return str(getattr(item, k)).strip()
+        return default
+
+    title = _extract(["finding_title", "title", "name", "headline", "summary"], default="Performance Finding")
+    evidence_level = _extract(["confidence_level", "evidence_level", "confidence", "evidence_tier", "strength"], default="Not assessed")
+    description = _extract(["quantitative_evidence", "observation", "description", "details", "text", "body", "finding"], default="")
+    metric = _extract(["kpi_affected", "metric", "kpi", "measure", "metric_name"], default="Operational Performance")
+    where = _extract(["affected_segment", "where", "segment", "group", "cohort", "dimension"], default="Enterprise-Wide")
+    when = _extract(["time_period", "when", "period", "date_range", "timeline"], default="Overall Period")
+    impact = _extract(["business_significance", "business_impact", "impact", "severity", "significance"], default="Material Operational Observation")
+    limitation = _extract(["statistical_limitation", "limitations_disclosure", "data_quality_caveat", "limitation", "caveat"], default="Observational findings subject to data completeness")
+
+    return {
+        "title": title or "Performance Finding",
+        "evidence_level": evidence_level or "Not assessed",
+        "description": description,
+        "metric": metric,
+        "where": where,
+        "when": when,
+        "impact": impact,
+        "limitation": limitation
+    }
+
+
+def normalize_recommendation(item: Any) -> Optional[Dict[str, Any]]:
+    """Safely normalise recommendation from dataclass, dict, or string into a standardized dict."""
+    if item is None:
+        return None
+
+    if isinstance(item, str):
+        text = item.strip()
+        if not text:
+            return None
+        return {
+            "id": "REC-001",
+            "title": text[:60] + ("..." if len(text) > 60 else ""),
+            "problem": text,
+            "proposed_action": text,
+            "expected_benefit": "Operational improvement",
+            "impact": "Medium",
+            "effort": "Medium",
+            "owner": "Operations Lead",
+            "timescale": "30-60 days",
+            "priority": "High"
+        }
+
+    def _extract(key_list: List[str], default: str = "") -> str:
+        for k in key_list:
+            if isinstance(item, dict) and k in item and item[k] is not None:
+                return str(item[k]).strip()
+            elif hasattr(item, k) and getattr(item, k) is not None:
+                val = getattr(item, k)
+                if hasattr(val, "value"):
+                    return str(val.value).strip()
+                return str(val).strip()
+        return default
+
+    rec_id = _extract(["id", "rec_id", "code"], default="REC-001")
+    title = _extract(["title", "name", "action_title", "headline"], default="Recommended Operational Action")
+    problem = _extract(["problem_addressed", "problem", "issue", "rationale", "title"], default="Operational performance variance")
+    proposed_action = _extract(["proposed_action", "action", "recommendation", "treatment", "proposed_intervention"], default="")
+    expected_benefit = _extract(["expected_benefit", "benefit", "outcome", "target_outcome"], default="Targeted efficiency gain")
+    impact = _extract(["impact", "impact_level"], default="High")
+    effort = _extract(["effort", "effort_level"], default="Medium")
+    owner = _extract(["responsible_owner", "owner", "owner_role", "assignee"], default="Operations Lead")
+    timescale = _extract(["timescale", "timeframe", "target_milestone", "due_date"], default="30-60 days")
+    priority = _extract(["priority", "priority_level"], default="High")
+
+    return {
+        "id": rec_id,
+        "title": title or "Recommended Action",
+        "problem": problem,
+        "proposed_action": proposed_action or problem,
+        "expected_benefit": expected_benefit,
+        "impact": impact,
+        "effort": effort,
+        "owner": owner,
+        "timescale": timescale,
+        "priority": priority
+    }
