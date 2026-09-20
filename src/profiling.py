@@ -98,7 +98,7 @@ def profile_dataset(df: pd.DataFrame, filename: str = "", sheet_name: str = "") 
         datetime_summary = {}
         if is_datetime:
             try:
-                s_dt = pd.to_datetime(series, errors="coerce").dropna()
+                s_dt = pd.to_datetime(series, errors="coerce", format="mixed").dropna()
                 if len(s_dt) > 0:
                     min_d = s_dt.min().strftime("%Y-%m-%d")
                     max_d = s_dt.max().strftime("%Y-%m-%d")
@@ -142,7 +142,7 @@ def profile_dataset(df: pd.DataFrame, filename: str = "", sheet_name: str = "") 
     global_date_range = None
     if candidate_dates:
         first_d_col = candidate_dates[0]
-        s_dt = pd.to_datetime(df[first_d_col], errors="coerce").dropna()
+        s_dt = pd.to_datetime(df[first_d_col], errors="coerce", format="mixed").dropna()
         if len(s_dt) > 0:
             global_date_range = {
                 "column": first_d_col,

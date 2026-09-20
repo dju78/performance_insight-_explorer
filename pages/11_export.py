@@ -1,151 +1,165 @@
-import os
+"""Page 11: Enterprise Reporting, Multi-Format Exports & Scenario Simulator.
+Generates publication-grade deliverables:
+- Executive Summary Markdown Memo
+- Multi-Tab Sanitized Excel Evidence Pack (Formula-Injection Protected)
+- PowerPoint Presentation Deck
+- ReportLab PDF Briefing
+- Interactive Operational What-If Scenario Simulator
+"""
 import streamlit as st
-from src.state import init_session_state, reset_analysis_only, clear_dataset_for_new_upload
-from src.export import (
-    build_export_payload_from_state,
-    generate_executive_excel_pack,
-    generate_powerpoint_deck,
-    generate_pdf_report,
-    generate_audit_trail_text
+import pandas as pd
+from datetime import datetime
+
+from core.constants import WorkflowStage
+from core.state import init_session_state, get_working_df, advance_workflow_stage, log_audit_event
+from modules.reporting.export_builder import (
+    build_markdown_executive_report, generate_excel_evidence_pack
 )
+from modules.forecasting.simulator import run_scenario_simulation
+from src.powerpoint import generate_assessment_presentation
+from src.pdf_report import generate_pdf_report
 
 init_session_state()
 
-st.title("📦 11. Multi-Format Export & Final Deliverables")
-st.markdown("Generate executive PDF briefings, PowerPoint decks, analytical Excel workbooks, and reproducible audit logs.")
+st.title("📄 Stage 14 & 15: Reporting, Exports & Scenarios")
+st.markdown("Download verified enterprise performance evidence packs and simulate operational what-if scenarios.")
 
-df = st.session_state.get("clean_df")
-if df is None:
-    df = st.session_state.get("raw_df")
-    
-if df is None:
-    st.warning("⚠️ No active dataset loaded. Please upload a dataset on Page 01 first.")
-    st.stop()
+df = get_working_df()
+proj_state = st.session_state.get("project_state", {})
+kpi_results = st.session_state.get("kpi_results", {})
+insights = st.session_state.get("insights_list", [])
+recommendations = st.session_state.get("recommendations_list", [])
+actions = st.session_state.get("action_registry", [])
+qa_report = st.session_state.get("qa_report")
 
-# 1. Build & Inspect Verified Export Payload
-payload = build_export_payload_from_state()
+# -------------------------------------------------------------
+# 1. WHAT-IF SCENARIO & CAPACITY SIMULATOR
+# -------------------------------------------------------------
+st.subheader("🔮 Operational Scenario & Capacity Simulator")
+st.caption("Model the impact of demand surges, staffing/FTE variations, and productivity gains. All outputs are explicitly flagged as estimates.")
 
-st.subheader("📋 Pre-Export Governance Checklist")
-c_ck1, c_ck2, c_ck3, c_ck4 = st.columns(4)
-c_ck1.metric("Dataset File", payload.get("filename", "N/A")[:18])
-c_ck2.metric("Worksheet / Scope", payload.get("active_sheet", "Default"))
-c_ck3.metric("Data Volume", f"{payload.get('row_count', 0):,} rows")
-c_ck4.metric("Row Granularity", payload.get("row_granularity", "Not Confirmed"))
+with st.expander("⚙️ Adjust Scenario Assumptions & Parametric Multipliers", expanded=False):
+    c_s1, c_s2, c_s3 = st.columns(3)
+    with c_s1:
+        demand_mult = st.slider("Demand Volume Multiplier", 0.70, 1.50, 1.0, 0.05, format="%.2fx")
+    with c_s2:
+        fte_mult = st.slider("Staffing / FTE Capacity Multiplier", 0.70, 1.50, 1.0, 0.05, format="%.2fx")
+    with c_s3:
+        prod_gain = st.slider("Productivity Gain % (Continuous Improvement)", -20.0, 30.0, 0.0, 5.0, format="%.1f%%")
 
-c_ck5, c_ck6, c_ck7, c_ck8 = st.columns(4)
-qa = payload.get("qa_report", {})
-c_ck5.metric("QA Health Score", f"{qa.get('health_score', 100):.1f} / 100")
-c_ck6.metric("Mappings Confirmed", f"{len(payload.get('confirmed_mappings', {}))} columns")
-c_ck7.metric("Approved Findings", f"{len(payload.get('approved_insights', []))}")
-c_ck8.metric("Approved Actions", f"{len(payload.get('approved_recommendations', []))}")
+    # Baseline calculations
+    base_vol = 1000.0
+    base_fte = 10.0
+    base_prod = 100.0
+    if df is not None:
+        num_cols = df.select_dtypes(include=["number"]).columns
+        if len(num_cols) > 0:
+            base_vol = float(df[num_cols[0]].sum())
+            base_prod = float(df[num_cols[0]].mean())
 
-# Check Validation Errors
-if not payload["is_valid_for_export"]:
-    st.error("🚫 **Export Blocked — Mandatory Prerequisites Missing:**")
-    for err in payload["validation_errors"]:
-        st.markdown(f"- {err}")
-    st.info("Please complete the required workflow steps before generating final deliverables.")
-    st.stop()
-else:
-    st.success("✅ **Governance Gate Passed:** All mandatory workflow steps are verified. Deliverables will contain active session findings only.")
-
-st.markdown("---")
-st.subheader("🚀 Export Deliverables")
-
-col_e1, col_e2, col_e3, col_e4 = st.columns(4)
-
-with col_e1:
-    st.markdown("#### 📄 Executive PDF Brief")
-    st.caption("A4 publication-ready briefing generated via ReportLab Platypus.")
-    pdf_aud = st.selectbox(
-        "PDF Report Audience:",
-        ["Senior Leadership", "Operational Management", "Analyst / Technical", "General Briefing"],
-        key="pdf_aud_select"
+    sim_res = run_scenario_simulation(
+        base_vol, base_fte, base_prod, demand_mult, fte_mult, prod_gain
     )
-    if st.button("Generate PDF Brief", type="primary", use_container_width=True):
-        try:
-            pdf_path = generate_pdf_report(payload, audience=pdf_aud)
-            with open(pdf_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download PDF Report",
-                    data=f.read(),
-                    file_name=os.path.basename(pdf_path),
-                    mime="application/pdf",
-                    use_container_width=True
-                )
-            st.success(f"PDF saved: `{os.path.basename(pdf_path)}`")
-        except Exception as e:
-            st.error(f"Error generating PDF: {e}")
 
-with col_e2:
-    st.markdown("#### 📊 Presentation Deck")
-    st.caption("16:9 widescreen executive briefing deck with live KPI cards and charts.")
-    pptx_appendix = st.checkbox("Include Technical Appendix (Slides 7–10)", value=False, key="pptx_appendix_toggle")
-    if st.button("Generate PowerPoint", use_container_width=True):
-        try:
-            pptx_path = generate_powerpoint_deck(payload, include_appendix=pptx_appendix)
-            with open(pptx_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download Deck (.pptx)",
-                    data=f.read(),
-                    file_name=os.path.basename(pptx_path),
-                    mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-                    use_container_width=True
-                )
-            st.success(f"PowerPoint saved: `{os.path.basename(pptx_path)}`")
-        except Exception as e:
-            st.error(f"Error generating PowerPoint: {e}")
-
-with col_e3:
-    st.markdown("#### 📑 Analytical Excel Pack")
-    st.caption("Multi-tab workbook containing KPIs, QA audit, insights, and raw data.")
-    if st.button("Generate Excel Pack", use_container_width=True):
-        try:
-            excel_path = generate_executive_excel_pack(payload)
-            with open(excel_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download Excel (.xlsx)",
-                    data=f.read(),
-                    file_name=os.path.basename(excel_path),
-                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-                    use_container_width=True
-                )
-            st.success(f"Excel workbook saved: `{os.path.basename(excel_path)}`")
-        except Exception as e:
-            st.error(f"Error generating Excel: {e}")
-
-with col_e4:
-    st.markdown("#### 🛡️ Audit & Repro Log")
-    st.caption("Complete timestamped ledger of analyst actions and transformations.")
-    if st.button("Generate Audit Trail", use_container_width=True):
-        try:
-            audit_path = generate_audit_trail_text(payload.get("audit_trail", []))
-            with open(audit_path, "rb") as f:
-                st.download_button(
-                    label="⬇️ Download Audit Log (.txt)",
-                    data=f.read(),
-                    file_name=os.path.basename(audit_path),
-                    mime="text/plain",
-                    use_container_width=True
-                )
-            st.success(f"Audit log saved: `{os.path.basename(audit_path)}`")
-        except Exception as e:
-            st.error(f"Error generating Audit log: {e}")
+    st.markdown(f"ℹ️ **{sim_res['disclaimer']}**")
+    
+    scen_rows = []
+    for sc_name, sc_data in sim_res["scenarios"].items():
+        row = {"Scenario": sc_name}
+        row.update(sc_data)
+        scen_rows.append(row)
+    st.dataframe(pd.DataFrame(scen_rows), use_container_width=True)
 
 st.markdown("---")
-st.subheader("🧹 Session Transition & Data Management")
-st.caption("Choose between clearing the active dataset to start a new analysis or resetting calculations to re-map columns.")
 
-col_rst1, col_rst2 = st.columns(2)
-with col_rst1:
-    if st.button("✅ Analysis Complete — Clear Data & Start New Upload", type="primary", use_container_width=True):
-        clear_dataset_for_new_upload(preserve_assessment_context=True)
-        st.success("Dataset and analysis cleared cleanly. Returning to Data Upload...")
-        st.switch_page("pages/01_upload_profile.py")
+# -------------------------------------------------------------
+# 2. MULTI-FORMAT ENTERPRISE EXPORTS
+# -------------------------------------------------------------
+st.subheader("📥 Export Performance Evidence Deliverables")
 
-with col_rst2:
-    if st.button("🔄 Reset Analysis Only (Keep Uploaded File)", use_container_width=True):
-        reset_analysis_only()
-        st.success("Analysis reset safely! Returning to Column Mapping...")
-        st.switch_page("pages/03_column_mapping.py")
+col_e1, col_e2, col_e3 = st.columns(3)
 
+# 1. Excel Evidence Pack (Sanitized)
+with col_e1:
+    st.markdown("##### 📗 Excel Evidence Pack")
+    st.caption("Multi-tab workbook with KPI scorecards, insights, action registry, and sanitized data extract.")
+    try:
+        excel_bytes = generate_excel_evidence_pack(
+            proj_state, df, kpi_results, insights, recommendations, actions, qa_report
+        )
+        st.download_button(
+            "⬇️ Download Excel Evidence Pack (.xlsx)",
+            data=excel_bytes,
+            file_name=f"Performance_Evidence_Pack_{datetime.now().strftime('%Y%m%d')}.xlsx",
+            mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"Excel export error: {e}")
+
+# 2. PowerPoint Presentation Deck
+with col_e2:
+    st.markdown("##### 📙 PowerPoint Deck (16:9)")
+    st.caption("Executive slide presentation with scorecard, diagnostic findings, and prioritized actions.")
+    try:
+        pptx_bytes = generate_assessment_presentation(
+            df=df,
+            findings_data={"insights": insights, "kpis": kpi_results, "recs": recommendations},
+            brief_context=st.session_state.get("assessment_brief_data", {})
+        )
+        st.download_button(
+            "⬇️ Download PowerPoint Deck (.pptx)",
+            data=pptx_bytes,
+            file_name=f"Executive_Performance_Briefing_{datetime.now().strftime('%Y%m%d')}.pptx",
+            mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"PowerPoint export error: {e}")
+
+# 3. PDF Briefing Report
+with col_e3:
+    st.markdown("##### 📕 PDF Briefing Report")
+    st.caption("Publication-ready executive PDF memo formatted for board governance.")
+    try:
+        pdf_bytes = generate_pdf_report(
+            df=df,
+            findings_data={"insights": insights, "kpis": kpi_results, "recs": recommendations},
+            brief_context=st.session_state.get("assessment_brief_data", {})
+        )
+        st.download_button(
+            "⬇️ Download PDF Briefing (.pdf)",
+            data=pdf_bytes,
+            file_name=f"Executive_Performance_Report_{datetime.now().strftime('%Y%m%d')}.pdf",
+            mime="application/pdf",
+            use_container_width=True
+        )
+    except Exception as e:
+        st.error(f"PDF export error: {e}")
+
+st.markdown("---")
+
+# -------------------------------------------------------------
+# 3. EXECUTIVE SUMMARY MEMORANDUM PREVIEW
+# -------------------------------------------------------------
+st.subheader("📑 Executive Summary Memo Preview")
+exec_report_md = build_markdown_executive_report(
+    proj_state, kpi_results, insights, recommendations, actions, qa_report
+)
+
+with st.expander("📄 View Full Markdown Report", expanded=True):
+    st.markdown(exec_report_md)
+
+st.download_button(
+    "⬇️ Download Markdown Executive Memo (.md)",
+    data=exec_report_md,
+    file_name=f"Executive_Memo_{datetime.now().strftime('%Y%m%d')}.md",
+    mime="text/markdown",
+    use_container_width=True
+)
+
+st.markdown("---")
+if st.button("Complete Governance & Export Lifecycle ✅", type="primary"):
+    advance_workflow_stage(WorkflowStage.STAGE_15_EXPORT)
+    log_audit_event("LIFECYCLE_COMPLETED", "Full analysis lifecycle completed and exported.")
+    st.success("Complete performance analysis lifecycle successfully finalized and archived in audit trail!")

@@ -1,73 +1,102 @@
+"""Page 08: Evidence-Based Insights & Findings Curation.
+Features:
+- Deterministic insight generation directly from verified session computations
+- Full insight metadata (Finding, Evidence, Confidence, Caveats, Limitations, Next Steps)
+- Analyst curation workflow: Accept, Edit, Reject, Pin, Add Context
+"""
 import streamlit as st
 import pandas as pd
-from src.state import init_session_state, get_working_df
-from src.insights import generate_rule_based_insights
+from core.constants import WorkflowStage
+from core.models import EvidenceInsight
+from core.state import init_session_state, advance_workflow_stage, log_audit_event
+from modules.insights.engine import generate_deterministic_insights
 
 init_session_state()
 
-st.title("💡 08. Diagnostic Insights & Hypothesis Engine")
-st.markdown("""
-Review auto-generated analytical findings.
-- **Review Workflow:** Mark each finding as **Accept**, **Edit**, or **Reject**.
-- Only **Approved** insights feed downstream recommendations, the **Interview View**, and export decks.
-""")
+st.title("💡 Stage 12: Evidence-Based Insights")
+st.markdown("Curate, verify, and approve empirical diagnostic findings derived strictly from calculated results.")
 
-df = get_working_df()
-mappings = st.session_state.get("confirmed_mappings", {})
-target_dirs = st.session_state.get("target_directions", {})
-granularity = st.session_state.get("row_granularity", "Case / record")
+kpi_results = st.session_state.get("kpi_results", {})
+comparisons = st.session_state.get("comparison_summary")
+trends = st.session_state.get("trend_summary")
+qa_report = st.session_state.get("qa_report")
 
-if df is None or not mappings:
-    st.warning("⚠️ **Workflow Gate:** Please upload data and confirm column mappings on Page 03 first.")
+# Auto-generate insights if not present
+if not st.session_state.get("insights_list"):
+    insights = generate_deterministic_insights(kpi_results, comparisons, trends, qa_report)
+    st.session_state.insights_list = insights
+
+insights_list = st.session_state.get("insights_list", [])
+
+if not insights_list:
+    st.info("ℹ️ No active insights generated yet. Configure KPIs in **04_Performance_Overview** to generate empirical findings.")
     st.stop()
 
-# Generate raw insights if empty
-if not st.session_state.get("insights_list"):
-    st.session_state["insights_list"] = generate_rule_based_insights(df, mappings, target_dirs, granularity)
+st.caption(f"Generated {len(insights_list)} empirical findings based on verified metric variances:")
 
-insights = st.session_state.get("insights_list", [])
+# Display and Curate Insight Cards
+for idx, ins in enumerate(insights_list):
+    ins_id = getattr(ins, "id", f"INS-{idx+1:03d}")
+    title = getattr(ins, "finding_title", "")
+    evid = getattr(ins, "quantitative_evidence", "")
+    kpi = getattr(ins, "kpi_affected", "")
+    conf = getattr(ins, "confidence_level", "")
+    sig = getattr(ins, "business_significance", "")
+    lim = getattr(ins, "statistical_limitation", "")
+    caveat = getattr(ins, "data_quality_caveat", "")
+    follow = getattr(ins, "suggested_follow_up", "")
+    cur_status = getattr(ins, "status", "Active")
+    notes = getattr(ins, "analyst_context_notes", "")
 
-if not insights:
-    st.info("No rule-based anomalies detected based on current mappings.")
-else:
-    st.subheader(f"🔍 Diagnostic Findings ({len(insights)} Generated)")
-    
-    for i, item in enumerate(insights):
-        with st.container():
-            st.markdown(f"### Finding #{i+1}: {item.get('title', 'Insight')}")
-            
-            c_badge1, c_badge2, c_badge3 = st.columns([1, 1, 2])
-            c_badge1.caption(f"**Severity:** `{item.get('severity', 'medium').upper()}`")
-            c_badge2.caption(f"**Category:** `{item.get('category', 'general')}`")
-            status = item.get('status', 'pending')
-            status_color = "green" if status == "approved" else ("red" if status == "rejected" else "orange")
-            c_badge3.markdown(f"**Status:** :{status_color}[{status.upper()}]")
-            
-            # Editable finding text
-            current_text = item.get('finding', '')
-            edited_finding = st.text_area(f"Finding Description (Editable)", value=current_text, key=f"insight_edit_{i}", height=70)
-            item['finding'] = edited_finding
-            
-            # Action buttons
-            b1, b2, b3 = st.columns([1, 1, 4])
-            with b1:
-                if st.button("✅ Accept", key=f"acc_ins_{i}", use_container_width=True):
-                    item['status'] = "approved"
-                    st.session_state.audit_logger.log("INSIGHT_APPROVED", f"Approved insight {item.get('id')}", details={"id": item.get("id"), "title": item.get("title")})
-                    st.rerun()
-            with b2:
-                if st.button("❌ Reject", key=f"rej_ins_{i}", use_container_width=True):
-                    item['status'] = "rejected"
-                    st.session_state.audit_logger.log("INSIGHT_REJECTED", f"Rejected insight {item.get('id')}", details={"id": item.get("id"), "title": item.get("title")})
-                    st.rerun()
-            with b3:
-                if st.button("✏️ Save Edits & Approve", key=f"save_ins_{i}"):
-                    item['status'] = "approved"
-                    st.session_state.audit_logger.log("INSIGHT_EDITED", f"Edited and approved insight {item.get('id')}", details={"id": item.get("id"), "text": edited_finding})
-                    st.success("Saved and approved!")
-                    st.rerun()
-            
-            st.markdown("---")
+    status_icon = "📌" if cur_status == "Pinned" else ("✅" if cur_status == "Accepted" else ("❌" if cur_status == "Rejected" else "💡"))
 
-approved_count = len([x for x in insights if x.get('status') == 'approved'])
-st.info(f"📊 **Approved Findings:** {approved_count} of {len(insights)} approved for presentation export.")
+    with st.expander(f"{status_icon} [{ins_id}] **{title}** | KPI: `{kpi}` | Status: **{cur_status}**", expanded=(cur_status in ["Active", "Pinned"])):
+        st.markdown(f"**Quantitative Evidence:** {evid}")
+        
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"**Confidence Level:** `{conf}`")
+            st.markdown(f"**Business Significance:** *{sig}*")
+            st.markdown(f"**Data Quality Caveat:** {caveat}")
+        with c2:
+            st.markdown(f"**Statistical Limitation:** {lim}")
+            st.markdown(f"**Recommended Follow-Up:** {follow}")
+
+        # Qualitative Notes
+        analyst_note = st.text_input(
+            "Analyst Operational Context / Notes",
+            value=notes,
+            key=f"ins_note_{ins_id}",
+            placeholder="Add operational justification or context..."
+        )
+        if hasattr(ins, "analyst_context_notes"):
+            ins.analyst_context_notes = analyst_note
+
+        # Action Buttons
+        b_c1, b_c2, b_c3 = st.columns(3)
+        with b_c1:
+            if st.button(f"✅ Accept Finding", key=f"acc_{ins_id}", use_container_width=True):
+                if hasattr(ins, "status"):
+                    ins.status = "Accepted"
+                log_audit_event("INSIGHT_ACCEPTED", f"Accepted insight {ins_id}")
+                st.success("Accepted finding.")
+                st.rerun()
+        with b_c2:
+            if st.button(f"📌 Pin to Executive Summary", key=f"pin_{ins_id}", use_container_width=True):
+                if hasattr(ins, "status"):
+                    ins.status = "Pinned"
+                log_audit_event("INSIGHT_PINNED", f"Pinned insight {ins_id}")
+                st.info("Pinned finding.")
+                st.rerun()
+        with b_c3:
+            if st.button(f"❌ Reject Finding", key=f"rej_{ins_id}", use_container_width=True):
+                if hasattr(ins, "status"):
+                    ins.status = "Rejected"
+                log_audit_event("INSIGHT_REJECTED", f"Rejected insight {ins_id}")
+                st.warning("Rejected finding.")
+                st.rerun()
+
+st.markdown("---")
+if st.button("Proceed to Stage 13 (Recommendations & Priorities) ➡️", type="primary"):
+    advance_workflow_stage(WorkflowStage.STAGE_12_INSIGHTS)
+    st.success("Insights stage approved! Proceeding to Recommendations.")

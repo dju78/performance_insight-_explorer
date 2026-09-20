@@ -1,208 +1,105 @@
 # Performance Insight Explorer
 
-**Operational Performance • Data Quality • Analysis • Insight**  
-*Production-Quality, Schema-Flexible Operational Decision-Support Application*
+**Enterprise Performance Analysis, Diagnostic and Decision-Support Platform**  
+*Production-Quality, Multi-Sector Operational Decision-Support & Diagnostic System*
 
 - **Live Production App:** [https://performance-insight-explorer.streamlit.app](https://performance-insight-explorer.streamlit.app)
 - **GitHub Repository:** [https://github.com/dju78/performance_insight-_explorer](https://github.com/dju78/performance_insight-_explorer)
-- **Author:** DARAMOLA OMOYELE  
-- **Version:** 1.0.0 (`v1.0-performance-assessment`)  
-- **License:** MIT / Internal Performance Assessment
+- **Product Owner / Lead Architect:** DARAMOLA OMOYELE  
+- **Version:** 2.0.0 (`v2.0-enterprise-platform`)  
+- **License:** MIT / Enterprise Operational Analysis
 
 ---
 
-## 🌟 Overview & Purpose
+## 🌟 Overview & Dual-Mode Positioning
 
-**Performance Insight Explorer** is a schema-flexible, offline-first operational analytics application built in Python and Streamlit. It is engineered specifically to accept unfamiliar operational datasets (CSV, XLS, XLSX) with arbitrary column names, automatically profile structural properties, execute a rigorous 6-dimension data quality scan, facilitate user-confirmed role mapping, calculate guarded performance KPIs, identify trends and anomalies, and export executive PowerPoint presentations, PDF briefings, and multi-tab Excel workbooks.
+**Performance Insight Explorer** is an enterprise-grade, schema-flexible operational performance analysis and decision-support platform built with Python and Streamlit.
 
----
-
-## 📋 Practical Assessment Workflow
-
-The application supports multi-dataset ingestion, assessment brief extraction, relationship joins, and automated benchmark verification:
-
-### 14-Step User Workflow
-
-1. **Upload `Question1.docx` as Assessment Brief** (Page 01: extracted as business requirements, never profiled as tabular data).
-2. **Upload `performance.xlsx` as Primary Analysis Dataset** (Page 01: select sheet `Performance Data`).
-3. **Upload `Users.xlsx` as Reference / Master Dataset** (Page 01: select sheet `Users`).
-4. **Confirm Performance granularity:** `Periodic Snapshot (1 row = 1 User for 1 Reporting Month)`.
-5. **Confirm Users granularity:** `Reference / Master Record (1 row = 1 User)`.
-6. **Create relationship:** `performance.User -> Users.User` (Left Join).
-7. **Confirm 100% relationship QA:** Validate match coverage, unmatched rows, and duplicate keys.
-8. **Review Data Quality** (Page 02: structural & semantic checks).
-9. **Confirm Column Mapping** (Page 03: semantic roles and target directionality).
-10. **Review Performance Overview** (Page 04: scorecard metrics).
-11. **Review Trends and Comparisons** (Pages 05 & 06: longitudinal and cohort variance).
-12. **Review Insights and Recommendations** (Pages 08 & 09: diagnostic findings and action matrix).
-13. **Open Interview View** (Page 10: Q1–Q5 verification, prompt cards, and executive memo).
-14. **Export required outputs** (Page 11: PowerPoint, PDF briefing, Excel pack, and Text memo).
-
-### Verified Assessment Benchmarks (Regression Baseline)
-
-| Metric / Checkpoint | Expected Assessment Value | Verified Model Result |
-| :--- | :--- | :--- |
-| **Performance Dataset Rows** | `2,539` | `2,539` |
-| **Users Reference Dataset Rows** | `309` | `309` |
-| **Relationship Match Coverage** | `100.0%` | `100.0%` (2,539 / 2,539 rows) |
-| **Unmatched / Orphan Users** | `0` | `0` |
-| **Duplicate Master Keys** | `0` | `0` |
-| **Q3 Condition** | `Service == "Service A" & Band == 3` | Evaluated (856 matches / 33.7%) |
-| **Q4 Valid Observations** | `796` (2025, Service B, Band 3 & 5) | `796` |
-| **Q4 Average Availability %** | `≈ 78.91%` | `78.9079%` (`78.91%`) |
-| **Q4 Median Availability %** | `≈ 85.05%` | `85.0513%` (`85.05%`) |
-| **Q5 Jan 2025 Availability %** | `≈ 75.93%` (Service B, Band 3) | `75.9288%` (`75.93%`) |
-| **Q5 Feb 2025 Availability %** | `≈ 84.26%` (Service B, Band 3) | `84.2556%` (`84.26%`) |
+The platform supports two distinct operational modes:
+1. **Organization Mode (Default):** Complete end-to-end performance analysis lifecycle, dynamic no-code KPI builder, 10-dimension data quality engine, Shewhart statistical process control (SPC) charts, multivariate root-cause driver modeling, evidence-based insight curation, Impact $\times$ Effort recommendation matrix, action tracking, scenario forecasting, and enterprise governance.
+2. **Assessment Mode:** Preserves timed practical assessment intakes, prompt cards, executive interview summaries, and assessor Q&A defense.
 
 ---
 
-## 🔑 Key Engineering Principles
+## 🔄 End-to-End Performance Analysis Lifecycle
 
-1. **Schema Flexibility (Zero Hard-Coding):** Works on conceptual analytical roles (`record_id`, `date`, `team`, `actual`, `target`, `received`, `completed`, `opening_backlog`, `closing_backlog`, `fte`, `hours_used`, `hours_available`, `processing_time`, etc.) rather than rigid column names.
-2. **Non-Destructive Data Preservation:** The pristine raw uploaded dataset is preserved untouched. Observations are never silently mutated, deleted, or fabricated.
-3. **Safe Mathematical Guardrails:** All metric calculations are protected against division-by-zero (`safe_divide`), returning `NaN` or controlled representations.
-4. **Transparent Calculation Tracing:** Every metric card displays its explicit mathematical formula, interpretation guidelines, and denominator origin. Estimated flow measures (e.g. Net Flow) are clearly flagged.
-5. **No False Causation:** Statistical associations (Pearson & Spearman correlations) include prominent disclaimers emphasizing that correlation does not establish causation.
-6. **100% Offline-First Privacy:** All file ingestion, profiling, chart rendering, and presentation generation execute locally without external cloud APIs.
+The platform guides users through an auditable, rigorous 15-stage operational lifecycle:
+
+$$\text{Define Question} \rightarrow \text{Ingest \& Profile} \rightarrow \text{Confirm Granularity} \rightarrow \text{10D Quality QA} \rightarrow \text{Semantic Mapping} \rightarrow \text{KPI Configuration} \rightarrow \text{Method Selection} \rightarrow \text{Overview Scorecard} \rightarrow \text{SPC Trends} \rightarrow \text{RCA Diagnostics} \rightarrow \text{Uncertainty Review} \rightarrow \text{Evidence Insights} \rightarrow \text{Prioritized Recs} \rightarrow \text{Action Tracking} \rightarrow \text{Governance \& Export}$$
 
 ---
 
-## 🚀 Quick Start (Windows)
+## 🏛️ Multi-Sector Enterprise Application
 
-### Option 1: One-Click Setup & Launch
-1. Run **`setup_windows.bat`** to create the virtual environment and install all dependencies:
-   ```cmd
-   setup_windows.bat
-   ```
-2. Launch the application using **`run_windows.bat`**:
-   ```cmd
-   run_windows.bat
-   ```
+Works out-of-the-box across diverse operational sectors without assuming rigid column schemas:
+- **Healthcare & Social Care:** Emergency Department triage, wait times, bed occupancy, doctor FTE, 4-hour SLA attainment.
+- **Sales & Commercial Operations:** Inbound leads, SDR capacity, conversion rate %, deal cycle duration, target vs actual revenue.
+- **Customer Service Operations:** Omnichannel ticket inflow, First Contact Resolution (FCR %), CSAT scores, agent utilization, backlog inventory.
+- **Human Resources & Workforce:** Department headcount, sick absence rates, voluntary turnover %, vacancy rates, recruitment expenditure.
+- **Local Government & Public Services:** Planning applications received, statutory 8-week determination %, case officer caseloads.
+- **General Business Operations & Manufacturing:** Production throughput, machine capacity utilization, cycle time, scrap/rework rates.
 
-### Option 2: Manual Terminal Commands
+---
+
+## 🛡️ Key Enterprise Features & Defenses
+
+1. **10-Dimension Data Quality Engine:** Evaluates Completeness, Validity, Accuracy, Consistency, Uniqueness, Timeliness, Integrity, Conformity, Coverage, and Plausibility with analysis-blocking triggers for critical issues and interactive remediation (Accept, Exclude, Flag, Justify, Clean).
+2. **Dynamic No-Code KPI Builder:** Configure custom metrics, numerators/denominators, 12 aggregation methods, target directionalities (Higher is Better, Lower is Better, Target Range, Exact Target, Informational), warning/critical thresholds, and safe zero-denominator arithmetic.
+3. **Statistical & Diagnostic Depth:** Shewhart SPC run charts ($\pm 3\sigma$ control limits), ANOVA between-group significance ($p$-values), Cohen's $d$ effect sizes, Pareto 80/20 curves, multivariate OLS regression driver importance ($R^2$), 5-Whys trees, and Ishikawa Fishbone categories.
+4. **Impact × Effort Prioritization & Traceability:** Formulates Quick Wins, Strategic Initiatives, Investigations, and Monitoring actions with non-prescriptive wording safeguards and a full traceability chain ($\text{Data} \rightarrow \text{Calculation} \rightarrow \text{Finding} \rightarrow \text{Recommendation} \rightarrow \text{Action} \rightarrow \text{Outcome}$).
+5. **Action Tracking & Benefits Realization:** Track assigned actions (Owner, Due Date, Status, Baseline vs Expected vs Actual) with explicit causality caveat disclosures.
+6. **Operational Scenario Simulator:** Model what-if demand volume, staffing/FTE, and productivity adjustments with baseline, optimistic, and conservative trajectory projections.
+7. **Security & Privacy Safeguards:** Protection against spreadsheet formula injection (CWE-1236 escaping leading `=`, `+`, `-`, `@`), small-cell statistical suppression ($n < 5$ disclosure control), RBAC permissions, and tamper-evident SHA-256 audit chaining.
+8. **Multi-Format Reporting:** Generates PowerPoint presentation decks (16:9), ReportLab PDF briefing memos, sanitized multi-tab Excel evidence workbooks, and Markdown summaries.
+
+---
+
+## 🚀 Quick Start (Local Setup)
+
 ```powershell
-# 1. Create and activate virtual environment
-python -m venv venv
-.\venv\Scripts\activate
+# 1. Clone repository
+git clone https://github.com/dju78/performance_insight-_explorer.git
+cd "performance analysis"
 
 # 2. Install dependencies
 pip install -r requirements.txt
 
-# 3. Launch Streamlit
+# 3. Run automated tests (130 tests)
+python -m pytest
+
+# 4. Launch Streamlit Application
 streamlit run app.py
 ```
 
-The application will open in your browser at `http://localhost:8501`.
-
 ---
 
-## 📁 Project Architecture & Directory Structure
+## 📁 Repository Structure
 
-```text
-performance_insight_explorer/
-│
-├── app.py                         # Main Streamlit landing & orchestrator
-├── requirements.txt               # Pinned Python package dependencies
-├── README.md                      # Complete system documentation
-├── CHANGELOG.md                   # Chronological version changelog
-├── USER_GUIDE.md                  # Step-by-step user and assessment guide
-├── setup_windows.bat              # Automated Windows setup script
-├── run_windows.bat                # Automated Windows launch script
-│
-├── pages/                         # Streamlit multi-page interface (12 pages)
-│   ├── 01_upload_profile.py       # File ingestion, multi-dataset hub & relationships
-│   ├── 02_data_quality.py         # 6-dimension QA scan & issue tracker
-│   ├── 03_column_mapping.py       # AI-assisted role mapping interface
-│   ├── 04_performance_overview.py # Headline KPI dashboard & gauge
-│   ├── 05_trends.py               # Time-series dynamics & trajectories
-│   ├── 06_comparisons.py          # Ranked segment comparisons & normalisation
-│   ├── 07_root_cause.py           # 5-Pillar workspace & correlation matrix
-│   ├── 08_insights.py             # 6-part structured insight cards
-│   ├── 09_recommendations.py      # Action plan & Governance registers
-│   ├── 10_interview_view.py       # Q1-Q5 verification & oral briefing mode
-│   ├── 11_export.py               # PowerPoint, PDF & Excel export generators
-│   └── 12_audit_trail.py          # Real-time session event logger
-│
-├── src/                           # Reusable core analytical engine
-│   ├── __init__.py                # Package root
-│   ├── brief_extractor.py         # Assessment brief requirements extractor
-│   ├── relationships.py           # Multi-dataset join & relationship QA engine
-│   ├── ingestion.py               # Safe CSV/XLS/XLSX file loader
-│   ├── profiling.py               # Structural statistics & type inference
-│   ├── quality.py                 # Multi-dimensional Data Quality engine
-│   ├── mapping.py                 # Keyword heuristics & role catalogue
-│   ├── metrics.py                 # Guarded mathematical KPI calculations
-│   ├── trends.py                  # Chronological time-series engine
-│   ├── comparisons.py             # Cross-group aggregation & rate calculator
-│   ├── root_cause.py              # 5-Pillar diagnostics & correlations
-│   ├── insights.py                # Traceable 6-part structured insight cards
-│   ├── recommendations.py         # Action matrix, Assumptions & Limitations
-│   ├── visualisations.py          # Publication-ready Plotly chart builders
-│   ├── powerpoint.py              # 6-slide python-pptx presentation deck
-│   ├── pdf_report.py              # ReportLab PDF executive brief generator
-│   ├── reporting.py               # Multi-worksheet openpyxl Excel exporter
-│   ├── audit.py                   # Thread-safe audit event logger
-│   └── state.py                   # Streamlit session state controller
-│
-├── config/                        # Declarative system configurations
-│   ├── metric_definitions.yaml    # KPI formulas, units, and interpretations
-│   ├── mapping_patterns.yaml      # Synonym keywords & role metadata
-│   └── settings.yaml              # Application thresholds and settings
-│
-├── sample_data/                   # Realistic synthetic test datasets
-│   ├── dataset_a_team_month.csv   # Aggregated team-month operational data
-│   ├── dataset_a_team_month.xlsx  # Multi-sheet Excel version of Dataset A
-│   ├── dataset_b_case_level.csv   # Granular case-level operational registry
-│   ├── dataset_b_case_level.xlsx  # Excel version of Dataset B
-│   ├── dataset_c_poor_quality.csv # Deliberately faulty data for QA testing
-│   └── dataset_c_poor_quality.xlsx# Excel version of Dataset C
-│
-├── tests/                         # Comprehensive Pytest automated test suite
-│   ├── test_ingestion.py          # Tests for CSV, XLSX, encoding handling
-│   ├── test_profiling.py          # Tests for structural type inference
-│   ├── test_mapping.py            # Tests for heuristic mapping & validation
-│   ├── test_quality.py            # Tests for QA anomaly detection
-│   ├── test_metrics.py            # Tests for guarded KPI formulas & zero-div
-│   ├── test_trends.py             # Tests for time-series diffs & directions
-│   ├── test_comparisons.py        # Tests for group ranking & sample size flags
-│   ├── test_powerpoint.py         # Tests for 6-slide PPTX generation
-│   ├── test_reporting.py          # Tests for multi-worksheet Excel workbook
-│   ├── test_edge_cases.py         # Tests for empty, single-row, zero-denom data
-│   ├── test_audit_and_insights.py # Tests for audit logger, root cause, insights
-│   ├── test_multi_dataset_relationships.py # Multi-dataset & relationship QA tests
-│   └── test_all_pages_execution.py# Compilation and page execution verification
-│
-├── docs/                          # Controlling project documentation
-└── outputs/                       # Destination for generated deliverables
-    ├── presentations/             # Generated .pptx presentation decks
-    ├── reports/                   # Generated .xlsx summary workbooks
-    ├── briefs/                    # Generated .pdf executive briefings
-    ├── charts/                    # Exported chart assets
-    └── audit/                     # Exported session audit logs
+```
+├── app.py                         # Unified Dual-Mode Entry Point
+├── core/
+│   ├── constants.py               # Enums (Modes, Roles, Stages, Severities)
+│   ├── models.py                  # Dataclasses (KPIs, Quality, Insights, Recs, Actions)
+│   ├── security.py                # Formula injection sanitizer, suppression, RBAC, audit hashing
+│   └── state.py                   # Centralized Session State & Project Bundle Save/Resume
+├── modules/
+│   ├── ingestion/                 # CSV, Excel, Parquet, JSON, chunking & transformation log
+│   ├── profiling/                 # Cardinality, granularity heuristics, memory estimate
+│   ├── quality/                   # 10-Dimension Data Quality Engine & remediation
+│   ├── mapping/                   # 25+ Semantic Roles & statistical confidence inferrer
+│   ├── kpi_engine/                # Dynamic formula evaluator & RAG directionality
+│   ├── analysis/                  # Descriptive stats, SPC run charts, ANOVA, Pareto
+│   ├── diagnostics/               # 10-Step RCA, driver correlations, regression importance
+│   ├── forecasting/               # Scenario simulator & what-if capacity planner
+│   ├── insights/                  # Deterministic evidence insight engine
+│   ├── recommendations/           # Impact-Effort matrix & end-to-end traceability
+│   ├── actions/                   # Action registry & benefits realization tracker
+│   └── reporting/                 # Multi-format report builder (PPTX, PDF, Excel, MD)
+├── pages/                         # Streamlit multi-page UI (Stages 01 through 12)
+├── sample_data/                   # 5 Multi-sector synthetic datasets
+└── tests/                         # Comprehensive pytest test suite (130 tests passing)
 ```
 
 ---
 
-## 🧪 Automated Testing & Verification
-
-Run the full automated test suite using `pytest`:
-```bash
-python -m pytest -v
-```
-
-All 110 unit, integration, edge-case, relationship, and end-to-end pipeline tests run locally without network dependencies.
-
----
-
-## 📊 Deliverables & Export Locations
-
-- **PowerPoint Decks:** Saved to `outputs/presentations/`
-- **PDF Briefings:** Saved to `outputs/briefs/`
-- **Excel Summaries:** Saved to `outputs/reports/`
-- **Audit Trails:** Saved to `outputs/audit/` or downloaded directly via the UI.
-
----
-
-## 👤 Product Owner & Author
-**DARAMOLA OMOYELE**  
-*Performance Insight Explorer v1.0.0*
+*Authored and architected by **Daramola Omoyele**.*

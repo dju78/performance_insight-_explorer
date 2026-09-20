@@ -1,91 +1,121 @@
+"""Page 09: Prioritized Recommendations, Impact-Effort Matrix & Traceability.
+Features:
+- Prioritized recommendations following directly from accepted evidence insights
+- Impact x Effort framework (Quick Wins, Strategic Initiatives, Investigations)
+- Non-prescriptive wording safeguards
+- Full lifecycle Traceability Matrix (Data -> Calculation -> Finding -> Recommendation -> Action -> Outcome)
+- One-click conversion of recommendations into tracked action items
+"""
 import streamlit as st
 import pandas as pd
-from src.state import init_session_state
-from src.recommendations import RecommendationEngine
+from core.constants import WorkflowStage
+from core.state import init_session_state, advance_workflow_stage, log_audit_event
+from modules.recommendations.engine import generate_prioritized_recommendations, build_traceability_matrix
+from modules.actions.tracker import convert_recommendation_to_action
 
 init_session_state()
 
-st.title("🛠️ 09. Actionable Recommendations & Interventions")
-st.markdown("""
-Formulate operational interventions mapped strictly to **analyst-approved** root-cause findings.
-- **Evidence-Backed Governance:** Recommendations are generated **only** from approved findings and remain **Pending** until analyst confirmation.
-- **No Fabricated Metrics:** Expected impact fields are left empty for genuine analyst estimation.
-""")
+st.title("🎯 Stage 13: Prioritized Recommendations & Traceability")
+st.markdown("Formulate actionable, evidence-grounded operational interventions with Impact × Effort prioritization.")
 
 insights = st.session_state.get("insights_list", [])
-approved_insights = [x for x in insights if x.get("status") == "approved"]
+if not insights:
+    st.info("ℹ️ No active insights found. Complete Stage 12 (Insights) before generating recommendations.")
+    st.stop()
 
-# Auto-generate draft recommendations strictly for approved insights if recommendations_list is empty
-if approved_insights and not st.session_state.get("recommendations_list"):
-    st.session_state["recommendations_list"] = RecommendationEngine.generate_recommendations(approved_insights)
+# Generate or retrieve recommendations
+if not st.session_state.get("recommendations_list"):
+    recs = generate_prioritized_recommendations(insights)
+    st.session_state.recommendations_list = recs
 
-recs = st.session_state.get("recommendations_list", [])
+recommendations = st.session_state.get("recommendations_list", [])
 
-if not approved_insights and not recs:
-    st.warning("⚠️ **No Evidence-Based Recommendations Available:** No analytical findings have been approved yet. Please go to **08. Insights** and approve at least one finding, or add an analyst-authored recommendation below.")
-else:
-    st.subheader(f"📋 Recommendation Review ({len(recs)} Items)")
-    
-    for i, rec in enumerate(recs):
-        with st.container():
-            st.markdown(f"### Recommendation #{i+1}: {rec.get('title')}")
-            if rec.get("finding"):
-                st.caption(f"**Linked Evidence:** {rec.get('finding')}")
-                
-            status = rec.get("status", "pending")
-            st_color = "green" if status == "approved" else ("red" if status == "rejected" else "orange")
-            st.markdown(f"**Status:** :{st_color}[{status.upper()}]")
-            
-            c1, c2 = st.columns(2)
-            with c1:
-                rec['action'] = st.text_area(f"Action Detail", value=rec.get('action', ''), key=f"rec_act_{i}", height=80)
-                rec['expected_impact'] = st.text_input(f"Expected Impact (Analyst-Authored)", value=rec.get('expected_impact', ''), key=f"rec_imp_{i}", placeholder="e.g. 10% turnaround reduction within 3 weeks")
-            with c2:
-                rec['owner'] = st.text_input(f"Accountable Owner", value=rec.get('owner', 'Operations Manager'), key=f"rec_own_{i}")
-                rec['timeframe'] = st.text_input(f"Timeframe / Effort", value=rec.get('timeframe', '2-4 Weeks'), key=f"rec_tf_{i}")
-                
-            b1, b2, b3 = st.columns([1, 1, 4])
-            with b1:
-                if st.button("✅ Accept", key=f"acc_rec_{i}", use_container_width=True):
-                    rec['status'] = "approved"
-                    st.session_state.audit_logger.log("RECOMMENDATION_APPROVED", f"Approved recommendation {rec.get('id')}", details={"id": rec.get("id"), "title": rec.get("title")})
-                    st.rerun()
-            with b2:
-                if st.button("❌ Reject", key=f"rej_rec_{i}", use_container_width=True):
-                    rec['status'] = "rejected"
-                    st.session_state.audit_logger.log("RECOMMENDATION_REJECTED", f"Rejected recommendation {rec.get('id')}", details={"id": rec.get("id"), "title": rec.get("title")})
-                    st.rerun()
-            with b3:
-                if st.button("✏️ Save & Approve", key=f"save_rec_{i}"):
-                    rec['status'] = "approved"
-                    st.session_state.audit_logger.log("RECOMMENDATION_EDITED", f"Edited and approved recommendation {rec.get('id')}", details={"id": rec.get("id")})
-                    st.success("Saved and approved!")
-                    st.rerun()
-                    
-            st.markdown("---")
+# Impact x Effort Overview
+st.subheader("1️⃣ Prioritization Matrix (Impact × Effort)")
 
-# Add Custom Analyst-Authored Recommendation
-with st.expander("➕ Add Custom Analyst-Authored Recommendation"):
-    new_title = st.text_input("Intervention Title", placeholder="e.g. Fast-Track Triage for Priority Cases")
-    new_action = st.text_area("Action Steps", placeholder="Specific operational implementation steps...")
-    new_owner = st.text_input("Accountable Owner", placeholder="e.g. Service Delivery Lead")
-    new_impact = st.text_input("Expected Impact", placeholder="e.g. Reduce queue wait time by 2 days")
-    new_tf = st.text_input("Timeframe", placeholder="e.g. 2 Weeks")
-    
-    if st.button("Add & Approve Recommendation", type="primary"):
-        if new_title and new_action:
-            recs.append({
-                "id": f"REC-CUST-{len(recs)+1:02d}",
-                "title": new_title,
-                "finding": "Analyst-Authored Intervention",
-                "evidence": "Strategic intervention defined during operational interview analysis.",
-                "action": new_action,
-                "owner": new_owner or "Operations Lead",
-                "timeframe": new_tf or "2 Weeks",
-                "expected_impact": new_impact or "Operational optimization",
-                "status": "approved"
-            })
-            st.session_state["recommendations_list"] = recs
-            st.session_state.audit_logger.log("RECOMMENDATION_ADDED", f"Added custom recommendation: {new_title}")
-            st.success("Custom recommendation added and approved!")
-            st.rerun()
+col_qw, col_si, col_fi = st.columns(3)
+quick_wins = [r for r in recommendations if getattr(r, "category", "") == "Quick Win" or getattr(r, "category", {}).value == "Quick Win"]
+strat_inits = [r for r in recommendations if "Strategic" in str(getattr(r, "category", ""))]
+monitors = [r for r in recommendations if "Monitoring" in str(getattr(r, "category", "")) or "Investigation" in str(getattr(r, "category", ""))]
+
+with col_qw:
+    st.markdown("##### ⚡ Quick Wins (High Impact / Low-Med Effort)")
+    st.caption(f"{len(quick_wins)} recommended intervention(s)")
+with col_si:
+    st.markdown("##### 🏛️ Strategic Initiatives (High Impact / High Effort)")
+    st.caption(f"{len(strat_inits)} recommended intervention(s)")
+with col_fi:
+    st.markdown("##### 🔍 Continuous Monitoring / Investigation")
+    st.caption(f"{len(monitors)} recommended action(s)")
+
+st.markdown("---")
+
+# Recommendations List & Action Conversion
+st.subheader("2️⃣ Recommended Operational Interventions")
+
+for rec in recommendations:
+    rec_id = getattr(rec, "id", "")
+    prob = getattr(rec, "problem_addressed", "")
+    act_prop = getattr(rec, "proposed_action", "")
+    benefit = getattr(rec, "expected_benefit", "")
+    prio = getattr(rec, "priority", "High")
+    prio_str = prio.value if hasattr(prio, "value") else str(prio)
+    cat = getattr(rec, "category", "Quick Win")
+    cat_str = cat.value if hasattr(cat, "value") else str(cat)
+    owner = getattr(rec, "responsible_owner", "Operations Lead")
+    ts = getattr(rec, "timescale", "30-60 days")
+    succ = getattr(rec, "success_measure", "")
+    risk = getattr(rec, "risk", "")
+    conf = getattr(rec, "confidence_level", "")
+
+    with st.expander(f"📌 [{rec_id}] **{cat_str}**: {prob[:60]}... | Priority: **{prio_str}** | Owner: `{owner}`"):
+        st.markdown(f"**Problem Addressed:** {prob}")
+        st.markdown(f"**Proposed Operational Action:** {act_prop}")
+        st.markdown(f"**Expected Benefit:** {benefit}")
+
+        c1, c2 = st.columns(2)
+        with c1:
+            st.markdown(f"- **Implementation Timescale:** `{ts}`")
+            st.markdown(f"- **Target Success Metric:** `{succ}`")
+            st.markdown(f"- **Implementation Risk:** {risk}")
+        with c2:
+            st.markdown(f"- **Assigned Accountable Owner:** `{owner}`")
+            st.markdown(f"- **Evidence Grounding Confidence:** `{conf}`")
+
+        # Convert to Tracked Action Form
+        st.markdown("##### 📋 Convert into Tracked Action Item")
+        c_a1, c_a2, c_a3 = st.columns([3, 2, 1])
+        with c_a1:
+            act_title = st.text_input("Action Title", value=f"Implement {rec_id} Intervention", key=f"act_title_{rec_id}")
+        with c_a2:
+            act_owner = st.text_input("Action Owner", value=owner, key=f"act_owner_{rec_id}")
+        with c_a3:
+            if st.button("➕ Convert to Action", key=f"btn_conv_{rec_id}", type="primary"):
+                action_item = convert_recommendation_to_action(
+                    rec, act_title, act_prop, act_owner, "Operations", "Next Month End"
+                )
+                st.session_state.action_registry.append(action_item)
+                log_audit_event("ACTION_CONVERTED_FROM_REC", f"Converted {rec_id} to Action Item {action_item.id}")
+                st.success(f"Created action item [{action_item.id}]! View in Action Tracking.")
+                st.rerun()
+
+# -------------------------------------------------------------
+# 3. END-TO-END TRACEABILITY MATRIX
+# -------------------------------------------------------------
+st.markdown("---")
+st.subheader("3️⃣ End-to-End Lifecycle Traceability Matrix")
+st.caption("Verifiable chain linking Data -> Calculation -> Finding -> Recommendation -> Action -> Outcome.")
+
+trace_df = build_traceability_matrix(
+    st.session_state.get("dataset_name", "Active Dataset"),
+    st.session_state.get("kpi_results", {}),
+    insights,
+    recommendations,
+    st.session_state.get("action_registry", [])
+)
+st.dataframe(trace_df, use_container_width=True)
+
+st.markdown("---")
+if st.button("Proceed to Stage 14 (Action Tracking & Realization) ➡️", type="primary"):
+    advance_workflow_stage(WorkflowStage.STAGE_13_RECOMMENDATIONS)
+    st.success("Recommendations approved.")

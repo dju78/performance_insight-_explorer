@@ -1,0 +1,49 @@
+reporting_month,directorate,service_area,cases_received,cases_completed,actual_sla_attainment_pct,target_sla_pct,avg_processing_days,case_officer_fte,closing_caseload
+2025-01,Development & Planning,Civic Operations,412,408,84.3,80.0,51.2,13.7,216
+2025-02,Development & Planning,Civic Operations,516,525,78.1,80.0,59.7,8.2,208
+2025-03,Development & Planning,Civic Operations,464,424,80.2,80.0,50.1,10.4,245
+2025-04,Development & Planning,Civic Operations,432,449,66.1,80.0,41.8,13.9,187
+2025-05,Development & Planning,Civic Operations,432,419,82.0,80.0,41.7,13.3,222
+2025-06,Development & Planning,Civic Operations,467,471,82.5,80.0,42.8,12.8,173
+2025-07,Development & Planning,Civic Operations,413,399,65.1,80.0,40.5,9.9,213
+2025-08,Development & Planning,Civic Operations,483,455,75.3,80.0,40.7,9.4,184
+2025-09,Development & Planning,Civic Operations,485,474,75.7,80.0,57.4,10.3,240
+2025-10,Development & Planning,Civic Operations,320,282,72.8,80.0,41.6,10.3,278
+2025-11,Development & Planning,Civic Operations,460,449,82.6,80.0,52.4,12.9,283
+2025-12,Development & Planning,Civic Operations,450,413,86.3,80.0,59.8,8.4,218
+2025-01,Waste & Environmental Services,Civic Operations,389,372,75.9,85.0,38.4,9.7,201
+2025-02,Waste & Environmental Services,Civic Operations,427,397,84.0,85.0,37.3,12.3,251
+2025-03,Waste & Environmental Services,Civic Operations,380,345,85.7,85.0,45.9,9.1,203
+2025-04,Waste & Environmental Services,Civic Operations,395,383,75.9,85.0,44.4,13.8,219
+2025-05,Waste & Environmental Services,Civic Operations,428,379,84.6,85.0,48.5,13.7,250
+2025-06,Waste & Environmental Services,Civic Operations,421,385,74.9,85.0,42.0,11.7,211
+2025-07,Waste & Environmental Services,Civic Operations,370,371,76.3,85.0,42.4,12.9,189
+2025-08,Waste & Environmental Services,Civic Operations,393,385,80.4,85.0,33.7,11.5,218
+2025-09,Waste & Environmental Services,Civic Operations,445,407,72.2,85.0,49.8,8.1,222
+2025-10,Waste & Environmental Services,Civic Operations,458,420,79.0,85.0,44.9,11.6,276
+2025-11,Waste & Environmental Services,Civic Operations,387,367,86.5,85.0,61.7,12.2,259
+2025-12,Waste & Environmental Services,Civic Operations,442,408,71.8,85.0,58.4,8.5,258
+2025-01,Revenues & Benefits,Civic Operations,396,362,83.2,90.0,45.6,8.4,179
+2025-02,Revenues & Benefits,Civic Operations,429,437,90.0,90.0,39.0,11.2,163
+2025-03,Revenues & Benefits,Civic Operations,469,487,90.2,90.0,52.8,11.3,173
+2025-04,Revenues & Benefits,Civic Operations,391,379,97.0,90.0,51.5,9.1,208
+2025-05,Revenues & Benefits,Civic Operations,426,381,85.4,90.0,39.8,12.5,167
+2025-06,Revenues & Benefits,Civic Operations,463,476,80.4,90.0,33.2,10.4,228
+2025-07,Revenues & Benefits,Civic Operations,468,450,89.3,90.0,53.7,8.5,214
+2025-08,Revenues & Benefits,Civic Operations,425,427,91.3,90.0,38.3,8.2,205
+2025-09,Revenues & Benefits,Civic Operations,388,346,96.6,90.0,38.4,11.3,170
+2025-10,Revenues & Benefits,Civic Operations,375,366,86.9,90.0,44.9,13.5,145
+2025-11,Revenues & Benefits,Civic Operations,423,398,95.2,90.0,55.4,13.2,207
+2025-12,Revenues & Benefits,Civic Operations,393,350,84.3,90.0,51.6,9.0,239
+2025-01,Adult Social Care Assessments,Civic Operations,421,413,88.9,85.0,57.3,8.8,209
+2025-02,Adult Social Care Assessments,Civic Operations,418,408,87.6,85.0,45.1,9.0,234
+2025-03,Adult Social Care Assessments,Civic Operations,377,353,71.6,85.0,32.6,8.2,200
+2025-04,Adult Social Care Assessments,Civic Operations,422,436,79.9,85.0,45.2,9.9,225
+2025-05,Adult Social Care Assessments,Civic Operations,382,375,75.0,85.0,50.1,11.7,205
+2025-06,Adult Social Care Assessments,Civic Operations,411,365,92.9,85.0,51.6,8.3,254
+2025-07,Adult Social Care Assessments,Civic Operations,395,391,71.4,85.0,61.9,11.1,200
+2025-08,Adult Social Care Assessments,Civic Operations,437,405,84.3,85.0,42.5,11.2,245
+2025-09,Adult Social Care Assessments,Civic Operations,365,342,79.5,85.0,52.9,13.0,203
+2025-10,Adult Social Care Assessments,Civic Operations,396,349,76.0,85.0,32.7,12.6,132
+2025-11,Adult Social Care Assessments,Civic Operations,360,317,75.5,85.0,55.3,13.9,215
+2025-12,Adult Social Care Assessments,Civic Operations,419,376,82.6,85.0,56.7,10.7,227
