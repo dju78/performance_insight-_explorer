@@ -122,8 +122,9 @@ else:
                 )
             else:
                 st.warning("⚠️ Excel generation did not produce a verified OpenXML workbook.")
-        except Exception as e:
-            st.error(f"Excel export error: {e}")
+        except Exception as exc:
+            log_audit_event("export_error", f"Excel export error: {str(exc)}")
+            st.error("⚠️ Unable to generate Excel Evidence Pack. Please check dataset configuration.")
 
     # 2. PowerPoint Presentation Deck
     with col_e2:
@@ -141,8 +142,9 @@ else:
                 )
             else:
                 st.warning("⚠️ PowerPoint generation did not produce a verified presentation deck.")
-        except Exception as e:
-            st.error(f"PowerPoint export error: {e}")
+        except Exception as exc:
+            log_audit_event("export_error", f"PowerPoint export error: {str(exc)}")
+            st.error("⚠️ Unable to generate PowerPoint briefing. Please check dataset configuration.")
 
     # 3. PDF Briefing Report
     with col_e3:
@@ -160,8 +162,9 @@ else:
                 )
             else:
                 st.warning("⚠️ PDF generation did not produce a verified document.")
-        except Exception as e:
-            st.error(f"PDF export error: {e}")
+        except Exception as exc:
+            log_audit_event("export_error", f"PDF export error: {str(exc)}")
+            st.error("⚠️ Unable to generate Executive PDF brief. Please check dataset configuration.")
 
 st.markdown("---")
 

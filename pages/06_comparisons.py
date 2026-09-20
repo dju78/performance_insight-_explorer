@@ -17,6 +17,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
+from core.constants import WorkflowStage
 from core.security import is_index_like_column
 from core.state import init_session_state, get_working_df, advance_workflow_stage
 from modules.analysis.stats_engine import calculate_group_comparison_statistics, calculate_pareto_curve

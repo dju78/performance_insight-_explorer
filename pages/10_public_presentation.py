@@ -2,6 +2,7 @@
 Evidence-based findings, methodology, limitations and recommended actions.
 Audience: Senior managers, organisational stakeholders, decision-makers, and members of the public.
 """
+import logging
 import sys
 from pathlib import Path
 
@@ -17,6 +18,8 @@ import pandas as pd
 import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
+
+logger = logging.getLogger(__name__)
 
 from core.constants import TargetDirection
 from core.security import is_index_like_column, sanitize_dataframe_for_export
@@ -41,6 +44,8 @@ from modules.reporting.export_builder import (
     build_powerpoint_presentation,
     build_executive_pdf,
     build_markdown_executive_report,
+    resolve_safe_objective,
+    resolve_safe_questions,
     validate_excel_bytes,
     validate_pptx_bytes,
     validate_pdf_bytes
@@ -113,16 +118,13 @@ active_recommendations = [r for r in recommendations_list if r.get("status") in 
 if not active_recommendations:
     active_recommendations = recommendations_list
 
-# Context Extraction
+# Context Extraction with strict fallback hierarchy
 proj_state = st.session_state.get("project_state", {})
 dataset_name = st.session_state.get("dataset_name", "Operational Dataset")
-business_objective = (
-    st.session_state.get("objective_input")
-    or proj_state.get("business_question")
-    or (analysis_res.get("objective") if analysis_res else "Evaluate operational performance and recommend evidence-based improvements.")
-)
-specific_questions_raw = st.session_state.get("specific_questions_input") or st.session_state.get("questions_must_answer", "")
-specific_questions = [q.strip() for q in specific_questions_raw.split("\n") if q.strip()]
+
+user_objective = resolve_safe_objective()
+business_objective = user_objective
+specific_questions = resolve_safe_questions()
 
 # Active Dimensions Detection
 metric_col = st.session_state.get("selected_metric_col") or (analysis_res.get("metric_col") if analysis_res else None)
@@ -597,20 +599,30 @@ st.markdown("Download presentation-ready artifacts formatted for board decks, pu
 if df is None:
     st.info("ℹ️ Upload and configure a performance dataset to enable presentation file downloads.")
 else:
-    pres_payload = build_canonical_reporting_payload(
-        state_or_df=df,
-        dataset_name=dataset_name,
-        user_objective=obj_text,
-        specific_questions=spec_questions,
-        metric_column=metric_col,
-        date_column=date_col,
-        group_column=group_col,
-        insights_list=active_findings,
-        recommendations_list=active_recommendations,
-        qa_report=qa_rep,
-        trend_summary=spc_df,
-        comparison_summary=comp_results
-    )
+    try:
+        pres_payload = build_canonical_reporting_payload(
+            state_or_df=df,
+            dataset_name=dataset_name,
+            user_objective=user_objective,
+            specific_questions=specific_questions,
+            metric_column=metric_col,
+            date_column=date_col,
+            group_column=group_col,
+            insights_list=active_findings,
+            recommendations_list=active_recommendations,
+            qa_report=qa_rep,
+            trend_summary=spc_df,
+            comparison_summary=comp_results
+        )
+    except Exception as exc:
+        logger.error(f"Failed to build canonical reporting payload: {exc}", exc_info=True)
+        log_audit_event("export_payload_error", f"Payload construction error: {str(exc)}")
+        pres_payload = {
+            "dataset_name": dataset_name,
+            "user_objective": user_objective,
+            "specific_questions": specific_questions,
+            "clean_df": df
+        }
 
     c_ex1, c_ex2, c_ex3 = st.columns(3)
     with c_ex1:
@@ -626,8 +638,10 @@ else:
                 )
             else:
                 st.warning("⚠️ Excel pack validation failed.")
-        except Exception as e:
-            st.error(f"Excel export error: {e}")
+        except Exception as exc:
+            logger.error(f"Excel export error: {exc}", exc_info=True)
+            log_audit_event("export_error", f"Excel export error: {str(exc)}")
+            st.error("⚠️ Unable to generate Excel Evidence Pack. Please verify dataset configuration.")
 
     with c_ex2:
         try:
@@ -642,8 +656,10 @@ else:
                 )
             else:
                 st.warning("⚠️ PowerPoint deck validation failed.")
-        except Exception as e:
-            st.error(f"PowerPoint export error: {e}")
+        except Exception as exc:
+            logger.error(f"PowerPoint export error: {exc}", exc_info=True)
+            log_audit_event("export_error", f"PowerPoint export error: {str(exc)}")
+            st.error("⚠️ Unable to generate PowerPoint briefing. Please verify dataset configuration.")
 
     with c_ex3:
         try:
@@ -658,6 +674,8 @@ else:
                 )
             else:
                 st.warning("⚠️ PDF brief validation failed.")
-        except Exception as e:
-            st.error(f"PDF export error: {e}")
+        except Exception as exc:
+            logger.error(f"PDF export error: {exc}", exc_info=True)
+            log_audit_event("export_error", f"PDF export error: {str(exc)}")
+            st.error("⚠️ Unable to generate Executive PDF brief. Please verify dataset configuration.")
 

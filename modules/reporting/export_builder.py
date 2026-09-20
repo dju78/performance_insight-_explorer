@@ -216,7 +216,183 @@ def _normalize_recommendation_dict(rec: Any, idx: int = 1) -> Dict[str, Any]:
 
 
 # ==============================================================================
-# 3. CANONICAL REPORTING PAYLOAD BUILDER
+# 3. OBJECTIVE & QUESTION RESOLUTION ADAPTERS
+# ==============================================================================
+def resolve_safe_objective(
+    source: Optional[Any] = None,
+    canonical_payload: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
+) -> str:
+    """Retrieve user objective through strict fallback hierarchy, guaranteeing a safe non-empty string:
+    1. Confirmed user objective from active project/session
+    2. Objective from canonical reporting payload
+    3. Business question or project scope
+    4. Default: 'Performance analysis of the uploaded dataset'
+    """
+    def _is_valid(val: Any) -> bool:
+        return val is not None and isinstance(val, str) and bool(val.strip())
+
+    # --- LEVEL 1: Explicit inputs (kwargs, source, canonical_payload) ---
+    # Priority 1: Explicit user objective
+    for k in ["user_objective", "objective_input", "objective", "business_objective"]:
+        if k in kwargs and _is_valid(kwargs[k]):
+            return str(kwargs[k]).strip()
+
+    if isinstance(source, dict):
+        for k in ["user_objective", "objective_input", "objective", "business_objective"]:
+            if k in source and _is_valid(source[k]):
+                return str(source[k]).strip()
+        p_state = source.get("project_state")
+        if isinstance(p_state, dict):
+            for k in ["user_objective", "objective", "business_objective"]:
+                if k in p_state and _is_valid(p_state[k]):
+                    return str(p_state[k]).strip()
+
+    # Priority 2: Canonical reporting payload
+    if canonical_payload and isinstance(canonical_payload, dict):
+        for k in ["user_objective", "objective"]:
+            if k in canonical_payload and _is_valid(canonical_payload[k]):
+                return str(canonical_payload[k]).strip()
+    if isinstance(source, dict):
+        c_p = source.get("canonical_payload") or source.get("canonical_reporting_payload")
+        if isinstance(c_p, dict):
+            for k in ["user_objective", "objective"]:
+                if k in c_p and _is_valid(c_p[k]):
+                    return str(c_p[k]).strip()
+
+    # Priority 3: Explicit business question / scope
+    for k in ["business_question", "project_scope", "assessment_question", "question"]:
+        if k in kwargs and _is_valid(kwargs[k]):
+            return str(kwargs[k]).strip()
+
+    if isinstance(source, dict):
+        for k in ["business_question", "project_scope", "assessment_question", "question"]:
+            if k in source and _is_valid(source[k]):
+                return str(source[k]).strip()
+        p_state = source.get("project_state")
+        if isinstance(p_state, dict):
+            for k in ["business_question", "project_scope", "assessment_question"]:
+                if k in p_state and _is_valid(p_state[k]):
+                    return str(p_state[k]).strip()
+        a_res = source.get("analysis_results")
+        if isinstance(a_res, dict):
+            for k in ["objective", "business_question"]:
+                if k in a_res and _is_valid(a_res[k]):
+                    return str(a_res[k]).strip()
+
+    # --- LEVEL 2: Streamlit ambient session state (only if source/kwargs/payload were omitted) ---
+    if source is None and not kwargs and not canonical_payload:
+        try:
+            if hasattr(st, "session_state"):
+                # Priority 1 in session state
+                for k in ["objective_input", "user_objective", "objective", "business_objective"]:
+                    val = st.session_state.get(k)
+                    if _is_valid(val):
+                        return str(val).strip()
+                p_state = st.session_state.get("project_state")
+                if isinstance(p_state, dict):
+                    for k in ["user_objective", "objective", "business_objective"]:
+                        val = p_state.get(k)
+                        if _is_valid(val):
+                            return str(val).strip()
+
+                # Priority 2 in session state
+                c_p = st.session_state.get("canonical_payload") or st.session_state.get("canonical_reporting_payload")
+                if isinstance(c_p, dict):
+                    for k in ["user_objective", "objective"]:
+                        val = c_p.get(k)
+                        if _is_valid(val):
+                            return str(val).strip()
+
+                # Priority 3 in session state
+                if isinstance(p_state, dict):
+                    for k in ["business_question", "project_scope", "assessment_question"]:
+                        val = p_state.get(k)
+                        if _is_valid(val):
+                            return str(val).strip()
+                for k in ["business_question", "project_scope", "assessment_question"]:
+                    val = st.session_state.get(k)
+                    if _is_valid(val):
+                        return str(val).strip()
+                a_res = st.session_state.get("analysis_results")
+                if isinstance(a_res, dict):
+                    for k in ["objective", "business_question"]:
+                        val = a_res.get(k)
+                        if _is_valid(val):
+                            return str(val).strip()
+        except Exception:
+            pass
+
+    # Priority 4: Ultimate deterministic fallback
+    return "Performance analysis of the uploaded dataset"
+
+
+def resolve_safe_questions(
+    source: Optional[Any] = None,
+    canonical_payload: Optional[Dict[str, Any]] = None,
+    **kwargs: Any
+) -> List[str]:
+    """Retrieve specific questions safely as a clean list of non-empty strings."""
+    def _extract_list(cand: Any) -> Optional[List[str]]:
+        if isinstance(cand, str) and cand.strip():
+            lines = [q.strip() for q in cand.split("\n") if q.strip()]
+            if lines:
+                return lines
+        elif isinstance(cand, (list, tuple)):
+            cleaned = [str(q).strip() for q in cand if str(q).strip()]
+            if cleaned:
+                return cleaned
+        return None
+
+    # Check explicit kwargs / source / payload
+    for k in ["specific_questions", "specific_questions_input", "questions_must_answer", "questions"]:
+        if k in kwargs and kwargs[k]:
+            res = _extract_list(kwargs[k])
+            if res:
+                return res
+
+    if isinstance(source, dict):
+        for k in ["specific_questions", "specific_questions_input", "questions_must_answer", "questions"]:
+            if k in source and source[k]:
+                res = _extract_list(source[k])
+                if res:
+                    return res
+        p_state = source.get("project_state")
+        if isinstance(p_state, dict):
+            for k in ["specific_questions", "questions_must_answer", "questions"]:
+                if k in p_state and p_state[k]:
+                    res = _extract_list(p_state[k])
+                    if res:
+                        return res
+
+    if canonical_payload and isinstance(canonical_payload, dict):
+        res = _extract_list(canonical_payload.get("specific_questions"))
+        if res:
+            return res
+
+    # Check Streamlit session state
+    try:
+        if hasattr(st, "session_state"):
+            for k in ["specific_questions_input", "specific_questions", "questions_must_answer"]:
+                val = st.session_state.get(k)
+                res = _extract_list(val)
+                if res:
+                    return res
+            p_state = st.session_state.get("project_state")
+            if isinstance(p_state, dict):
+                for k in ["specific_questions", "questions_must_answer", "questions"]:
+                    val = p_state.get(k)
+                    res = _extract_list(val)
+                    if res:
+                        return res
+    except Exception:
+        pass
+
+    return []
+
+
+# ==============================================================================
+# 4. CANONICAL REPORTING PAYLOAD BUILDER
 # ==============================================================================
 def build_canonical_reporting_payload(
     state_or_df: Optional[Any] = None,
@@ -251,11 +427,9 @@ def build_canonical_reporting_payload(
         except Exception:
             return default
 
-    # 1. User Objective and Questions
-    obj = _get_st("user_objective") or _get_st("assessment_question") or _get_st("business_question") or "Evaluate operational performance, throughput efficiency, and delivery bottlenecks."
-    spec_q = _get_st("specific_questions") or _get_st("questions_must_answer") or []
-    if isinstance(spec_q, str) and spec_q:
-        spec_q = [q.strip() for q in spec_q.split("\n") if q.strip()]
+    # 1. User Objective and Questions with strict fallback order
+    obj = resolve_safe_objective(source=state_dict, **kwargs)
+    spec_q = resolve_safe_questions(source=state_dict, **kwargs)
     
     author = _get_st("author") or _get_st("created_by") or "DARAMOLA OMOYELE"
     target_aud = _get_st("target_audience") or "Senior Leadership & Organisational Stakeholders"
