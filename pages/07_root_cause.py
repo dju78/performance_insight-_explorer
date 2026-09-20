@@ -76,16 +76,27 @@ if candidate_drivers:
             st.markdown(f"**Confidence Level:** {conf}")
             st.caption(f"🔒 **Governance Caveat:** {d['caveat']}")
 
-            # Scatter plot with trendline
-            clean_sub = df[[driver_name, target_kpi]].dropna()
-            if len(clean_sub) >= 5:
-                fig_scatter = px.scatter(
-                    clean_sub,
-                    x=driver_name,
-                    y=target_kpi,
-                    trendline="ols",
-                    title=f"Scatter Relationship: {driver_name} vs {target_kpi}"
-                )
+            # Scatter plot with trendline (with robust fallback)
+            clean_sub = df[[driver_name, target_kpi]].dropna().copy()
+            clean_sub[driver_name] = pd.to_numeric(clean_sub[driver_name], errors="coerce")
+            clean_sub[target_kpi] = pd.to_numeric(clean_sub[target_kpi], errors="coerce")
+            clean_sub = clean_sub.dropna()
+            if len(clean_sub) >= 3:
+                try:
+                    fig_scatter = px.scatter(
+                        clean_sub,
+                        x=driver_name,
+                        y=target_kpi,
+                        trendline="ols" if len(clean_sub) >= 5 else None,
+                        title=f"Scatter Relationship: {driver_name} vs {target_kpi}"
+                    )
+                except Exception:
+                    fig_scatter = px.scatter(
+                        clean_sub,
+                        x=driver_name,
+                        y=target_kpi,
+                        title=f"Scatter Relationship: {driver_name} vs {target_kpi}"
+                    )
                 st.plotly_chart(fig_scatter, use_container_width=True)
 
 # -------------------------------------------------------------

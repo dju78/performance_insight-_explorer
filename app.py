@@ -531,13 +531,35 @@ else:
                         st.metric("Cohen's d Effect Size (Top vs Bottom)", f"{cohen:.2f}" if cohen is not None else "N/A")
                     st.caption("ℹ️ *Statistical Note:* $p < 0.05$ indicates differences between cohorts are unlikely to be caused by random chance alone.")
 
-                # Regression Drivers
+                # Regression Drivers & Scatter Plot
                 reg_sum = analysis_res.get("regression_summary", {})
+                driver_results = analysis_res.get("driver_results", [])
                 if reg_sum.get("r_squared") is not None:
                     st.markdown(f"**Multivariate OLS Regression ($R^2 = {reg_sum['r_squared']:.1%}$):** Explains variance in `{metric_col}`.")
                     driver_weights = reg_sum.get("driver_weights", {})
                     if driver_weights:
                         st.dataframe(pd.DataFrame(list(driver_weights.items()), columns=["Operational Driver", "Relative Weight (%)"]), use_container_width=True)
+
+                if driver_results and metric_col:
+                    st.markdown("#### 🎯 Driver Scatter Relationship & Trendline")
+                    top_driver = driver_results[0]["driver_field"]
+                    sub_clean = df[[top_driver, metric_col]].dropna().copy()
+                    sub_clean[top_driver] = pd.to_numeric(sub_clean[top_driver], errors="coerce")
+                    sub_clean[metric_col] = pd.to_numeric(sub_clean[metric_col], errors="coerce")
+                    sub_clean = sub_clean.dropna()
+                    if len(sub_clean) >= 3:
+                        try:
+                            fig_sc = px.scatter(
+                                sub_clean, x=top_driver, y=metric_col,
+                                trendline="ols" if len(sub_clean) >= 5 else None,
+                                title=f"Driver Relationship: {top_driver} vs {metric_col}"
+                            )
+                        except Exception:
+                            fig_sc = px.scatter(
+                                sub_clean, x=top_driver, y=metric_col,
+                                title=f"Driver Relationship: {top_driver} vs {metric_col}"
+                            )
+                        st.plotly_chart(fig_sc, use_container_width=True)
 
                 # Interactive What-If Simulator
                 st.markdown("#### 🔮 What-If Scenario Sensitivity Simulator")
