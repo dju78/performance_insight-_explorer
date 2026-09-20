@@ -12,9 +12,18 @@ import re
 from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import pandas as pd
+from core.security import is_index_like_column
 
 
 SEMANTIC_ROLE_CATALOG = {
+    "index_identifier": {
+        "label": "Index / Row Position",
+        "description": "Sequential row position, dataframe index, or unnamed imported column",
+        "category": "System",
+        "keywords": ["unnamed", "index", "idx", "row_num", "row_number", "level_0"],
+        "expected_types": ["integer", "numeric"],
+        "min_cardinality_pct": 0.80
+    },
     "record_id": {
         "label": "Unique Identifier",
         "description": "Unique key per case, ticket, application, patient, transaction, or customer",
@@ -222,9 +231,21 @@ def suggest_semantic_mappings(df: pd.DataFrame) -> Dict[str, Dict[str, Any]]:
 
     for col in df.columns:
         col_str = str(col)
+        series = df[col]
+
+        # Prioritize index-like / unnamed columns
+        if is_index_like_column(col, series):
+            results[col_str] = {
+                "suggested_role": "index_identifier",
+                "confidence": 0.95,
+                "reasoning": "Index-like sequential/unnamed column; excluded from automatic date and metric recommendations",
+                "category": "System",
+                "label": "Index / Row Position"
+            }
+            continue
+
         col_clean = re.sub(r"[^a-zA-Z0-9_]", " ", col_str).lower().strip()
         tokens = set(col_clean.split())
-        series = df[col]
         non_null_count = series.notna().sum()
         unique_count = series.nunique(dropna=True)
         unique_ratio = (unique_count / max(non_null_count, 1))

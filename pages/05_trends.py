@@ -4,6 +4,7 @@ Features:
 - Period-over-Period (MoM / YoY) growth velocity
 - Special-cause outlier detection and volatility analysis
 - Plain-English trend interpretation with statistical assumption warnings
+- Robust column selection & validation preventing index-like or identical column selection
 """
 import streamlit as st
 import pandas as pd
@@ -12,6 +13,7 @@ import plotly.express as px
 import plotly.graph_objects as go
 
 from core.constants import WorkflowStage
+from core.security import is_index_like_column
 from core.state import init_session_state, get_working_df, advance_workflow_stage
 from modules.analysis.stats_engine import calculate_control_chart_limits, calculate_descriptive_stats
 
@@ -21,41 +23,105 @@ st.title("📈 Stage 7 & 9: Time-Series & Statistical Process Control")
 st.markdown("Evaluate process stability, longitudinal trends, and special-cause variation over time.")
 
 df = get_working_df()
-if df is None:
+if df is None or len(df) == 0:
     st.warning("⚠️ No active dataset loaded. Please go to **01_Data_Ingestion** first.")
     st.stop()
 
 confirmed = st.session_state.get("confirmed_mappings", {})
 
-# Identify Date & Metric Columns
-date_cols = [c for c, r in confirmed.items() if r in ["date", "reporting_period"]]
-if not date_cols:
-    date_cols = [c for c in df.columns if any(k in str(c).lower() for k in ["date", "month", "period", "timestamp", "time"])]
+# -------------------------------------------------------------
+# 1. ROBUST DATE & METRIC COLUMN IDENTIFICATION
+# -------------------------------------------------------------
+# Identify candidate date columns (prioritize confirmed mappings, datetime dtypes, and parseable strings)
+date_cols = []
 
-num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+# Step A: Confirmed date mappings
+for c, r in confirmed.items():
+    if r in ["date", "reporting_period"] and c in df.columns and not is_index_like_column(c, df[c]):
+        if c not in date_cols:
+            date_cols.append(c)
 
-if not date_cols or not num_cols:
-    st.info("ℹ️ Longitudinal time-series analysis requires at least one chronological date/period column and one numeric metric column.")
+# Step B: Datetime columns in dataframe
+for c in df.columns:
+    if is_index_like_column(c, df[c]):
+        continue
+    if pd.api.types.is_datetime64_any_dtype(df[c]) and c not in date_cols:
+        date_cols.append(c)
+
+# Step C: Keyword matching (e.g. date, month, period, timestamp, time, year, quarter)
+for c in df.columns:
+    if is_index_like_column(c, df[c]):
+        continue
+    if any(k in str(c).lower() for k in ["date", "month", "period", "timestamp", "time", "year", "quarter"]):
+        if c not in date_cols:
+            date_cols.append(c)
+
+# Step D: Parseable object/string samples
+for c in df.columns:
+    if is_index_like_column(c, df[c]) or c in date_cols:
+        continue
+    if df[c].dtype == object or str(df[c].dtype).startswith("string"):
+        sample = df[c].dropna().head(30)
+        if len(sample) >= 3:
+            try:
+                parsed = pd.to_datetime(sample, errors="coerce", format="mixed")
+                if parsed.notna().sum() / len(sample) >= 0.7:
+                    date_cols.append(c)
+            except Exception:
+                pass
+
+# Identify numeric performance measures (strictly numeric, strictly non-index, non-boolean)
+num_cols = [
+    c for c in df.select_dtypes(include=[np.number]).columns
+    if not is_index_like_column(c, df[c]) and not pd.api.types.is_bool_dtype(df[c])
+]
+
+# Validation Gates
+if not date_cols and not num_cols:
+    st.warning("⚠️ The active dataset does not contain identifiable chronological date columns or numeric performance measures.")
+    st.info("💡 Please map a date column in **Column Mapping** or upload a dataset with timestamps and performance metrics.")
     st.stop()
 
-# Selection Controls
+if not date_cols:
+    st.warning("⚠️ No valid date or chronological period column found in dataset. Please map a date column in Column Mapping or upload a dataset containing timestamps.")
+    st.stop()
+
+if not num_cols:
+    st.warning("⚠️ No numeric performance metric found in dataset. Please ensure the dataset contains numeric measures.")
+    st.stop()
+
+# -------------------------------------------------------------
+# 2. SELECTION CONTROLS
+# -------------------------------------------------------------
 c_s1, c_s2, c_s3 = st.columns(3)
 with c_s1:
     date_col = st.selectbox("Chronological Date / Period Column", date_cols)
 with c_s2:
-    metric_col = st.selectbox("Performance Metric Column", num_cols)
+    # Default to first metric column that is distinct from date_col
+    distinct_metrics = [c for c in num_cols if c != date_col]
+    default_metric_idx = num_cols.index(distinct_metrics[0]) if distinct_metrics else 0
+    metric_col = st.selectbox("Performance Metric Column", num_cols, index=default_metric_idx)
 with c_s3:
     agg_choice = st.selectbox("Aggregation Method", ["mean", "sum"])
 
-# Compute SPC Run Chart Table
+# Prevent identical column selection
+if str(date_col).strip() == str(metric_col).strip():
+    st.warning("⚠️ Select different columns for the chronological period and performance metric.")
+    st.stop()
+
+# -------------------------------------------------------------
+# 3. STATISTICAL PROCESS CONTROL COMPUTATION
+# -------------------------------------------------------------
 spc_df = calculate_control_chart_limits(df, date_col, metric_col, agg_choice)
 st.session_state.trend_summary = spc_df
 
 if spc_df.empty:
-    st.warning("Could not compute time series for selected columns.")
+    st.info("ℹ️ Longitudinal time-series analysis requires at least two distinct chronological periods with valid metric values.")
     st.stop()
 
-# Plot Interactive Shewhart SPC Run Chart
+# -------------------------------------------------------------
+# 4. INTERACTIVE SHEWHART SPC RUN CHART
+# -------------------------------------------------------------
 st.subheader(f"📊 Statistical Process Control (SPC) Run Chart: {metric_col}")
 
 fig = go.Figure()
@@ -118,14 +184,16 @@ fig.update_layout(
 
 st.plotly_chart(fig, use_container_width=True)
 
-# Trend Summary KPI Cards
+# -------------------------------------------------------------
+# 5. TREND SUMMARY KPI CARDS
+# -------------------------------------------------------------
 st.markdown("---")
 c_k1, c_k2, c_k3, c_k4 = st.columns(4)
 
 center_val = float(spc_df["center_line"].iloc[0])
 latest_val = float(spc_df[metric_col].iloc[-1])
 first_val = float(spc_df[metric_col].iloc[0])
-total_change_pct = ((latest_val - first_val) / max(first_val, 0.001)) * 100.0
+total_change_pct = ((latest_val - first_val) / max(first_val, 0.001)) * 100.0 if first_val != 0 else 0.0
 special_count = int(spc_df["is_special_cause"].sum())
 
 with c_k1:
@@ -137,7 +205,9 @@ with c_k3:
 with c_k4:
     st.metric("Special Cause Outliers", f"{special_count} Periods", delta=None)
 
-# Plain-English Trend Interpretation
+# -------------------------------------------------------------
+# 6. PLAIN-ENGLISH INTERPRETATION & LIMITATIONS
+# -------------------------------------------------------------
 st.markdown("---")
 st.subheader("💡 Plain-English Operational Interpretation")
 if special_count == 0:
@@ -145,7 +215,6 @@ if special_count == 0:
 else:
     st.warning(f"⚠️ **Process Instability Detected:** {special_count} reporting period(s) breached the 3-sigma Upper/Lower control limits. These represent special-cause operational events (e.g. system outages, sudden demand surges, policy shifts) that warrant root-cause investigation.")
 
-# Statistical Assumptions & Limitations Disclosure
 with st.expander("🛡️ Statistical Assumptions & Time-Series Limitations", expanded=False):
     st.markdown("""
     - **Equally Spaced Intervals:** Control chart algorithms assume uniform sampling frequency across periods.

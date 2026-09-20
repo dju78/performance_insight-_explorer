@@ -9,7 +9,7 @@ import pandas as pd
 import numpy as np
 import plotly.express as px
 
-from core.constants import WorkflowStage
+from core.security import is_index_like_column
 from core.state import init_session_state, get_working_df, advance_workflow_stage
 from modules.analysis.stats_engine import calculate_group_comparison_statistics, calculate_pareto_curve
 
@@ -19,18 +19,28 @@ st.title("👥 Stage 8: Comparisons, Cohorts & Significance")
 st.markdown("Compare operational cohorts, test statistical significance ($p$-values, effect sizes), and identify performance concentration.")
 
 df = get_working_df()
-if df is None:
+if df is None or len(df) == 0:
     st.warning("⚠️ No active dataset loaded. Please go to **01_Data_Ingestion** first.")
     st.stop()
 
 confirmed = st.session_state.get("confirmed_mappings", {})
 
-# Identify Grouping & Metric Columns
-group_cols = [c for c, r in confirmed.items() if r in ["team", "department", "region", "product_service", "customer_segment", "category"]]
+# Identify Grouping & Metric Columns (excluding index-like columns)
+group_cols = [
+    c for c, r in confirmed.items()
+    if r in ["team", "department", "region", "product_service", "customer_segment", "category"]
+    and c in df.columns and not is_index_like_column(c, df[c])
+]
 if not group_cols:
-    group_cols = df.select_dtypes(include=["object", "category", "string"]).columns.tolist()
+    group_cols = [
+        c for c in df.select_dtypes(include=["object", "category", "string"]).columns
+        if not is_index_like_column(c, df[c])
+    ]
 
-num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+num_cols = [
+    c for c in df.select_dtypes(include=[np.number]).columns
+    if not is_index_like_column(c, df[c]) and not pd.api.types.is_bool_dtype(df[c])
+]
 
 if not group_cols or not num_cols:
     st.info("ℹ️ Group comparisons require at least one categorical dimension and one numeric metric column.")
@@ -40,7 +50,13 @@ c_g1, c_g2 = st.columns(2)
 with c_g1:
     group_col = st.selectbox("Cohort / Grouping Dimension", group_cols)
 with c_g2:
-    metric_col = st.selectbox("Performance Metric to Compare", num_cols)
+    distinct_metrics = [c for c in num_cols if c != group_col]
+    metric_idx = num_cols.index(distinct_metrics[0]) if distinct_metrics else 0
+    metric_col = st.selectbox("Performance Metric to Compare", num_cols, index=metric_idx)
+
+if str(group_col).strip() == str(metric_col).strip():
+    st.warning("⚠️ Select different columns for the cohort grouping dimension and performance metric.")
+    st.stop()
 
 # Run Comparison Statistics
 comp_results = calculate_group_comparison_statistics(df, group_col, metric_col)

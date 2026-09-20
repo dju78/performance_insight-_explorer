@@ -11,6 +11,7 @@ import numpy as np
 import plotly.express as px
 
 from core.constants import WorkflowStage
+from core.security import is_index_like_column
 from core.state import init_session_state, get_working_df, advance_workflow_stage, log_audit_event
 from modules.diagnostics.root_cause_engine import (
     evaluate_driver_correlations, calculate_driver_importance_regression
@@ -22,11 +23,14 @@ st.title("🔬 Stage 10: Root-Cause Diagnostics & Driver Trees")
 st.markdown("Investigate operational drivers, rank evidence strength, and record qualitative operational context.")
 
 df = get_working_df()
-if df is None:
+if df is None or len(df) == 0:
     st.warning("⚠️ No active dataset loaded. Please go to **01_Data_Ingestion** first.")
     st.stop()
 
-num_cols = df.select_dtypes(include=[np.number]).columns.tolist()
+num_cols = [
+    c for c in df.select_dtypes(include=[np.number]).columns
+    if not is_index_like_column(c, df[c]) and not pd.api.types.is_bool_dtype(df[c])
+]
 
 if len(num_cols) < 2:
     st.info("ℹ️ Driver analysis requires at least two numeric measures (one target outcome and one candidate driver).")

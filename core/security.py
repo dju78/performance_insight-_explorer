@@ -16,6 +16,41 @@ from core.constants import UserRole
 DANGEROUS_FORMULA_PREFIXES = ("=", "+", "-", "@", "\t", "\r", "\n")
 
 
+def is_index_like_column(col_name: Any, series: Optional[pd.Series] = None) -> bool:
+    """Identify if a column is an unnamed index, sequential row counter, or index-like artifact.
+    Used to exclude such columns from automatic analytical recommendations (trends, metrics, drivers).
+    """
+    if col_name is None:
+        return False
+    name_str = str(col_name).strip()
+    
+    # 1. Matches Unnamed: 0, Unnamed: 1, etc.
+    if re.match(r"^unnamed:\s*\d+", name_str, re.IGNORECASE) or name_str.lower().startswith("unnamed:"):
+        return True
+        
+    # 2. Matches common system index names
+    if name_str.lower() in ["index", "idx", "row_id", "row_num", "row_number", "level_0", "__index_level_0__"]:
+        return True
+        
+    # 3. If series is provided, check if it is a monotonic 0-based or 1-based sequential integer series
+    if series is not None and len(series) > 2:
+        if pd.api.types.is_numeric_dtype(series):
+            valid_vals = series.dropna()
+            if len(valid_vals) > 2:
+                first_val = valid_vals.iloc[0]
+                last_val = valid_vals.iloc[-1]
+                if first_val in [0, 1] and (last_val - first_val == len(valid_vals) - 1):
+                    if valid_vals.is_monotonic_increasing:
+                        diffs = valid_vals.diff().iloc[1:]
+                        if (diffs == 1).all():
+                            # If name has id/num/index or is purely numeric
+                            if any(k in name_str.lower() for k in ["id", "no", "num", "seq", "index", "idx", "unnamed"]) or name_str.isdigit():
+                                return True
+                                
+    return False
+
+
+
 def sanitize_for_spreadsheet(value: Any) -> Any:
     """Sanitize cell value against CSV / Excel Formula Injection (CWE-1236).
     If a string starts with =, +, -, @, or tab/return, prepends an apostrophe '.
