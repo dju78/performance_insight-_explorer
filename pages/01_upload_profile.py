@@ -6,7 +6,7 @@ import streamlit as st
 import pandas as pd
 from core.constants import WorkflowStage
 from core.state import (
-    init_session_state, advance_workflow_stage, log_audit_event, invalidate_derived_state
+    init_session_state, advance_workflow_stage, log_audit_event, invalidate_derived_state, clear_dataset_state
 )
 from modules.ingestion.parser import read_file_contents, apply_column_transformation
 from modules.profiling.profiler import profile_dataset
@@ -42,6 +42,7 @@ if uploaded_file is not None:
 
     # Check if this is a newly uploaded file
     if st.session_state.get("uploaded_file_name") != filename:
+        clear_dataset_state()
         df, sheets, meta = read_file_contents(
             file_bytes, filename, delimiter=delim, encoding=enc, chunk_size=chunk_sz
         )

@@ -216,6 +216,63 @@ def advance_workflow_stage(stage: WorkflowStage) -> None:
     log_audit_event("WORKFLOW_STAGE_COMPLETED", f"Completed workflow stage: {stage.value}")
 
 
+def clear_dataset_state() -> None:
+    """Thoroughly purge all active dataset data, mappings, KPIs, QA reports, and derived analysis results."""
+    st.session_state.raw_df = None
+    st.session_state.clean_df = None
+    st.session_state.dataset_name = ""
+    st.session_state.uploaded_file_name = ""
+    st.session_state.dataset_fingerprint = ""
+    st.session_state.metadata = None
+    st.session_state.data_profile = None
+    st.session_state.available_sheets = []
+    st.session_state.active_sheet = "Default"
+    st.session_state.row_granularity = "Not Confirmed"
+    st.session_state.row_granularity_confirmed = False
+
+    st.session_state.suggested_mappings = {}
+    st.session_state.confirmed_mappings = {}
+    st.session_state.target_directions = {}
+    st.session_state.custom_taxonomies = {}
+
+    st.session_state.custom_kpi_registry = {}
+    st.session_state.kpi_results = {}
+    st.session_state.active_filters = {}
+    st.session_state.selected_methods = []
+
+    st.session_state.qa_report = None
+    st.session_state.qa_dimension_scores = {}
+    st.session_state.remediated_issues = {}
+    st.session_state.data_quality_approved = False
+
+    st.session_state.trend_summary = None
+    st.session_state.comparison_summary = None
+    st.session_state.root_cause_summary = None
+    st.session_state.five_whys_notes = ["", "", "", "", ""]
+    st.session_state.fishbone_categories = {
+        "People / Workforce": [],
+        "Process / Methods": [],
+        "Systems / Technology": [],
+        "Capacity / Demand": [],
+        "Measurement / Policy": [],
+        "Environment / Vendor": []
+    }
+
+    st.session_state.insights_list = []
+    st.session_state.reviewed_insights = []
+    st.session_state.recommendations_list = []
+    st.session_state.action_registry = []
+
+    # Quick Analysis State
+    st.session_state.analysis_results = None
+    st.session_state.selected_metric_col = None
+    st.session_state.selected_date_col = None
+    st.session_state.selected_group_col = None
+    st.session_state.selected_target_val = None
+
+    log_audit_event("DATASET_CLEARED", "Purged active dataset, mappings, and analytical cache.")
+
+
 def invalidate_derived_state(df: Optional[pd.DataFrame] = None, new_fingerprint: str = "") -> None:
     """Invalidate all downstream analytical calculations when data or mappings change."""
     st.session_state.model_version = st.session_state.get("model_version", 1) + 1
@@ -226,6 +283,7 @@ def invalidate_derived_state(df: Optional[pd.DataFrame] = None, new_fingerprint:
     st.session_state.insights_list = []
     st.session_state.reviewed_insights = []
     st.session_state.recommendations_list = []
+    st.session_state.analysis_results = None
     if new_fingerprint:
         st.session_state.dataset_fingerprint = new_fingerprint
     log_audit_event("DERIVED_STATE_INVALIDATED", "Cleared downstream analytical cache.")

@@ -1,5 +1,5 @@
 """Performance Insight Explorer.
-Straightforward Enterprise Performance Analysis & Decision-Support Platform.
+Enterprise Performance Analysis, Diagnostic and Decision-Support Platform.
 Product Owner: Daramola Omoyele
 """
 import io
@@ -16,7 +16,7 @@ from core.constants import AppMode, UserRole, WorkflowStage
 from core.security import is_index_like_column, sanitize_dataframe_for_export, apply_statistical_suppression
 from core.state import (
     init_session_state, get_working_df, log_audit_event, advance_workflow_stage,
-    save_project_bundle, load_project_bundle, invalidate_derived_state
+    save_project_bundle, load_project_bundle, invalidate_derived_state, clear_dataset_state
 )
 from modules.ingestion.parser import read_file_contents
 from modules.profiling.profiler import profile_dataset
@@ -31,7 +31,7 @@ from modules.reporting.export_builder import (
 from src.brief_extractor import extract_assessment_brief
 
 st.set_page_config(
-    page_title="Performance Insight Explorer",
+    page_title="Enterprise Performance Platform",
     page_icon="📊",
     layout="wide",
     initial_sidebar_state="expanded"
@@ -43,8 +43,8 @@ init_session_state()
 # SIDEBAR: Quick Controls, Demos, Persistence & Inconspicuous Mode
 # -------------------------------------------------------------
 with st.sidebar:
-    st.markdown("### 📊 Performance Insight Explorer")
-    st.caption("Straightforward Performance Analysis Platform")
+    st.markdown("### 📊 Enterprise Performance Platform")
+    st.caption("Diagnostic & Decision-Support System")
     
     # Quick Demo Dataset Loader
     with st.expander("🚀 Instant Demo Datasets", expanded=False):
@@ -60,6 +60,7 @@ with st.sidebar:
             ]
         )
         if st.button("⚡ Load Selected Demo", use_container_width=True) and demo_choice != "None / Custom Upload":
+            clear_dataset_state()
             file_map = {
                 "Healthcare Service Performance (NHS ED Flow)": "sample_data/healthcare_service_performance.csv",
                 "Sales & Commercial Revenue": "sample_data/sales_revenue_performance.csv",
@@ -82,6 +83,7 @@ with st.sidebar:
                 st.session_state.raw_df = df
                 st.session_state.clean_df = df.copy()
                 st.session_state.dataset_name = demo_choice
+                st.session_state.uploaded_file_name = path.split("/")[-1]
                 st.session_state.objective_input = demo_objectives.get(demo_choice, "")
                 st.session_state.suggested_mappings = suggest_semantic_mappings(df)
                 st.session_state.confirmed_mappings = {
@@ -91,7 +93,7 @@ with st.sidebar:
                 st.session_state.qa_report = evaluate_data_quality_10d(df)
                 st.session_state.analysis_results = None
                 log_audit_event("DEMO_LOADED", f"Loaded demo dataset {demo_choice}")
-                st.success(f"Loaded {demo_choice} ({len(df):,} rows)")
+                st.success(f"✅ Loaded {demo_choice} ({len(df):,} rows, {len(df.columns)} columns)")
                 st.rerun()
 
     # Project Save / Resume
@@ -116,8 +118,7 @@ with st.sidebar:
 
     # Clear state button
     if st.button("🔄 Reset Analysis State", use_container_width=True):
-        invalidate_derived_state()
-        st.session_state.analysis_results = None
+        clear_dataset_state()
         st.success("Analysis state reset.")
         st.rerun()
 
@@ -134,7 +135,7 @@ with st.sidebar:
             st.rerun()
 
 # -------------------------------------------------------------
-# MAIN VIEW: 4 Clean Sections
+# MAIN VIEW
 # -------------------------------------------------------------
 if st.session_state.get("app_mode") == AppMode.ASSESSMENT.value:
     # ---------------------------------------------------------
@@ -160,10 +161,86 @@ if st.session_state.get("app_mode") == AppMode.ASSESSMENT.value:
         st.session_state.response_time = st.text_input("Time Available", value=st.session_state.get("response_time", "45 Minutes"))
 else:
     # ---------------------------------------------------------
-    # STREAMLINED ORGANIZATIONAL PERFORMANCE PLATFORM
+    # UNIFIED ENTERPRISE PERFORMANCE PLATFORM
     # ---------------------------------------------------------
-    st.title("📊 Performance Insight Explorer")
-    st.markdown("Transform operational data into clear performance diagnostics, actionable insights, and executive decisions.")
+    st.title("📊 Enterprise Performance Analysis, Diagnostic and Decision-Support Platform")
+    st.caption("Product Owner: **Daramola Omoyele** | Unified Performance Platform")
+
+    # Active Dataset Status Banner
+    if st.session_state.get("clean_df") is not None:
+        df_active = st.session_state["clean_df"]
+        qa_rep = st.session_state.get("qa_report", {})
+        health_score = qa_rep.get("health_score", 100.0) if qa_rep else 100.0
+        
+        c_stat1, c_stat2, c_stat3, c_stat4 = st.columns(4)
+        with c_stat1:
+            st.metric("📁 Active Dataset", st.session_state.get("dataset_name", "Uploaded File"))
+        with c_stat2:
+            st.metric("📏 Total Records", f"{len(df_active):,}")
+        with c_stat3:
+            st.metric("📐 Active Columns", f"{len(df_active.columns):,}")
+        with c_stat4:
+            st.metric("🛡️ Data Quality Index", f"{health_score:.1f}/100")
+    else:
+        st.info("ℹ️ **No active dataset loaded.** Start by defining the objective and uploading data below, or load an instant demo from the sidebar.")
+
+    # Expandable Advanced Professional Workflow Lifecycle Overview
+    with st.expander("🔬 Advanced Professional Workflow (14-Stage Enterprise Lifecycle)", expanded=False):
+        st.markdown("##### 🧭 14-Stage Guided Analysis Lifecycle Progress")
+        stages = [
+            ("1. Scope", WorkflowStage.STAGE_01_QUESTION),
+            ("2. Ingest", WorkflowStage.STAGE_02_INGEST),
+            ("3. Granularity", WorkflowStage.STAGE_03_GRANULARITY),
+            ("4. QA", WorkflowStage.STAGE_04_QUALITY),
+            ("5. Mapping", WorkflowStage.STAGE_05_MAPPING),
+            ("6. KPIs", WorkflowStage.STAGE_06_KPIS),
+            ("7. Methods", WorkflowStage.STAGE_07_METHODS),
+            ("8. Overview", WorkflowStage.STAGE_08_OVERVIEW),
+            ("9. Trends", WorkflowStage.STAGE_09_TRENDS),
+            ("10. Root Cause", WorkflowStage.STAGE_10_ROOT_CAUSE),
+            ("11. Uncertainty", WorkflowStage.STAGE_11_UNCERTAINTY),
+            ("12. Insights", WorkflowStage.STAGE_12_INSIGHTS),
+            ("13. Actions", WorkflowStage.STAGE_13_RECOMMENDATIONS),
+            ("14. Tracking", WorkflowStage.STAGE_14_ACTIONS),
+            ("15. Governance", WorkflowStage.STAGE_15_EXPORT)
+        ]
+        cols = st.columns(len(stages))
+        completed = st.session_state.get("completed_stages", [])
+        for i, (label, stage_enum) in enumerate(stages):
+            is_done = stage_enum.value in completed
+            with cols[i]:
+                if is_done:
+                    st.markdown(f"**🟢 {label}**")
+                else:
+                    st.markdown(f"⚪ {label}")
+
+        st.markdown("---")
+        col_nav1, col_nav2, col_nav3 = st.columns(3)
+        with col_nav1:
+            st.markdown("""
+            **1️⃣ Data Foundation**
+            - **01 Upload & Profile:** Ingest CSV, Excel, Parquet, JSON with chunking.
+            - **02 Data Quality:** 10-dimension QA engine with interactive remediation.
+            - **03 Column Mapping:** 25+ standard semantic roles with confidence scoring.
+            - **04 KPI Configuration:** No-code formula builder with RAG directionality.
+            """)
+        with col_nav2:
+            st.markdown("""
+            **2️⃣ Diagnostics & Modeling**
+            - **05 Performance Overview:** Executive 3-tier dashboard & scorecard.
+            - **06 Trends & Forecasts:** Statistical process control (SPC) & time-series.
+            - **07 Comparisons & Cohorts:** ANOVA, Cohen's d effect sizes, and quartiles.
+            - **08 Root Cause:** 10-step RCA workflow, driver trees, and 5-Whys.
+            """)
+        with col_nav3:
+            st.markdown("""
+            **3️⃣ Action & Governance**
+            - **09 Evidence Insights:** Curated deterministic findings.
+            - **10 Recommendations:** Impact × Effort prioritization & traceability.
+            - **11 Action Tracking:** Realization dashboard with causality warnings.
+            - **12 Scenario Simulator:** Interactive what-if forecasting.
+            - **13 Reporting & Exports:** Sanitized Excel packs, PPTX decks, and PDF briefs.
+            """)
 
     tab1, tab2, tab3, tab4 = st.tabs([
         "🎯 1. Objective & Data",
@@ -208,24 +285,27 @@ else:
         )
 
         if uploaded_file is not None:
-            # Parse uploaded file
-            content_bytes = uploaded_file.getvalue()
-            df_parsed, sheet_names, meta = read_file_contents(content_bytes, uploaded_file.name)
-            
-            if sheet_names and len(sheet_names) > 1:
-                selected_sheet = st.selectbox("Select Excel Sheet", sheet_names)
-                df_parsed, _, meta = read_file_contents(content_bytes, uploaded_file.name, sheet_name=selected_sheet)
+            if st.session_state.get("uploaded_file_name") != uploaded_file.name:
+                clear_dataset_state()
+                content_bytes = uploaded_file.getvalue()
+                df_parsed, sheet_names, meta = read_file_contents(content_bytes, uploaded_file.name)
                 
-            st.session_state.raw_df = df_parsed
-            st.session_state.clean_df = df_parsed.copy()
-            st.session_state.dataset_name = uploaded_file.name
-            st.session_state.suggested_mappings = suggest_semantic_mappings(df_parsed)
-            st.session_state.confirmed_mappings = {
-                c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items()
-                if info.get("confidence", 0) >= 0.50
-            }
-            st.session_state.qa_report = evaluate_data_quality_10d(df_parsed)
-            log_audit_event("FILE_UPLOADED", f"Uploaded {uploaded_file.name} ({len(df_parsed)} rows)")
+                if sheet_names and len(sheet_names) > 1:
+                    selected_sheet = st.selectbox("Select Excel Sheet", sheet_names)
+                    df_parsed, _, meta = read_file_contents(content_bytes, uploaded_file.name, sheet_name=selected_sheet)
+                    
+                st.session_state.raw_df = df_parsed
+                st.session_state.clean_df = df_parsed.copy()
+                st.session_state.dataset_name = uploaded_file.name
+                st.session_state.uploaded_file_name = uploaded_file.name
+                st.session_state.suggested_mappings = suggest_semantic_mappings(df_parsed)
+                st.session_state.confirmed_mappings = {
+                    c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items()
+                    if info.get("confidence", 0) >= 0.50
+                }
+                st.session_state.qa_report = evaluate_data_quality_10d(df_parsed)
+                log_audit_event("FILE_UPLOADED", f"Uploaded {uploaded_file.name} ({len(df_parsed)} rows)")
+                st.success(f"✅ Ingested `{uploaded_file.name}` ({len(df_parsed):,} rows, {len(df_parsed.columns)} columns)")
 
         # Re-fetch active dataframe
         df = get_working_df()

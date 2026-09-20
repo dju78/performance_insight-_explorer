@@ -71,6 +71,10 @@ def run_full_performance_analysis(
         results["descriptive_stats"] = {}
         metric_mean, metric_median, metric_std = 0.0, 0.0, 0.0
 
+    results["metric_mean"] = metric_mean
+    results["metric_median"] = metric_median
+    results["metric_std"] = metric_std
+
     # 3. Time-Series & Statistical Process Control (SPC)
     spc_df = pd.DataFrame()
     if date_col and metric_col and date_col in df.columns and metric_col in df.columns and date_col != metric_col:

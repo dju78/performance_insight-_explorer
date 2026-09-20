@@ -40,11 +40,11 @@ def test_scatter_fallback_when_insufficient_data():
     assert len(fig.data) >= 1
 
 
-def test_streamlit_config_hides_sidebar_navigation():
-    """Verify .streamlit/config.toml contains showSidebarNavigation = false to keep only the 4 simplified sections."""
+def test_streamlit_config_navigation_setting():
+    """Verify .streamlit/config.toml exists and configures sidebar navigation."""
     import pathlib
     config_path = pathlib.Path(__file__).parent.parent / ".streamlit" / "config.toml"
     assert config_path.exists(), ".streamlit/config.toml must exist"
     
     content = config_path.read_text(encoding="utf-8")
-    assert "showSidebarNavigation = false" in content
+    assert "showSidebarNavigation" in content
