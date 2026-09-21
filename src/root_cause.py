@@ -65,7 +65,11 @@ def analyze_root_cause_pillars(
     """Synthesize evidence across the 5 operational pillars: Demand, Capacity, Process, Complexity, Data Quality.
     Strictly data-driven based on active model columns.
     """
-    role_to_col = {r: c for c, r in mappings.items() if r and c in df.columns}
+    role_to_col: Dict[str, str] = {}
+    for c, r in (mappings or {}).items():
+        role_str = r.get("suggested_role", r.get("role")) if isinstance(r, dict) else (str(r) if r else None)
+        if role_str and c in df.columns:
+            role_to_col[role_str] = c
     pillars = {
         "demand": {"title": "1. Demand & Intake Volume", "findings": [], "risk_level": "Low"},
         "capacity": {"title": "2. Capacity & Resource Allocation", "findings": [], "risk_level": "Low"},
