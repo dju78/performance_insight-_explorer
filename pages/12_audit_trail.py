@@ -39,7 +39,7 @@ st.markdown("---")
 
 # 1. Cryptographically Chained Audit Log Explorer
 st.subheader("📜 Tamper-Evident Audit Log Explorer")
-entries = st.session_state.get("audit_log_entries", [])
+entries = st.session_state.get("audit_log_entries") or st.session_state.get("audit_trail", [])
 
 if not entries:
     st.info("No audit events recorded in this session.")
@@ -47,13 +47,15 @@ else:
     df_audit = pd.DataFrame(entries)
     
     # Filter by event type
-    event_types = ["All Events"] + list(df_audit["event_type"].unique())
+    evt_col = "event_type" if "event_type" in df_audit.columns else None
+    event_types = ["All Events"] + list(df_audit[evt_col].dropna().unique()) if evt_col else ["All Events"]
     sel_evt = st.selectbox("Filter Audit Events", event_types)
     
-    display_df = df_audit if sel_evt == "All Events" else df_audit[df_audit["event_type"] == sel_evt]
+    display_df = df_audit if (sel_evt == "All Events" or not evt_col) else df_audit[df_audit[evt_col] == sel_evt]
+    cols_to_show = [c for c in ["timestamp", "event_type", "user", "message", "action", "details", "hash"] if c in display_df.columns]
     
     st.dataframe(
-        display_df[["timestamp", "event_type", "user", "message", "hash"]],
+        display_df[cols_to_show] if cols_to_show else display_df,
         use_container_width=True
     )
 

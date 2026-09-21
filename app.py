@@ -83,15 +83,16 @@ with st.sidebar:
                 "Workforce HR & Turnover": "Examine employee turnover across directorates, evaluate tenure and flight-risk drivers, and prioritize retention interventions.",
                 "Local Government Planning & Enforcement": "Assess planning enforcement turnaround days, identify statutory timeline breaches across wards, and streamline case workflows."
             }
-            path = file_map.get(demo_choice)
-            if path:
-                with open(path, "rb") as f:
+            rel_path = file_map.get(demo_choice)
+            if rel_path:
+                full_path = _ROOT / rel_path
+                with open(full_path, "rb") as f:
                     content = f.read()
-                df, sheets, meta = read_file_contents(content, path.split("/")[-1])
+                df, sheets, meta = read_file_contents(content, rel_path.split("/")[-1])
                 st.session_state.raw_df = df
                 st.session_state.clean_df = df.copy()
                 st.session_state.dataset_name = demo_choice
-                st.session_state.uploaded_file_name = path.split("/")[-1]
+                st.session_state.uploaded_file_name = rel_path.split("/")[-1]
                 st.session_state.objective_input = demo_objectives.get(demo_choice, "")
                 st.session_state.suggested_mappings = suggest_semantic_mappings(df)
                 st.session_state.confirmed_mappings = {
@@ -368,6 +369,41 @@ else:
             with c_ov6:
                 st.metric("🔄 Duplicate Rows", f"{total_dups:,}")
 
+            # Optional Multi-Dataset Merge
+            with st.expander("🔗 Merge Reference / Lookup Table (Optional)", expanded=False):
+                st.caption("Join a secondary reference table (e.g. Users.xlsx, master lookups) on a common ID key.")
+                from src.relationships import validate_relationship, build_joined_analytical_model
+                tab1_ref = st.file_uploader("Upload Reference Dataset", type=["csv", "xlsx", "xls", "parquet", "json"], key="tab1_ref_uploader")
+                if tab1_ref is not None:
+                    t1_bytes = tab1_ref.getvalue()
+                    t1_ref_df, _, _ = read_file_contents(t1_bytes, tab1_ref.name)
+                    if t1_ref_df is not None:
+                        st.info(f"Loaded reference table `{tab1_ref.name}` ({len(t1_ref_df):,} rows)")
+                        c_t1_k1, c_t1_k2, c_t1_k3 = st.columns(3)
+                        with c_t1_k1:
+                            t1_left_k = st.selectbox("Primary Key", df.columns, key="t1_left_k_sel")
+                        with c_t1_k2:
+                            t1_right_k = st.selectbox("Reference Key", t1_ref_df.columns, key="t1_right_k_sel")
+                        with c_t1_k3:
+                            t1_join_t = st.selectbox("Join Type", ["left", "inner", "outer"], key="t1_join_t_sel")
+
+                        v_res = validate_relationship(df, t1_left_k, t1_ref_df, t1_right_k, st.session_state.get("dataset_name", "Primary"), tab1_ref.name)
+                        st.caption(f"Match Coverage: **{v_res['match_rate']:.1%}** ({v_res['matched_rows']:,}/{v_res['left_total_rows']:,} rows)")
+
+                        if st.button("🔗 Merge into Active Dataset", type="primary", use_container_width=True, key="btn_t1_merge"):
+                            rel_spec = [{"right_dataset_id": "tab1_ref", "left_key": t1_left_k, "right_key": t1_right_k, "join_type": t1_join_t}]
+                            ref_dict = {"tab1_ref": {"clean_df": t1_ref_df, "name": tab1_ref.name}}
+                            merged_df, _ = build_joined_analytical_model(df, rel_spec, ref_dict, compute_derived=True)
+                            st.session_state.clean_df = merged_df
+                            st.session_state.raw_df = merged_df.copy()
+                            st.session_state.suggested_mappings = suggest_semantic_mappings(merged_df)
+                            st.session_state.confirmed_mappings = {c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items() if info.get("confidence", 0) >= 0.50}
+                            st.session_state.qa_report = evaluate_data_quality_10d(merged_df)
+                            st.session_state.analysis_results = None
+                            log_audit_event("DATASETS_MERGED", f"Merged {tab1_ref.name} on {t1_left_k}={t1_right_k}")
+                            st.success(f"✅ Successfully merged! Active dataset now has {len(merged_df):,} rows and {len(merged_df.columns)} columns.")
+                            st.rerun()
+
             # Column Confirmation Controls
             st.markdown("##### ⚙️ Confirm Analysis Dimensions")
             c_conf1, c_conf2, c_conf3, c_conf4 = st.columns(4)
@@ -463,9 +499,11 @@ else:
 
             # Audit Trail
             with st.expander("📜 Data Transformation Audit Log", expanded=False):
-                audit_entries = st.session_state.get("audit_trail", [])
+                audit_entries = st.session_state.get("audit_log_entries") or st.session_state.get("audit_trail", [])
                 if audit_entries:
-                    st.dataframe(pd.DataFrame(audit_entries)[["timestamp", "event_type", "details"]], use_container_width=True)
+                    df_audit = pd.DataFrame(audit_entries)
+                    pref_cols = [c for c in ["timestamp", "event_type", "message", "details", "user", "hash"] if c in df_audit.columns]
+                    st.dataframe(df_audit[pref_cols] if pref_cols else df_audit, use_container_width=True)
                 else:
                     st.caption("No data modifications recorded.")
 
@@ -765,7 +803,7 @@ else:
                         evidence_insights=findings_raw if isinstance(findings_raw, list) else [],
                         recommendation_items=recs_raw if isinstance(recs_raw, list) else [],
                         action_items=[],
-                        audit_log_entries=st.session_state.get("audit_trail", []),
+                        audit_log_entries=st.session_state.get("audit_log_entries") or st.session_state.get("audit_trail", []),
                         project_state=st.session_state.get("project_state", {})
                     )
                     st.download_button(

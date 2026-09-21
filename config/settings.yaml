@@ -1,9 +1,9 @@
 app:
   author: DARAMOLA OMOYELE
   offline_mode: true
-  subtitle: "Operational Performance \u2022 Data Quality \u2022 Analysis \u2022 Insight"
+  subtitle: "Operational Performance • Data Quality • Analysis • Insight"
   title: Performance Insight Explorer
-  version: 1.0.0
+  version: 2.0.0
 data:
   max_file_size_mb: 100
   max_unique_categories_for_grouping: 50
@@ -12,6 +12,8 @@ data:
   - .csv
   - .xlsx
   - .xls
+  - .parquet
+  - .json
 export:
   audit_filename_prefix: audit_trail_
   excel_filename_prefix: performance_analysis_summary_

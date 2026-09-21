@@ -41,10 +41,19 @@ recommendations = st.session_state.get("recommendations_list", [])
 # Impact x Effort Overview
 st.subheader("1️⃣ Prioritization Matrix (Impact × Effort)")
 
+def _get_rec_cat_str(item):
+    if isinstance(item, dict):
+        val = item.get("category", "")
+    else:
+        val = getattr(item, "category", "")
+    if hasattr(val, "value"):
+        return str(val.value)
+    return str(val)
+
 col_qw, col_si, col_fi = st.columns(3)
-quick_wins = [r for r in recommendations if getattr(r, "category", "") == "Quick Win" or getattr(r, "category", {}).value == "Quick Win"]
-strat_inits = [r for r in recommendations if "Strategic" in str(getattr(r, "category", ""))]
-monitors = [r for r in recommendations if "Monitoring" in str(getattr(r, "category", "")) or "Investigation" in str(getattr(r, "category", ""))]
+quick_wins = [r for r in recommendations if "Quick Win" in _get_rec_cat_str(r)]
+strat_inits = [r for r in recommendations if "Strategic" in _get_rec_cat_str(r)]
+monitors = [r for r in recommendations if any(k in _get_rec_cat_str(r) for k in ["Monitoring", "Investigation", "Monitor", "Investigate"])]
 
 with col_qw:
     st.markdown("##### ⚡ Quick Wins (High Impact / Low-Med Effort)")

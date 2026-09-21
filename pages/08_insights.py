@@ -44,17 +44,18 @@ st.caption(f"Generated {len(insights_list)} empirical findings based on verified
 
 # Display and Curate Insight Cards
 for idx, ins in enumerate(insights_list):
-    ins_id = getattr(ins, "id", f"INS-{idx+1:03d}")
-    title = getattr(ins, "finding_title", "")
-    evid = getattr(ins, "quantitative_evidence", "")
-    kpi = getattr(ins, "kpi_affected", "")
-    conf = getattr(ins, "confidence_level", "")
-    sig = getattr(ins, "business_significance", "")
-    lim = getattr(ins, "statistical_limitation", "")
-    caveat = getattr(ins, "data_quality_caveat", "")
-    follow = getattr(ins, "suggested_follow_up", "")
-    cur_status = getattr(ins, "status", "Active")
-    notes = getattr(ins, "analyst_context_notes", "")
+    is_dict = isinstance(ins, dict)
+    ins_id = ins.get("id", f"INS-{idx+1:03d}") if is_dict else getattr(ins, "id", f"INS-{idx+1:03d}")
+    title = ins.get("finding_title", ins.get("title", "")) if is_dict else getattr(ins, "finding_title", "")
+    evid = ins.get("quantitative_evidence", ins.get("description", "")) if is_dict else getattr(ins, "quantitative_evidence", "")
+    kpi = ins.get("kpi_affected", ins.get("metric", "")) if is_dict else getattr(ins, "kpi_affected", "")
+    conf = ins.get("confidence_level", ins.get("confidence", "Medium")) if is_dict else getattr(ins, "confidence_level", "")
+    sig = ins.get("business_significance", ins.get("significance", "")) if is_dict else getattr(ins, "business_significance", "")
+    lim = ins.get("statistical_limitation", ins.get("limitation", "")) if is_dict else getattr(ins, "statistical_limitation", "")
+    caveat = ins.get("data_quality_caveat", ins.get("caveat", "")) if is_dict else getattr(ins, "data_quality_caveat", "")
+    follow = ins.get("suggested_follow_up", ins.get("follow_up", "")) if is_dict else getattr(ins, "suggested_follow_up", "")
+    cur_status = ins.get("status", "Active") if is_dict else getattr(ins, "status", "Active")
+    notes = ins.get("analyst_context_notes", "") if is_dict else getattr(ins, "analyst_context_notes", "")
 
     status_icon = "📌" if cur_status == "Pinned" else ("✅" if cur_status == "Accepted" else ("❌" if cur_status == "Rejected" else "💡"))
 
@@ -77,28 +78,36 @@ for idx, ins in enumerate(insights_list):
             key=f"ins_note_{ins_id}",
             placeholder="Add operational justification or context..."
         )
-        if hasattr(ins, "analyst_context_notes"):
+        if is_dict:
+            ins["analyst_context_notes"] = analyst_note
+        elif hasattr(ins, "analyst_context_notes"):
             ins.analyst_context_notes = analyst_note
 
         # Action Buttons
         b_c1, b_c2, b_c3 = st.columns(3)
         with b_c1:
             if st.button(f"✅ Accept Finding", key=f"acc_{ins_id}", use_container_width=True):
-                if hasattr(ins, "status"):
+                if is_dict:
+                    ins["status"] = "Accepted"
+                elif hasattr(ins, "status"):
                     ins.status = "Accepted"
                 log_audit_event("INSIGHT_ACCEPTED", f"Accepted insight {ins_id}")
                 st.success("Accepted finding.")
                 st.rerun()
         with b_c2:
             if st.button(f"📌 Pin to Executive Summary", key=f"pin_{ins_id}", use_container_width=True):
-                if hasattr(ins, "status"):
+                if is_dict:
+                    ins["status"] = "Pinned"
+                elif hasattr(ins, "status"):
                     ins.status = "Pinned"
                 log_audit_event("INSIGHT_PINNED", f"Pinned insight {ins_id}")
                 st.info("Pinned finding.")
                 st.rerun()
         with b_c3:
             if st.button(f"❌ Reject Finding", key=f"rej_{ins_id}", use_container_width=True):
-                if hasattr(ins, "status"):
+                if is_dict:
+                    ins["status"] = "Rejected"
+                elif hasattr(ins, "status"):
                     ins.status = "Rejected"
                 log_audit_event("INSIGHT_REJECTED", f"Rejected insight {ins_id}")
                 st.warning("Rejected finding.")

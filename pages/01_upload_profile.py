@@ -55,6 +55,7 @@ if uploaded_file is not None:
             file_bytes, filename, delimiter=delim, encoding=enc, chunk_size=chunk_sz
         )
         if df is not None:
+            st.session_state.uploaded_file_bytes = file_bytes
             st.session_state.raw_df = df
             st.session_state.clean_df = df.copy()
             st.session_state.dataset_name = filename
@@ -90,9 +91,21 @@ if st.session_state.get("clean_df") is not None:
         new_sheet = st.selectbox("📑 Select Active Excel Worksheet", sheets, index=s_idx)
         if new_sheet != cur_sheet:
             st.session_state.active_sheet = new_sheet
-            # Reload sheet
-            # Update clean_df
-            st.info(f"Switched active worksheet to `{new_sheet}`")
+            fb = st.session_state.get("uploaded_file_bytes")
+            fn = st.session_state.get("uploaded_file_name", "dataset.xlsx")
+            if fb:
+                new_df, _, new_meta = read_file_contents(fb, fn, sheet_name=new_sheet)
+                if new_df is not None:
+                    st.session_state.raw_df = new_df
+                    st.session_state.clean_df = new_df.copy()
+                    st.session_state.data_profile = profile_dataset(new_df, fn)
+                    st.session_state.suggested_mappings = suggest_semantic_mappings(new_df)
+                    st.session_state.confirmed_mappings = {c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items() if info.get("confidence", 0) >= 0.50}
+                    st.session_state.qa_report = evaluate_data_quality_10d(new_df)
+                    invalidate_derived_state()
+                    log_audit_event("WORKSHEET_SWITCHED", f"Switched active worksheet to '{new_sheet}' ({len(new_df):,} rows)")
+                    st.success(f"Switched active worksheet to `{new_sheet}` ({len(new_df):,} rows)")
+                    st.rerun()
 
     # High-level Dataset Metrics
     st.markdown("---")
@@ -184,6 +197,77 @@ if st.session_state.get("clean_df") is not None:
                     st.session_state.transformation_log.append(audit)
                     invalidate_derived_state()
                     st.warning(f"Dropped '{target_col}'")
+                    st.rerun()
+
+    # Multi-Dataset Merge & Relationship Workspace
+    with st.expander("🔗 Multi-Dataset Merge & Relationship Workspace (Join Reference Tables)", expanded=False):
+        st.caption("Merge reference dimension tables (e.g. Users, Staff, Lookups) into your primary operational dataset with key integrity validation.")
+        from src.relationships import validate_relationship, build_joined_analytical_model
+        
+        ref_file = st.file_uploader(
+            "Upload Reference / Dimension Dataset (Excel, CSV, Parquet)",
+            type=["csv", "xlsx", "xls", "parquet", "json"],
+            key="ref_dataset_uploader",
+            help="Upload a reference table containing entity metadata (e.g. Users.xlsx, Master Rosters)."
+        )
+        if ref_file is not None:
+            ref_bytes = ref_file.getvalue()
+            ref_df, ref_sheets, _ = read_file_contents(ref_bytes, ref_file.name)
+            if ref_df is not None:
+                st.success(f"Loaded reference table `{ref_file.name}` ({len(ref_df):,} rows, {len(ref_df.columns)} columns)")
+                
+                c_k1, c_k2, c_k3 = st.columns(3)
+                with c_k1:
+                    left_key_choice = st.selectbox("Primary Table Join Key", df.columns, key="join_left_key")
+                with c_k2:
+                    right_key_choice = st.selectbox("Reference Table Join Key", ref_df.columns, key="join_right_key")
+                with c_k3:
+                    join_kind = st.selectbox("Join Type", ["left", "inner", "outer"], index=0, key="join_kind_choice")
+                
+                # Live Validation
+                val_res = validate_relationship(
+                    left_df=df,
+                    left_key=left_key_choice,
+                    right_df=ref_df,
+                    right_key=right_key_choice,
+                    left_name=st.session_state.get("dataset_name", "Primary"),
+                    right_name=ref_file.name
+                )
+                
+                c_v1, c_v2, c_v3 = st.columns(3)
+                with c_v1:
+                    st.metric("Join Match Rate", f"{val_res['match_rate']:.1%}")
+                with c_v2:
+                    st.metric("Matched Records", f"{val_res['matched_rows']:,} / {val_res['left_total_rows']:,}")
+                with c_v3:
+                    st.metric("Relationship Status", val_res["status"])
+                
+                for w in val_res.get("warnings", []):
+                    st.warning(f"⚠️ {w}")
+                
+                if st.button("🔗 Execute Merge into Unified Analytical Model", type="primary", use_container_width=True):
+                    rel_spec = [{
+                        "right_dataset_id": "ref_uploaded",
+                        "left_key": left_key_choice,
+                        "right_key": right_key_choice,
+                        "join_type": join_kind
+                    }]
+                    ref_dict = {"ref_uploaded": {"clean_df": ref_df, "name": ref_file.name}}
+                    merged_df, merge_meta = build_joined_analytical_model(
+                        primary_df=df,
+                        relationships=rel_spec,
+                        datasets=ref_dict,
+                        compute_derived=True
+                    )
+                    st.session_state.clean_df = merged_df
+                    st.session_state.raw_df = merged_df.copy()
+                    st.session_state.data_profile = profile_dataset(merged_df, st.session_state.get("dataset_name", "Merged Model"))
+                    st.session_state.suggested_mappings = suggest_semantic_mappings(merged_df)
+                    st.session_state.confirmed_mappings = {c: info["suggested_role"] for c, info in st.session_state.suggested_mappings.items() if info.get("confidence", 0) >= 0.50}
+                    st.session_state.qa_report = evaluate_data_quality_10d(merged_df)
+                    invalidate_derived_state()
+                    log_audit_event("DATASETS_MERGED", f"Merged {ref_file.name} on {left_key_choice}={right_key_choice} ({len(merged_df)} rows)")
+                    st.success(f"✅ Successfully merged datasets! Unified analytical model now has {len(merged_df):,} rows and {len(merged_df.columns)} columns.")
                     st.rerun()
 
     # Transformation Audit Trail

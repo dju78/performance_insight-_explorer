@@ -206,7 +206,13 @@ def log_audit_event(event_type: str, message: str, details: Optional[Dict[str, A
         "hash": new_hash
     }
     
+    if "audit_log_entries" not in st.session_state:
+        st.session_state.audit_log_entries = []
+    if "audit_trail" not in st.session_state:
+        st.session_state.audit_trail = []
+        
     st.session_state.audit_log_entries.append(entry)
+    st.session_state.audit_trail.append(entry)
     st.session_state.last_audit_hash = new_hash
 
 
